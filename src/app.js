@@ -273,6 +273,7 @@
     for (const t of S.data.talhoes) { const c = culturaAtual(t); if (c && c.variedade) va.set(c.variedade, (va.get(c.variedade) || 0) + num(t.area_ha)); }
     S.varColors = new Map([...va.entries()].sort((a, b) => b[1] - a[1]).map(([v], i) => [v, i < SERIES.length - 1 ? SERIES[i] : OUTROS]));
     updateBadges();
+    document.dispatchEvent(new Event('inova:dados'));
   }
   const get = (k, id) => id == null ? null : S.idx[k]?.get(key(id)) || null;
   const nomeTal = t => t ? (/^\d+$/.test(t.nome) ? 'Talhão ' + t.nome : t.nome) : '—';
@@ -359,6 +360,7 @@
     el.title = Sync.pend ? Sync.pend + ' alteração(ões) esperando internet para enviar' : '';
     $('#acct').hidden = Store.mode !== 'supabase';
     if (SB.user) { $('#who-av').textContent = SB.user.email.slice(0, 2).toUpperCase(); $('#who-email').textContent = SB.user.email; $('#who-papel').textContent = PAPEIS[S.papel]?.l || S.papel; }
+    document.dispatchEvent(new Event('inova:sync'));
   }
   function setPapel(p) { S.papel = PAPEIS[p] ? p : 'editor'; document.body.dataset.papel = S.papel; renderNav(); setSync(); }
 
@@ -581,9 +583,11 @@
   }
   const VIEWS = { painel: viewPainel, mapa: viewMapa, produtores: viewProdutores, fazendas: viewFazendas, talhoes: viewTalhoes, safras: viewSafras, monitoramentos: viewMonitoramentos, ordens: viewOrdens, relatorios: viewRelatorios, equipe: viewEquipe, clima: viewClima, feed: viewFeed, notificacoes: viewNotificacoes, planejamento: viewPlanejamento, importar: viewImportar, analise: viewAnalise, relsis: viewRelSis, sociedade: viewSociedade, configuracao: viewConfiguracao, harvest: viewHarvest, satelite: viewSatelite, custos: viewCustos, comparar: viewComparar };
   for (const k of KINDS_NOVOS) if (k !== 'chuvas' && k !== 'config') VIEWS[k] = () => viewModulo(k);
+  // Modo campo (celular): tela própria em src/campo.js
+  VIEWS.campo = first => window.Campo && window.Campo.view(first); TITULO.campo = 'Campo';
   let current = null;
   function route() {
-    const v = (location.hash || '#painel').slice(1);
+    const v = (location.hash || (matchMedia('(max-width: 760px)').matches ? '#campo' : '#painel')).slice(1);
     let name = VIEWS[v] ? v : 'painel';
     if (soAdmin[name] && !mostraEquipe()) name = 'painel';
     document.querySelectorAll('.view').forEach(el => el.hidden = el.id !== 'v-' + name);
@@ -3087,5 +3091,8 @@
     await Store.init();
     rebuild(); renderNav(); refresh();
     if (SB.on) sincronizar(false);
+    document.dispatchEvent(new Event('inova:pronto'));
   }
+  // Ponte para o modo campo (src/campo.js)
+  window.INOVA = { S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
 })();
