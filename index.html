@@ -1300,6 +1300,9 @@ a.tile:hover { border-color: var(--brand-2); }
       { k: 'temperatura_c', l: 'Temperatura (°C)', t: 'number' },
       { k: 'umidade_pct', l: 'Umidade (%)', t: 'number' },
       { k: 'vento_kmh', l: 'Vento (km/h)', t: 'number' },
+      { k: 'direcao_vento', l: 'Direção do vento', t: 'select', opts: ['N', 'NE', 'L', 'SE', 'S', 'SO', 'O', 'NO'] },
+      { k: 'carencia_dias', l: 'Carência (dias)', t: 'number' },
+      { k: 'bico', l: 'Bico' },
       { k: 'produtos', l: 'Produtos', t: 'produtos', full: 1 },
       { k: 'insumos', l: 'Outras anotações de insumos', t: 'textarea', full: 1, ph: 'Produto - dose/ha' },
       { k: 'etiquetas', l: 'Etiquetas', t: 'tags', full: 1 },
@@ -1318,6 +1321,7 @@ a.tile:hover { border-color: var(--brand-2); }
       { k: 'fabricante', l: 'Fabricante' },
       { k: 'codigo', l: 'Código' },
       { k: 'principio_ativo', l: 'Princípio ativo', full: 1 },
+      { k: 'formulacao', l: 'Formulação', ph: 'Ex.: SC - Suspensão concentrada' },
       { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
     ],
     maquinas: [
@@ -3198,26 +3202,74 @@ a.tile:hover { border-color: var(--brand-2); }
       return Object.assign({}, old, { produto: nome, classe: old.classe || ins?.classe || '', dose: d === '' ? null : Number(d), unidade: $('.p-un', tr).value, dose_exec: x === '' ? null : Number(x) });
     }).filter(Boolean);
   }
+  const CLASSE_SIG = { Inseticida: ['IN', [208, 59, 59]], Fungicida: ['FU', [42, 120, 214]], Herbicida: ['HE', [237, 161, 0]], Acaricida: ['AC', [190, 80, 160]], Nematicida: ['NE', [122, 79, 208]], Fertilizante: ['FER', [94, 129, 69]], Adjuvante: ['AD', [110, 110, 100]], 'Regulador fisiológico': ['RE', [20, 140, 140]], Maturador: ['MA', [160, 110, 40]], Biológico: ['BIO', [60, 160, 90]], Bioestimulante: ['BIO', [60, 160, 90]] };
+  const sigClasse = c => CLASSE_SIG[c] || (c ? [String(c).slice(0, 3).toUpperCase(), [120, 120, 110]] : ['', [150, 150, 140]]);
   async function receitaPDF(o) {
     try { await loadLib('jspdf'); await loadLib('autotable'); } catch (e) { toast('Não foi possível carregar o gerador de PDF. Verifique a internet.'); return; }
     const { jsPDF } = window.jspdf, doc = new jsPDF({ unit: 'mm', format: 'a4' });
-    const f = get('fazendas', o.fazenda_id), p = f && get('produtores', f.produtor_id), ts = (o.talhao_ids || []).map(t => get('talhoes', t)).filter(Boolean), area = num(o.area_ha) || areaTal(ts);
-    try { const lg = imgDataUrl('.nav-brand .logo-claro'); if (lg) doc.addImage(lg.url, 'PNG', 14, 10, 52, 52 * lg.h / lg.w); } catch (e) { }
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.text('Ordem de trabalho · ' + (o.tipo || ''), 196, 16, { align: 'right' });
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text(o.titulo || '', 196, 22, { align: 'right' });
-    doc.setDrawColor(94, 129, 69); doc.setLineWidth(0.8); doc.line(14, 27, 196, 27);
-    const info = [['Produtor', p?.nome || '—'], ['Fazenda', f?.nome || '—'], ['Situação', o.status || 'Planejada'], ['Data prevista', fmtDate(o.data_prevista)], ['Área total', fmtHa(area) + ' ha'], ['Responsável', o.responsavel || '—'], ['Empreiteiro', nomeRef('aplicadores', o.aplicador_id)], ['Máquina', nomeRef('maquinas', o.maquina_id)], ['Vazão', o.vazao_l_ha ? o.vazao_l_ha + ' L/ha' : '—']];
-    doc.autoTable({ startY: 31, body: info, theme: 'plain', styles: { fontSize: 9, cellPadding: 1.2 }, columnStyles: { 0: { fontStyle: 'bold', cellWidth: 32 } } });
-    const prods = o.produtos || [];
-    doc.autoTable({ startY: doc.lastAutoTable.finalY + 4, head: [['#', 'Produto', 'Classe', 'Dose/ha', 'Total para ' + fmtHa(area) + ' ha', 'Dose executada']], body: prods.map((x, i) => [i + 1, x.produto, x.classe || '', (x.dose ?? '—') + ' ' + (x.unidade || ''), x.dose != null ? (Math.round(x.dose * area * 100) / 100).toLocaleString('pt-BR') + ' ' + (x.unidade || '').replace('/ha', '') : '—', x.dose_exec != null ? x.dose_exec + ' ' + (x.unidade || '') : '']), headStyles: { fillColor: [94, 129, 69] }, styles: { fontSize: 9 } });
-    doc.autoTable({ startY: doc.lastAutoTable.finalY + 4, head: [['Talhão', 'Área (ha)', 'Cultura atual', 'Aplicado em', 'Área aplicada']], body: ts.map(t => { const c = culturaAtual(t); return [nomeTal(t), fmtHa(t.area_ha), c ? c.cultura + ' ' + c.safra : '', '', '']; }), headStyles: { fillColor: [94, 129, 69] }, styles: { fontSize: 9 } });
-    let y = doc.lastAutoTable.finalY + 8;
-    doc.setFontSize(9); if (o.obs) { doc.text('Observações: ' + o.obs, 14, y, { maxWidth: 182 }); y += 10; }
-    doc.text('Condições na aplicação:  Temperatura ______ °C   Umidade ______ %   Vento ______ km/h', 14, y + 4);
-    doc.line(14, y + 26, 90, y + 26); doc.line(120, y + 26, 196, y + 26); doc.text('Responsável técnico', 14, y + 31); doc.text('Operador / empreiteiro', 120, y + 31);
-    doc.setTextColor(120); doc.setFontSize(8); doc.text('Gerado pelo INOVAAGRO em ' + new Date().toLocaleString('pt-BR'), 14, 290);
+    const VERDE = [94, 129, 69], TINTA = [60, 60, 60], CINZA = [120, 120, 115], W = 210, M = 12, COL = (W - 2 * M - 8) / 2, X2 = M + COL + 8;
+    const f = get('fazendas', o.fazenda_id), p = f && get('produtores', f.produtor_id), ts = (o.talhao_ids || []).map(t => get('talhoes', t)).filter(Boolean);
+    const det = new Map((o.talhoes_detalhe || []).map(x => [key(x.talhao_id), x]));
+    const areaT = t => num(det.get(key(t.id))?.area_planejada) || num(t.area_ha);
+    const area = num(o.area_ha) || ts.reduce((a, t) => a + areaT(t), 0);
+    const n2 = v => v == null || v === '' ? '' : Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+    // Cabeçalho
+    const lg = imgDataUrl('.nav-brand .logo-claro');
+    if (lg) doc.addImage(lg.url, 'PNG', M, 10, 48, 48 * lg.h / lg.w);
+    else { doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(...VERDE); doc.text('InovaAgro', M, 18); }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...TINTA); doc.text('Inova Agro', M, 29);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(12.5); doc.setTextColor(...TINTA);
+    doc.text(doc.splitTextToSize('Ordem de ' + (o.tipo === 'Pulverização' || !o.tipo ? 'Aplicação' : o.tipo) + ' · ' + (o.titulo || ''), 82), 66, 17);
+    doc.setFontSize(8); doc.setTextColor(...CINZA);
+    doc.text('Usuário: ' + (SB.user?.email || '—'), 152, 13); doc.text('Data: ' + fmtDate(today()), 152, 17);
+    doc.setDrawColor(225); doc.setLineWidth(0.2); doc.line(0, 34, W, 34);
+    const headSt = { fillColor: VERDE, textColor: 255, fontStyle: 'bold', halign: 'center', fontSize: 9 };
+    // Dados gerais
+    const gerais = [['Nome da aplicação', o.titulo], ['Dia da emissão', fmtDate(o.data_emissao || o.criado_em || o.data_prevista)], ['Data prevista', fmtDate(o.data_prevista)], ['Estado', o.status || 'Planejada'], ['Aplicador', o.aplicador_id ? nomeRef('aplicadores', o.aplicador_id) : ''], ['Máquina', o.maquina_id ? nomeRef('maquinas', o.maquina_id) : ''], ['Bico', o.bico], ['Tipo de trabalho', o.tipo], ['Responsável', o.responsavel], ['Etiquetas', (o.etiquetas || []).join(', ')], ['Observações', o.obs]].map(([a, b]) => [a + ':', b || '']);
+    doc.autoTable({ startY: 40, margin: { left: M }, tableWidth: COL, head: [[{ content: 'Dados gerais', colSpan: 2 }]], body: gerais, theme: 'plain', headStyles: headSt, styles: { fontSize: 8.5, cellPadding: { top: 1.6, bottom: 1.6, left: 2.5, right: 1.5 }, textColor: TINTA }, columnStyles: { 0: { fontStyle: 'bold', cellWidth: 34 } } });
+    const yG = doc.lastAutoTable.finalY;
+    const cond = [['Taxa:', (o.vazao_l_ha ?? 0) + ' L/ha', 'Umidade:', '> ' + (o.umidade_pct ?? 0) + ' %'], ['Temperatura:', (o.temperatura_c ?? 0) + ' °C', 'Carência:', (o.carencia_dias ?? 0) + ' dias'], ['Direção do vento:', o.direcao_vento || '', 'Vel. do vento:', (o.vento_kmh ?? 0) + ' km/h']];
+    doc.autoTable({ startY: 40, margin: { left: X2 }, tableWidth: COL, head: [[{ content: 'Condições recomendadas', colSpan: 4 }]], body: cond, theme: 'plain', headStyles: headSt, styles: { fontSize: 8.5, cellPadding: 1.8, textColor: TINTA }, columnStyles: { 0: { fontStyle: 'bold', halign: 'right', cellWidth: 29 }, 1: { cellWidth: 15 }, 2: { fontStyle: 'bold', halign: 'right', cellWidth: 23 } } });
+    let y = Math.max(yG, doc.lastAutoTable.finalY) + 8;
+    // Talhões
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...TINTA); doc.text('Talhões', M, y);
+    doc.setFontSize(8); doc.text('Produtor:', M + 15, y); doc.setFont('helvetica', 'normal'); doc.text(doc.splitTextToSize(p?.nome || '—', COL - 30)[0], M + 29, y);
+    const tbody = ts.map(t => { const c = culturaAtual(t); return [f?.nome || '', [nomeTal(t), c ? (c.cultura || '') : '', c ? 'Safra ' + (c.safra || '') : ''].filter(Boolean).join('\n'), n2(areaT(t))]; });
+    doc.autoTable({ startY: y + 2.5, margin: { left: M }, tableWidth: COL, head: [['Fazenda', 'Talhão', 'Superfície (ha)']], body: tbody.length ? tbody : [['—', 'Nenhum talhão', '']], foot: [['', 'Total:', n2(area)]], theme: 'striped', headStyles: { fillColor: VERDE, textColor: 255, fontSize: 8.5 }, footStyles: { fillColor: [245, 245, 240], textColor: TINTA, fontStyle: 'bold', halign: 'right' }, alternateRowStyles: { fillColor: [247, 248, 244] }, styles: { fontSize: 8, textColor: TINTA, cellPadding: 2 }, columnStyles: { 2: { halign: 'center', fontStyle: 'bold', cellWidth: 26 } } });
+    const yT = doc.lastAutoTable.finalY;
+    // Insumos (na ordem de carga do tanque)
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text('Insumos', X2, y);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...CINZA); doc.text('na ordem de carga do tanque', X2 + 16, y);
+    const prods = o.produtos || [], temExec = prods.some(x => x.dose_exec != null);
+    const pinfo = prods.map(x => { const ins = S.data.insumos.find(i => i.nome === x.produto) || {}; return { x, cl: x.classe || ins.classe || '', sub: [ins.principio_ativo, ins.formulacao].filter(Boolean).join(' - ') }; });
+    const un = x => String(x.unidade || '').replace(/\s*\/\s*/, ' / ');
+    const body = pinfo.map(({ x, sub }) => {
+      const tot = x.dose != null ? Math.round(x.dose * area * 100) / 100 : null;
+      const row = [x.produto + (sub ? '\n' + sub : ''), n2(x.dose), un(x), tot != null ? n2(tot) + ' ' + String(x.unidade || '').split('/')[0].trim() : ''];
+      if (temExec) row.push(x.dose_exec != null ? n2(x.dose_exec) : '');
+      return row;
+    });
+    const head = ['Insumo', 'Dose', 'Unidade', 'Qtd. total']; if (temExec) head.push('Executada');
+    doc.autoTable({ startY: y + 2.5, margin: { left: X2 }, tableWidth: COL, head: [head], body: body.length ? body : [['Nenhum insumo informado', '', '', '']], theme: 'striped', headStyles: { fillColor: VERDE, textColor: 255, fontSize: 8.5 }, alternateRowStyles: { fillColor: [247, 248, 244] }, styles: { fontSize: 7, textColor: TINTA, cellPadding: { top: 2, bottom: 2, left: 1.5, right: 1.5 }, valign: 'middle' },
+      columnStyles: { 0: { cellPadding: { top: 2, bottom: 2, left: 12, right: 1.5 } }, 1: { halign: 'center', fontStyle: 'bold', cellWidth: 11 }, 2: { halign: 'center', fontStyle: 'bold', cellWidth: 15 }, 3: { halign: 'center', fontStyle: 'bold', cellWidth: 17 }, 4: { halign: 'center', cellWidth: 14 } },
+      willDrawCell: d => { if (d.section === 'body' && d.column.index === 0 && pinfo[d.row.index]) d.cell.text = []; },
+      didDrawCell: d => {
+        if (d.section !== 'body' || d.column.index !== 0) return; const pi = pinfo[d.row.index]; if (!pi) return;
+        const [sg, cor] = sigClasse(pi.cl), c = d.cell;
+        if (sg) { doc.setFillColor(...cor); doc.rect(c.x + 1.5, c.y + 2, 9, 4.2, 'F'); doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); doc.text(sg, c.x + 6, c.y + 4.9, { align: 'center' }); }
+        doc.setTextColor(...TINTA); doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5);
+        const larg = c.width - 13.5, nome = doc.splitTextToSize(pi.x.produto, larg); doc.text(nome, c.x + 12, c.y + 4.6);
+        if (pi.sub) { doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(...CINZA); doc.text(doc.splitTextToSize(pi.sub, larg), c.x + 12, c.y + 4.6 + nome.length * 3.2); }
+      } });
+    y = Math.max(yT, doc.lastAutoTable.finalY) + 14;
+    if (y > 262) { doc.addPage(); y = 30; }
+    doc.setDrawColor(150); doc.setLineWidth(0.3); doc.line(M, y + 10, M + 80, y + 10); doc.line(W - M - 80, y + 10, W - M, y + 10);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...CINZA); doc.text('Responsável técnico', M, y + 14); doc.text('Operador / aplicador', W - M - 80, y + 14);
+    const np = doc.getNumberOfPages();
+    for (let i = 1; i <= np; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(150); doc.text('Gerado pelo INOVAAGRO em ' + new Date().toLocaleString('pt-BR'), M, 290); doc.text(i + ' / ' + np, W - M, 290, { align: 'right' }); }
     doc.save('ordem-' + String(o.titulo || o.id).replace(/[^\w-]+/g, '-') + '.pdf');
   }
+
 
 
   // ---------- Exportar ----------
