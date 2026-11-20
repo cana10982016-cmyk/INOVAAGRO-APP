@@ -98,7 +98,33 @@ window.CANA = (function () {
   porNome.set(norm('Broca-da-cana (lagartas)'), porId.get('broca_lag')); // nome antigo
   porNome.set(norm('Podridão-vermelha'), porId.get('podridao_vermelha')); porNome.set(norm('Estria-vermelha'), porId.get('estria_vermelha'));
   porNome.set(norm('Cigarrinha-das-raízes'), porId.get('cigarrinha')); porNome.set(norm('Bicudo-da-cana (Sphenophorus)'), porId.get('sphenophorus'));
+  // ---------- Liberação de Cotesia: população de broca antes e depois ----------
+  const COT = 'Liberação de Cotesia';
+  const DIA = 864e5, dt = d => new Date(String(d).slice(0, 10) + 'T12:00:00').getTime();
+  const numv = v => { if (v === '' || v == null) return null; const n = Number(String(v).replace(',', '.')); return isFinite(n) ? n : null; };
+  // média de lagartas/ha numa visita (ids do catálogo: broca >= 1,5 cm por padrão)
+  function popVisita(m, ids) {
+    const vs = [];
+    for (const a of m.amostras_detalhe || []) { const it = porId.get(a.praga_id) || porNome.get(norm(a.alvo)); const v = numv(a.valor); if (it && ids.includes(it.id) && v != null) vs.push(v); }
+    return vs.length ? vs.reduce((x, y) => x + y, 0) / vs.length : null;
+  }
+  // levantamento mais recente até 45 dias antes da soltura e o primeiro entre 15 e 90 dias depois
+  function eficiencia(rel, mons, ids) {
+    ids = ids || ['broca_lag'];
+    const d = dt(rel.data); let antes = null, depois = null;
+    for (const m of mons || []) {
+      if (String(m.talhao_id) !== String(rel.talhao_id) || !m.data) continue;
+      const v = popVisita(m, ids); if (v == null) continue;
+      const x = dt(m.data), dd = (x - d) / DIA;
+      if (dd <= 0 && dd >= -45 && (!antes || m.data > antes.data)) antes = { data: m.data, valor: v, id: m.id };
+      if (dd >= 15 && dd <= 90 && (!depois || m.data < depois.data)) depois = { data: m.data, valor: v, id: m.id };
+    }
+    const red = antes && depois && antes.valor > 0 ? (antes.valor - depois.valor) / antes.valor * 100 : null;
+    return { antes, depois, red };
+  }
+  const vespasHa = r => { const c = numv(r.copos), v = numv(r.vespas_copo), a = numv(r.area_ha); return c != null && v != null && a ? Math.round(c * v / a) : null; };
   return {
+    COT, eficiencia, popVisita, vespasHa,
     itens: C, GRUPOS, TIPO_MON, ESTADIOS, CORTES, NIVEL, SEMAF,
     get: id => porId.get(id) || null,
     // acha o item do catálogo de uma amostra (pelo id ou pelo nome digitado)

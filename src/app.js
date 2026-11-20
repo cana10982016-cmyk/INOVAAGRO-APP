@@ -210,6 +210,19 @@
       { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
     ],
   };
+  // Liberação de Cotesia: fica na tabela de controles, com campos próprios
+  const COT = 'Liberação de Cotesia';
+  const COT_FIELDS = [
+    { k: 'tipo', l: 'Tipo', t: 'select', opts: [COT], req: 1 },
+    { k: 'data', l: 'Data da liberação', t: 'date', req: 1 },
+    { k: 'talhao_id', l: 'Talhão', t: 'talhao', req: 1, full: 1 },
+    { k: 'area_ha', l: 'Área liberada (ha)', t: 'number', req: 1 },
+    { k: 'copos', l: 'Copos liberados', t: 'number', req: 1 },
+    { k: 'vespas_copo', l: 'Vespas por copo', t: 'number', ph: 'Ex.: 1500' },
+    { k: 'lote', l: 'Lote / fornecedor' },
+    { k: 'responsavel', l: 'Responsável' },
+    { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
+  ];
 
   // ---------- Estado ----------
   const S = {
@@ -392,6 +405,7 @@
       Sync.offline = falhou && !SB.user;
     } finally {
       Sync.rodando = false; Sync.pend = (await Off.fila()).length; setSync();
+      if (!falhou && Sync.pend) setTimeout(() => sincronizar(false), 300); // alterações feitas durante o envio
       if (falhou && avisar) toast('Salvo no aparelho. Será enviado quando a internet voltar.');
     }
   }
@@ -493,6 +507,7 @@
 
   // ---------- Menu e roteamento ----------
   const IC = {
+    cotesia: '<ellipse cx="12" cy="14.5" rx="3" ry="5"/><circle cx="12" cy="7" r="2"/><path d="M9.5 11.5 4 8.5M14.5 11.5l5.5-3M9 15H5M15 15h4M12 19.5V22"/>',
     painel: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
     mapa: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>',
     produtores: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
@@ -541,7 +556,7 @@
   const NAV = [
     ['painel', 'Início'], ['feed', 'Feed'], ['notificacoes', 'Notificações'], ['mapa', 'Mapa'],
     'Administração', ['produtores', 'Produtores'], ['fazendas', 'Fazendas'], ['talhoes', 'Talhões'], ['planejamento', 'Planejamento da cultura'], ['safras', 'Safras'], ['etiquetas', 'Etiquetas'], ['tipos_trabalho', 'Tipos de trabalho'], ['aplicadores', 'Empreiteiros'], ['maquinas', 'Máquinas'], ['insumos', 'Insumos'], ['equipe', 'Usuários e permissões'], ['importar', 'Importar / Exportar'], ['sociedade', 'Sociedade'], ['configuracao', 'Configuração'],
-    'Atividades', ['monitoramentos', 'Visitas'], ['ord-aplicacoes', 'Aplicações'], ['ord-plantio', 'Plantio'], ['ord-colheita', 'Colheita'], ['ord-fertilizacao', 'Fertilização'], ['ord-tratos', 'Tratos culturais'], ['ord-outros', 'Outros'], ['ordens', 'Todas as ordens'], ['avancos', 'Avanços de plantio e colheita'], ['controles', 'Controles de campo'], ['armadilhas', 'Armadilhas'],
+    'Atividades', ['monitoramentos', 'Visitas'], ['ord-aplicacoes', 'Aplicações'], ['ord-plantio', 'Plantio'], ['ord-colheita', 'Colheita'], ['ord-fertilizacao', 'Fertilização'], ['ord-tratos', 'Tratos culturais'], ['ord-outros', 'Outros'], ['ordens', 'Todas as ordens'], ['avancos', 'Avanços de plantio e colheita'], ['controles', 'Controles de campo'], ['cotesia', 'Liberação de Cotesia'], ['armadilhas', 'Armadilhas'],
     'Análise', ['analise', 'Painéis de análise'], ['relsis', 'Relatórios do sistema'], ['relatorios', 'Relatório por fazenda (PDF)'], ['custos', 'Custos por talhão'], ['comparar', 'Comparar safras'],
     'Clima', ['clima', 'Chuvas e previsão'], ['pluviometros', 'Pluviômetros'],
     'Imagens satelitais', ['satelite', 'NDVI e cor real'],
@@ -584,6 +599,7 @@
   const VIEWS = { painel: viewPainel, mapa: viewMapa, produtores: viewProdutores, fazendas: viewFazendas, talhoes: viewTalhoes, safras: viewSafras, monitoramentos: viewMonitoramentos, ordens: viewOrdens, relatorios: viewRelatorios, equipe: viewEquipe, clima: viewClima, feed: viewFeed, notificacoes: viewNotificacoes, planejamento: viewPlanejamento, importar: viewImportar, analise: viewAnalise, relsis: viewRelSis, sociedade: viewSociedade, configuracao: viewConfiguracao, harvest: viewHarvest, satelite: viewSatelite, custos: viewCustos, comparar: viewComparar };
   for (const k of KINDS_NOVOS) if (k !== 'chuvas' && k !== 'config') VIEWS[k] = () => viewModulo(k);
   // Modo campo (celular): tela própria em src/campo.js
+  VIEWS.cotesia = viewCotesia;
   VIEWS.campo = first => window.Campo && window.Campo.view(first); TITULO.campo = 'Campo';
   let current = null;
   function route() {
@@ -1032,6 +1048,39 @@
       click: id => openForm(k, get(k, id)),
     });
   }
+  // ---------- Liberação de Cotesia: solturas por talhão e população de broca antes e depois ----------
+  function viewCotesia() {
+    const root = $('#v-cotesia');
+    if (!root.dataset.ready) {
+      root.dataset.ready = 1;
+      root.innerHTML = `<div class="page"><div class="page-head"><div><h2>Liberação de Cotesia</h2><p>Solturas de Cotesia flavipes por talhão, comparadas com a população de broca (lagartas ≥ 1,5 cm por ha) no levantamento antes e depois.</p></div><button class="btn primary" data-new-cot>+ Nova liberação</button></div>
+        <div class="kpis cot-kpis" id="cot-kpis"></div>
+        <div class="toolbar"><select id="cot-faz" aria-label="Fazenda"></select><span class="count" id="cot-c"></span></div>
+        <div class="table-wrap"><table><thead><tr><th>Data</th><th>Talhão</th><th>Fazenda</th><th class="r">Área (ha)</th><th class="r">Copos</th><th class="r">Vespas/ha</th><th class="r">Broca antes</th><th class="r">Broca depois</th><th class="r">Variação</th></tr></thead><tbody id="cot-tb"></tbody></table></div>
+        <p class="muted" style="font-size:12.5px">Antes: levantamento mais recente até 45 dias antes da liberação. Depois: primeiro levantamento entre 15 e 90 dias depois. Valores em lagartas ≥ 1,5 cm por ha (média das amostras da visita).</p></div>`;
+      $('#cot-faz', root).addEventListener('change', () => VIEWS.cotesia());
+      $('#cot-tb', root).addEventListener('click', e => { const tr = e.target.closest('tr[data-row]'); if (tr) openForm('controles', get('controles', tr.dataset.row)); });
+      root.addEventListener('click', e => { if (e.target.closest('[data-new-cot]')) openForm('controles', null, { tipo: COT, data: today() }); });
+    }
+    const sel = $('#cot-faz', root), fv = sel.value;
+    const rels = S.data.controles.filter(c => c.tipo === COT);
+    const fzs = [...new Set(rels.map(r => key((get('talhoes', r.talhao_id) || {}).fazenda_id)))].map(id => get('fazendas', id)).filter(Boolean).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    sel.innerHTML = '<option value="">Todas as fazendas</option>' + fzs.map(f => `<option value="${esc(f.id)}" ${key(f.id) === fv ? 'selected' : ''}>${esc(f.nome)}</option>`).join('');
+    const lst = rels.filter(r => !fv || key((get('talhoes', r.talhao_id) || {}).fazenda_id) === fv).sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')));
+    const C = window.CANA, f0 = v => v == null ? '—' : fmtInt(Math.round(v));
+    let area = 0, copos = 0; const reds = [];
+    $('#cot-tb', root).innerHTML = lst.map(r => {
+      const t = get('talhoes', r.talhao_id), e = C ? C.eficiencia(r, S.data.monitoramentos) : {};
+      area += num(r.area_ha); copos += num(r.copos); if (e.red != null) reds.push(e.red);
+      const vh = C ? C.vespasHa(r) : null;
+      const varTxt = e.red == null ? '<span class="muted">sem dados</span>' : `<span class="pill ${e.red > 0 ? 'ok' : e.red < 0 ? 'bad' : ''}">${e.red > 0 ? '−' : e.red < 0 ? '+' : ''}${fmtInt(Math.abs(Math.round(e.red)))}%</span>`;
+      return `<tr data-row="${esc(r.id)}"><td>${fmtDate(r.data)}</td><td>${esc(t ? t.nome : '—')}</td><td>${t ? fazNome(t.fazenda_id) : ''}</td><td class="r">${fmtHa(r.area_ha)}</td><td class="r">${r.copos == null ? '—' : fmtInt(r.copos)}</td><td class="r">${f0(vh)}</td><td class="r">${e.antes ? f0(e.antes.valor) + `<br><small class="muted">${fmtDate(e.antes.data)}</small>` : '—'}</td><td class="r">${e.depois ? f0(e.depois.valor) + `<br><small class="muted">${fmtDate(e.depois.data)}</small>` : '—'}</td><td class="r">${varTxt}</td></tr>`;
+    }).join('') || '<tr><td colspan="9" class="muted">Nenhuma liberação registrada. Use "+ Nova liberação" aqui ou "Liberação de Cotesia" no app do celular.</td></tr>';
+    $('#cot-c', root).textContent = fmtInt(lst.length) + (lst.length === 1 ? ' liberação' : ' liberações');
+    const med = reds.length ? reds.reduce((a, b) => a + b, 0) / reds.length : null;
+    $('#cot-kpis', root).innerHTML = [[fmtInt(lst.length), 'Liberações'], [fmtHa(area), 'Hectares liberados'], [fmtInt(copos), 'Copos'], [med == null ? '—' : (med > 0 ? '−' : '+') + fmtInt(Math.abs(Math.round(med))) + '%', 'Variação média da broca']].map(([n, l]) => `<div class="kpi"><b>${n}</b><span>${l}</span></div>`).join('');
+  }
+
   function avisoBanco() {
     return `<div class="note"><b>Esta tela precisa de uma atualização do banco de dados.</b> Faça uma vez só:
       <ol><li>Clique em <b>Copiar comando</b>.</li><li>Abra o <a href="https://supabase.com/dashboard/project/xiffptiwszrtdfekqaxd/sql/new" target="_blank" rel="noopener">editor SQL do Supabase</a>.</li><li>Cole (Ctrl+V) e clique em <b>Run</b>.</li><li>Volte aqui e recarregue a página (F5).</li></ol>
@@ -1457,10 +1506,10 @@
     const isNew = !rec;
     if (isNew && !podeEditar()) { toast('Seu acesso é só de consulta.'); return; }
     rec = Object.assign({}, defaults || {}, rec || {});
-    const fields = (ov && ov.fields) || FIELDS[kind];
+    const fields = (ov && ov.fields) || (kind === 'controles' && rec.tipo === COT ? COT_FIELDS : FIELDS[kind]);
     const bg = document.createElement('div');
     bg.className = 'modal-bg';
-    bg.innerHTML = `<div class="modal ${(kind === 'monitoramentos' && rec.pontos) || kind === 'controles' || kind === 'ordens' || kind === 'silobolsas' ? 'wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mtitle"><header><h2 id="mtitle">${isNew ? (NOVA[kind] ? 'Nova ' : 'Novo ') : podeEditar() ? 'Editar ' : ''}${esc(NOME[kind])}</h2><button class="x" data-close aria-label="Fechar">×</button></header>
+    bg.innerHTML = `<div class="modal ${(kind === 'monitoramentos' && rec.pontos) || kind === 'controles' || kind === 'ordens' || kind === 'silobolsas' ? 'wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mtitle"><header><h2 id="mtitle">${kind === 'controles' && rec.tipo === COT ? (isNew ? 'Nova liberação de Cotesia' : 'Liberação de Cotesia') : `${isNew ? (NOVA[kind] ? 'Nova ' : 'Novo ') : podeEditar() ? 'Editar ' : ''}${esc(NOME[kind])}`}</h2><button class="x" data-close aria-label="Fechar">×</button></header>
       <form novalidate>${fields.map(f => fieldHtml(f, f.t === 'talhoes' ? talChecks(rec.fazenda_id, rec.talhao_ids) : rec[f.k])).join('')}</form>
       ${detalhes(kind, rec)}
       <footer>${isNew ? '' : '<button class="btn danger" data-del>Excluir</button>'}${kind === 'ordens' && !isNew ? `<button class="btn" data-receita>${icon('pdf')} Receita PDF</button>` : ''}${kind === 'ordens' ? `<button class="btn" data-wa-ordem>${icon('whats')} WhatsApp</button>` : ''}${kind === 'monitoramentos' && !isNew ? `<button class="btn" data-visita-pdf>${icon('pdf')} Relatório PDF</button><button class="btn" data-wa-visita>${icon('whats')} WhatsApp</button>${podeEditar() ? `<button class="btn" data-mon-ordem>${icon('sugestao')} Criar ordem</button>` : ''}` : ''}<div class="right"><button class="btn" data-close>${podeEditar() ? 'Cancelar' : 'Fechar'}</button><button class="btn primary" data-save>Salvar</button></div></footer></div>`;
@@ -1507,6 +1556,7 @@
           out[f.k] = v;
         }
         if (missing) { toast('Preencha: ' + missing.l); form.elements[missing.k].focus(); return; }
+        if (kind === 'controles' && out.tipo === COT && window.CANA) { const vh = window.CANA.vespasHa(out); out.valor = vh; out.unidade = vh == null ? null : 'vespas/ha'; }
         try { await Store.save(kind, out); toast(isNew ? 'Cadastrado.' : 'Alterações salvas.'); close(); } catch (e) { }
       }
     });
@@ -3094,5 +3144,5 @@
     document.dispatchEvent(new Event('inova:pronto'));
   }
   // Ponte para o modo campo (src/campo.js)
-  window.INOVA = { S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
+  window.INOVA = { COT, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
 })();
