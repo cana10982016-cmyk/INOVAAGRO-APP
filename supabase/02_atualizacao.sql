@@ -32,7 +32,7 @@ do $$
 declare t text;
 begin
   foreach t in array array['produtores','fazendas','talhoes','safras','monitoramentos','ordens',
-                           'insumos','maquinas','aplicadores','depositos','silobolsas','avancos','controles','armadilhas','pluviometros','chuvas','etiquetas'] loop
+                           'insumos','maquinas','aplicadores','depositos','silobolsas','avancos','controles','armadilhas','pluviometros','chuvas','etiquetas','config','tipos_trabalho'] loop
     execute format('create table if not exists %I (id text primary key, dados jsonb not null, atualizado_em timestamptz not null default now(), atualizado_por uuid default auth.uid())', t);
     execute format('alter table %I enable row level security', t);
     execute format('grant select, insert, update, delete on %I to authenticated', t);
@@ -90,14 +90,14 @@ begin
   if t = 'chuvas' and d ->> 'pluviometro_id' is not null then
     return exists (select 1 from pluviometros p where p.id = d ->> 'pluviometro_id' and (p.dados ->> 'fazenda_id' is null or p.dados ->> 'fazenda_id' = any(f)));
   end if;
-  return t in ('insumos', 'maquinas', 'aplicadores', 'etiquetas', 'depositos', 'pluviometros', 'chuvas', 'silobolsas', 'armadilhas');
+  return t in ('insumos', 'maquinas', 'aplicadores', 'etiquetas', 'config', 'tipos_trabalho', 'depositos', 'pluviometros', 'chuvas', 'silobolsas', 'armadilhas');
 end $$;
 grant execute on function minhas_fazendas(), pode_ver(text, text, jsonb) to authenticated;
 do $$
 declare t text;
 begin
   foreach t in array array['produtores','fazendas','talhoes','safras','monitoramentos','ordens',
-                           'insumos','maquinas','aplicadores','depositos','silobolsas','avancos','controles','armadilhas','pluviometros','chuvas','etiquetas'] loop
+                           'insumos','maquinas','aplicadores','depositos','silobolsas','avancos','controles','armadilhas','pluviometros','chuvas','etiquetas','config','tipos_trabalho'] loop
     execute format('drop policy if exists equipe_ler on %I', t);
     execute format('drop policy if exists equipe_incluir on %I', t);
     execute format('drop policy if exists equipe_alterar on %I', t);

@@ -497,3 +497,4 @@ a.tile:hover { border-color: var(--brand-2); }
 .fz-list details:last-child { border-bottom: 0; }
 .fz-list summary { cursor: pointer; padding: 4px 0; }
 .fz-it { display: flex; gap: 8px; align-items: center; padding: 3px 0 3px 26px; font-size: 13.5px; }
+.head-acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }

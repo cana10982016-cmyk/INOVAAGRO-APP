@@ -9,11 +9,11 @@
   const STATUS_CLS = { 'Planejada': 'info', 'Em andamento': 'warn', 'Concluída': 'ok', 'Cancelada': '' };
   const NIVEL_CLS = { 'Baixo': 'ok', 'Médio': 'warn', 'Alto': 'bad' };
   const KINDS_BASE = ['produtores', 'fazendas', 'talhoes', 'safras', 'monitoramentos', 'ordens'];
-  const KINDS_NOVOS = ['insumos', 'maquinas', 'aplicadores', 'depositos', 'silobolsas', 'avancos', 'controles', 'armadilhas', 'pluviometros', 'chuvas', 'etiquetas'];
+  const KINDS_NOVOS = ['insumos', 'maquinas', 'aplicadores', 'depositos', 'silobolsas', 'avancos', 'controles', 'armadilhas', 'pluviometros', 'chuvas', 'etiquetas', 'config', 'tipos_trabalho'];
   const KINDS = [...KINDS_BASE, ...KINDS_NOVOS];
   const NOME = { produtores: 'produtor', fazendas: 'fazenda', talhoes: 'talhão', safras: 'plantio', monitoramentos: 'monitoramento', ordens: 'ordem de trabalho',
-    insumos: 'insumo', maquinas: 'máquina', aplicadores: 'aplicador', depositos: 'depósito', silobolsas: 'silobolsa', avancos: 'avanço', controles: 'controle', armadilhas: 'armadilha', pluviometros: 'pluviômetro', chuvas: 'registro de chuva', etiquetas: 'etiqueta' };
-  const NOVA = { maquinas: 1, silobolsas: 1, armadilhas: 1, etiquetas: 1 };
+    insumos: 'insumo', maquinas: 'máquina', aplicadores: 'aplicador', depositos: 'depósito', silobolsas: 'silobolsa', avancos: 'avanço', controles: 'controle', armadilhas: 'armadilha', pluviometros: 'pluviômetro', chuvas: 'registro de chuva', etiquetas: 'etiqueta', config: 'cadastro', tipos_trabalho: 'tipo de trabalho' };
+  const NOVA = { tipos_trabalho: 0, maquinas: 1, silobolsas: 1, armadilhas: 1, etiquetas: 1 };
   const EPOCAS = ['Safra', 'Safrinha', 'Inverno', 'Cana planta', 'Cana soca', 'Perene', 'Outra'];
   const ORD_TIPOS = ['Pulverização', 'Plantio', 'Colheita', 'Fertilização', 'Tratos culturais', 'Preparo de solo', 'Outro']; // substantivos femininos: "Nova máquina"
   const SIMNAO = ['Sim', 'Não'];
@@ -78,7 +78,7 @@
     ],
     ordens: [
       { k: 'titulo', l: 'Título', req: 1, full: 1, ph: 'Ex.: Pulverização herbicida' },
-      { k: 'tipo', l: 'Tipo', t: 'select', opts: ORD_TIPOS, req: 1 },
+      { k: 'tipo', l: 'Tipo', t: 'select', get opts() { return tiposOrdem(); }, req: 1 },
       { k: 'status', l: 'Situação', t: 'select', opts: STATUS, req: 1 },
       { k: 'fazenda_id', l: 'Fazenda', t: 'fazenda', req: 1, full: 1 },
       { k: 'talhao_ids', l: 'Talhões', t: 'talhoes', full: 1 },
@@ -98,6 +98,12 @@
       { k: 'insumos', l: 'Outras anotações de insumos', t: 'textarea', full: 1, ph: 'Produto - dose/ha' },
       { k: 'etiquetas', l: 'Etiquetas', t: 'tags', full: 1 },
       { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
+    ],
+    tipos_trabalho: [
+      { k: 'nome', l: 'Nome do tipo de trabalho', req: 1, full: 1, ph: 'Ex.: Aplicação aérea, Quebra-lombo, Sulcação' },
+      { k: 'grupo', l: 'Aparece em', t: 'select', opts: Object.values({ a: 'Aplicações', b: 'Plantio', c: 'Colheita', d: 'Fertilização', e: 'Tratos culturais', f: 'Outros' }), req: 1 },
+      { k: 'ativo', l: 'Ativo?', t: 'select', opts: ['Sim', 'Não'] },
+      { k: 'obs', l: 'Descrição', t: 'textarea', full: 1 },
     ],
     etiquetas: [
       { k: 'nome', l: 'Nome da etiqueta', req: 1, full: 1, ph: 'Ex.: Reaplicar, Urgente, Ataque de broca' },
@@ -456,13 +462,16 @@
     tratos: '<path d="M4 20l7-7M14 4l6 6-5 5-6-6z"/>',
     analise: '<path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/>',
     relsis: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+    tipos_trabalho: '<path d="M4 6h16M4 12h16M4 18h10"/><circle cx="19" cy="18" r="2"/>',
+    sociedade: '<path d="M4 21V5l8-3 8 3v16"/><path d="M9 21v-5h6v5M8 8h2M14 8h2M8 12h2M14 12h2"/>',
+    configuracao: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
     print: '<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>',
   };
   const icon = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n] || IC[ORD_ICON[n]] || IC.ordens}</svg>`;
   const ORD_ICON = { 'ord-aplicacoes': 'aplicacao', 'ord-plantio': 'safras', 'ord-colheita': 'colheita', 'ord-fertilizacao': 'insumos', 'ord-tratos': 'tratos', 'ord-outros': 'ordens' };
   const NAV = [
     ['painel', 'Início'], ['feed', 'Feed'], ['notificacoes', 'Notificações'], ['mapa', 'Mapa'],
-    'Administração', ['produtores', 'Produtores'], ['fazendas', 'Fazendas'], ['talhoes', 'Talhões'], ['planejamento', 'Planejamento da cultura'], ['safras', 'Safras'], ['etiquetas', 'Etiquetas'], ['aplicadores', 'Empreiteiros'], ['maquinas', 'Máquinas'], ['insumos', 'Insumos'], ['equipe', 'Usuários e permissões'], ['importar', 'Importar / Exportar'],
+    'Administração', ['produtores', 'Produtores'], ['fazendas', 'Fazendas'], ['talhoes', 'Talhões'], ['planejamento', 'Planejamento da cultura'], ['safras', 'Safras'], ['etiquetas', 'Etiquetas'], ['tipos_trabalho', 'Tipos de trabalho'], ['aplicadores', 'Empreiteiros'], ['maquinas', 'Máquinas'], ['insumos', 'Insumos'], ['equipe', 'Usuários e permissões'], ['importar', 'Importar / Exportar'], ['sociedade', 'Sociedade'], ['configuracao', 'Configuração'],
     'Atividades', ['monitoramentos', 'Visitas'], ['ord-aplicacoes', 'Aplicações'], ['ord-plantio', 'Plantio'], ['ord-colheita', 'Colheita'], ['ord-fertilizacao', 'Fertilização'], ['ord-tratos', 'Tratos culturais'], ['ord-outros', 'Outros'], ['ordens', 'Todas as ordens'], ['avancos', 'Avanços de plantio e colheita'], ['controles', 'Controles de campo'], ['armadilhas', 'Armadilhas'],
     'Análise', ['analise', 'Painéis de análise'], ['relsis', 'Relatórios do sistema'], ['relatorios', 'Relatório por fazenda (PDF)'],
     'Clima', ['clima', 'Chuvas e previsão'], ['pluviometros', 'Pluviômetros'],
@@ -487,8 +496,8 @@
     const nn = notificacoes().filter(x => !NOT.lidas.has(x.id)).length;
     for (const el of document.querySelectorAll('#badge-not, #badge-bell')) { el.hidden = !nn; el.textContent = nn > 99 ? '99+' : nn; }
   }
-  const VIEWS = { painel: viewPainel, mapa: viewMapa, produtores: viewProdutores, fazendas: viewFazendas, talhoes: viewTalhoes, safras: viewSafras, monitoramentos: viewMonitoramentos, ordens: viewOrdens, relatorios: viewRelatorios, equipe: viewEquipe, clima: viewClima, feed: viewFeed, notificacoes: viewNotificacoes, planejamento: viewPlanejamento, importar: viewImportar, analise: viewAnalise, relsis: viewRelSis };
-  for (const k of KINDS_NOVOS) if (k !== 'chuvas') VIEWS[k] = () => viewModulo(k);
+  const VIEWS = { painel: viewPainel, mapa: viewMapa, produtores: viewProdutores, fazendas: viewFazendas, talhoes: viewTalhoes, safras: viewSafras, monitoramentos: viewMonitoramentos, ordens: viewOrdens, relatorios: viewRelatorios, equipe: viewEquipe, clima: viewClima, feed: viewFeed, notificacoes: viewNotificacoes, planejamento: viewPlanejamento, importar: viewImportar, analise: viewAnalise, relsis: viewRelSis, sociedade: viewSociedade, configuracao: viewConfiguracao };
+  for (const k of KINDS_NOVOS) if (k !== 'chuvas' && k !== 'config') VIEWS[k] = () => viewModulo(k);
   let current = null;
   function route() {
     const v = (location.hash || '#painel').slice(1);
@@ -729,7 +738,7 @@
     const root = $('#v-' + id);
     if (!root.dataset.ready) {
       root.dataset.ready = 1;
-      root.innerHTML = `<div class="page"><div class="page-head"><div><h2>${opts.title}</h2><p>${opts.sub}</p></div><button class="btn primary" data-new="${opts.kind}">+ ${NOVA[opts.kind] ? 'Nova' : 'Novo'} ${esc(NOME[opts.kind])}</button></div>
+      root.innerHTML = `<div class="page"><div class="page-head"><div><h2>${opts.title}</h2><p>${opts.sub}</p></div><div class="head-acts">${opts.extra || ''}<button class="btn primary" data-new="${opts.kind}">+ ${NOVA[opts.kind] ? 'Nova' : 'Novo'} ${esc(NOME[opts.kind])}</button></div></div>
         ${KINDS_NOVOS.includes(opts.kind) && S.faltaTabela ? avisoBanco() : ''}
         <div class="toolbar"><input type="search" id="q-${id}" placeholder="Buscar…" aria-label="Buscar">${opts.filter ? `<select id="f-${id}" aria-label="Filtrar">${opts.filter()}</select>` : ''}<span class="count" id="c-${id}"></span></div>
         <div class="table-wrap"><table><thead><tr>${opts.cols.map(c => `<th class="${c.r ? 'r' : ''}">${c.l}</th>`).join('')}</tr></thead><tbody id="tb-${id}"></tbody></table></div></div>`;
@@ -788,7 +797,7 @@
   }
   function viewTalhoes() {
     tablePage('talhoes', {
-      kind: 'talhoes', title: 'Talhões', sub: 'Áreas de plantio com contorno no mapa.',
+      kind: 'talhoes', title: 'Talhões', sub: 'Áreas de plantio com contorno no mapa.', extra: '<button class="btn" data-kml>Importar contorno (KML)</button> ',
       rows: () => S.data.talhoes.slice().sort((a, b) => (get('fazendas', a.fazenda_id)?.nome || '').localeCompare(get('fazendas', b.fazenda_id)?.nome || '', 'pt-BR') || a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true })),
       text: r => r.nome + ' ' + (get('fazendas', r.fazenda_id)?.nome || '') + ' ' + (get('produtores', r._prod)?.nome || ''),
       filter: () => '<option value="">Todas as situações</option>' + Object.entries(SIT).map(([k, s]) => `<option value="${k}">${esc(s.l)}</option>`).join(''),
@@ -852,7 +861,7 @@
     tratos: { l: 'Tratos culturais', s: 'Preparo de solo, cultivo, roçada e demais tratos.', tipos: ['Tratos culturais', 'Preparo de solo'], novo: 'Tratos culturais' },
     outros: { l: 'Outros', s: 'Demais operações de campo.', tipos: null, novo: 'Outro' },
   };
-  const grupoOrdem = o => { for (const [g, x] of Object.entries(ORD_GRP)) if (x.tipos && x.tipos.includes(o.tipo)) return g; return 'outros'; };
+  const grupoOrdem = o => { for (const [g, x] of Object.entries(ORD_GRP)) if (x.tipos && x.tipos.includes(o.tipo)) return g; const tt = (S.data.tipos_trabalho || []).find(t => t.nome === o.tipo); if (tt) { const g = Object.keys(GRP_TIPO).find(k => GRP_TIPO[k] === tt.grupo); if (g) return g; } return 'outros'; };
   function viewOrdens(id = 'ordens', grp = null) {
     if (typeof id !== 'string') id = 'ordens';
     const root = $('#v-' + id), G = grp ? ORD_GRP[grp] : null;
@@ -911,6 +920,8 @@
       cols: [['data', 'Data', 0, 'd'], ['tipo', 'Tipo'], [r => talNome(r.talhao_id), 'Talhão'], [r => r.valor == null ? '—' : esc(String(r.valor).replace('.', ',')) + ' ' + esc(r.unidade || ''), 'Resultado', 1], [r => ctrlClasse(r), 'Classificação'], [r => r.calc && r.calc.pontos ? fmtInt(r.calc.pontos.length) : '—', 'Pontos', 1], ['responsavel', 'Responsável']], filtro: 'tipo' },
     armadilhas: { t: 'Armadilhas', s: 'Armadilhas de pragas e a última contagem.', sort: 'nome',
       cols: [['nome', 'Armadilha'], ['tipo', 'Tipo'], ['praga_alvo', 'Praga alvo'], [r => fazNome(r.fazenda_id), 'Fazenda'], ['ultima_contagem', 'Última contagem', 1], ['data_contagem', 'Data', 0, 'd']] },
+    tipos_trabalho: { t: 'Tipos de trabalho', s: 'Tipos de operação usados nas ordens. Os tipos padrão já existem; cadastre aqui os seus e escolha em qual aba eles aparecem.', sort: 'nome',
+      cols: [['nome', 'Tipo'], ['grupo', 'Aparece em'], [r => r.ativo === 'Não' ? '<span class="pill">Inativo</span>' : '<span class="pill ok">Ativo</span>', 'Situação'], [r => fmtInt(S.data.ordens.filter(o => o.tipo === r.nome).length), 'Ordens', 1], ['obs', 'Descrição']], filtro: 'grupo' },
     etiquetas: { t: 'Etiquetas', s: 'Marcadores para organizar e filtrar visitas e ordens (ex.: Urgente, Reaplicar).', sort: 'nome',
       cols: [[r => `<span class="tag" style="--tag:${TAG_COR[r.cor] || OUTROS}">${esc(r.nome)}</span>`, 'Etiqueta'], ['uso', 'Usar em'], [r => fmtInt(S.data.monitoramentos.filter(m => (m.etiquetas || []).includes(r.nome)).length + S.data.ordens.filter(m => (m.etiquetas || []).includes(r.nome)).length), 'Usada em', 1], ['obs', 'Descrição']] },
     pluviometros: { t: 'Pluviômetros', s: 'Pontos de medição de chuva. Os registros ficam em Chuvas e previsão.', sort: 'nome',
@@ -1348,11 +1359,11 @@
     return fotos + `<div style="padding:12px 18px 0;display:grid;gap:8px"><div class="sec-title">Detalhes importados do SIMA</div><dl class="facts" style="font-size:13px">${rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl></div>`;
   }
   const tabela = (h, rows) => `<div style="overflow-x:auto"><table style="font-size:12px"><thead><tr>${h.map(x => `<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c ?? ''}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
-  function openForm(kind, rec, defaults) {
+  function openForm(kind, rec, defaults, ov) {
     const isNew = !rec;
     if (isNew && !podeEditar()) { toast('Seu acesso é só de consulta.'); return; }
     rec = Object.assign({}, defaults || {}, rec || {});
-    const fields = FIELDS[kind];
+    const fields = (ov && ov.fields) || FIELDS[kind];
     const bg = document.createElement('div');
     bg.className = 'modal-bg';
     bg.innerHTML = `<div class="modal ${(kind === 'monitoramentos' && rec.pontos) || kind === 'controles' || kind === 'ordens' ? 'wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mtitle"><header><h2 id="mtitle">${isNew ? 'Novo ' : podeEditar() ? 'Editar ' : ''}${esc(NOME[kind])}</h2><button class="x" data-close aria-label="Fechar">×</button></header>
@@ -1472,7 +1483,6 @@
     semativ: { l: 'Sem atividade em 15 dias', c: '#9a9a8a' },
     semsafra: { l: 'Sem safra ativa', c: '#e9e9df' },
   };
-  const DIAS_ATV = 15;
   const semaforo = m => {
     const v = (m.semaforo || '').toLowerCase();
     if (ATV[v]) return v;
@@ -1484,10 +1494,10 @@
   const safraAtiva = t => { const c = culturaAtual(t); return c && !c.data_colheita ? c : null; };
   function atividade(t) {
     let best = null, bd = '';
-    for (const m of S.monPorTal.get(key(t.id)) || []) if (m.data && diasDesde(m.data) <= DIAS_ATV && diasDesde(m.data) >= 0 && m.data > bd) { bd = m.data; best = semaforo(m); }
+    for (const m of S.monPorTal.get(key(t.id)) || []) if (m.data && diasDesde(m.data) <= diasAtv() && diasDesde(m.data) >= 0 && m.data > bd) { bd = m.data; best = semaforo(m); }
     for (const o of S.ordPorTal.get(key(t.id)) || []) {
       if (o.status === 'Cancelada') continue;
-      const d = dataOrdem(o); if (!d || Math.abs(diasDesde(d)) > DIAS_ATV) continue;
+      const d = dataOrdem(o); if (!d || Math.abs(diasDesde(d)) > diasAtv()) continue;
       if (d.slice(0, 10) >= bd.slice(0, 10)) { bd = d; best = o.status === 'Concluída' ? 'executada' : 'emitida'; }
     }
     return best || (safraAtiva(t) ? 'semativ' : 'semsafra');
@@ -1530,7 +1540,7 @@
       });
     }
     const sp = $('#pn-prod'); sp.innerHTML = prodOpts(); sp.value = PN.prod;
-    const sl = safrasLista(); if (!sl.includes(PN.safra)) PN.safra = sl[0] || '';
+    const sl = safrasLista(); if (!sl.includes(PN.safra)) PN.safra = sl.includes(conf('preferencias').safra_padrao) ? conf('preferencias').safra_padrao : sl[0] || '';
     $('#pn-safras').innerHTML = '<span class="muted">Safra:</span>' + sl.slice(0, 6).map(x => `<button class="chip" data-pn-safra="${esc(x)}" aria-pressed="${x === PN.safra}">${esc(x)}</button>`).join('');
     const prod = PN.prod, safra = PN.safra;
     const fazs = prod ? (S.fazPorProd.get(prod) || []) : S.data.fazendas;
@@ -1939,7 +1949,7 @@
     }
     root.querySelectorAll('[data-an]').forEach(b => b.setAttribute('aria-selected', b.dataset.an === AN.aba));
     $('#an-prod').innerHTML = prodOpts(); $('#an-prod').value = AN.prod;
-    const sl = safrasLista(); if (!sl.includes(AN.safra)) AN.safra = sl[0] || '';
+    const sl = safrasLista(); if (!sl.includes(AN.safra)) AN.safra = sl.includes(conf('preferencias').safra_padrao) ? conf('preferencias').safra_padrao : sl[0] || '';
     $('#an-safra').innerHTML = sl.map(s => `<option>${esc(s)}</option>`).join(''); $('#an-safra').value = AN.safra;
     const fazs = AN.prod ? (S.fazPorProd.get(AN.prod) || []) : S.data.fazendas, fset = new Set(fazs.map(f => key(f.id)));
     const tals = S.data.talhoes.filter(t => fset.has(key(t.fazenda_id))), tset = new Set(tals.map(t => key(t.id)));
@@ -2136,12 +2146,12 @@
     const lg = imgDataUrl('.nav-brand .logo-claro');
     if (lg) doc.addImage(lg.url, 'PNG', M, 10, 48, 48 * lg.h / lg.w);
     else { doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(...VERDE); doc.text('InovaAgro', M, 18); }
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...TINTA); doc.text('Inova Agro', M, 29);
+    const SOC = conf('sociedade'); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...TINTA); doc.text(SOC.nome || 'Inova Agro', M, 29); if (SOC.cnpj || SOC.telefone) { doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.text([SOC.cnpj && 'CNPJ ' + SOC.cnpj, SOC.telefone].filter(Boolean).join(' · '), M, 32.3); }
     doc.setFont('helvetica', 'normal'); doc.setFontSize(12.5); doc.setTextColor(...TINTA);
     doc.text(doc.splitTextToSize('Ordem de ' + (o.tipo === 'Pulverização' || !o.tipo ? 'Aplicação' : o.tipo) + ' · ' + (o.titulo || ''), 82), 66, 17);
     doc.setFontSize(8); doc.setTextColor(...CINZA);
     doc.text('Usuário: ' + (SB.user?.email || '—'), 152, 13); doc.text('Data: ' + fmtDate(today()), 152, 17);
-    doc.setDrawColor(225); doc.setLineWidth(0.2); doc.line(0, 34, W, 34);
+    doc.setDrawColor(225); doc.setLineWidth(0.2); doc.line(0, 35.5, W, 35.5);
     const headSt = { fillColor: VERDE, textColor: 255, fontStyle: 'bold', halign: 'center', fontSize: 9 };
     // Dados gerais
     const gerais = [['Nome da aplicação', o.titulo], ['Dia da emissão', fmtDate(o.data_emissao || o.criado_em || o.data_prevista)], ['Data prevista', fmtDate(o.data_prevista)], ['Estado', o.status || 'Planejada'], ['Aplicador', o.aplicador_id ? nomeRef('aplicadores', o.aplicador_id) : ''], ['Máquina', o.maquina_id ? nomeRef('maquinas', o.maquina_id) : ''], ['Bico', o.bico], ['Tipo de trabalho', o.tipo], ['Responsável', o.responsavel], ['Etiquetas', (o.etiquetas || []).join(', ')], ['Observações', o.obs]].map(([a, b]) => [a + ':', b || '']);
@@ -2183,13 +2193,111 @@
     y = Math.max(yT, doc.lastAutoTable.finalY) + 14;
     if (y > 262) { doc.addPage(); y = 30; }
     doc.setDrawColor(150); doc.setLineWidth(0.3); doc.line(M, y + 10, M + 80, y + 10); doc.line(W - M - 80, y + 10, W - M, y + 10);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...CINZA); doc.text('Responsável técnico', M, y + 14); doc.text('Operador / aplicador', W - M - 80, y + 14);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...CINZA); doc.text(SOC.resp_tecnico ? SOC.resp_tecnico + (SOC.crea ? ' · ' + SOC.crea : '') : 'Responsável técnico', M, y + 14); if (SOC.resp_tecnico) doc.text('Responsável técnico', M, y + 18); const prefR = conf('preferencias'); if (prefR.rodape_receita) { doc.setFontSize(7.5); doc.text(doc.splitTextToSize(prefR.rodape_receita, W - 2 * M), M, y + 26); doc.setFontSize(8); } doc.text('Operador / aplicador', W - M - 80, y + 14);
     const np = doc.getNumberOfPages();
     for (let i = 1; i <= np; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(150); doc.text('Gerado pelo INOVAAGRO em ' + new Date().toLocaleString('pt-BR'), M, 290); doc.text(i + ' / ' + np, W - M, 290, { align: 'right' }); }
     doc.save('ordem-' + String(o.titulo || o.id).replace(/[^\w-]+/g, '-') + '.pdf');
   }
 
 
+
+  // ---------- Sociedade e Configuração (registro único na tabela config) ----------
+  const CFG_FIELDS = {
+    sociedade: [
+      { k: 'nome', l: 'Nome da empresa', req: 1, full: 1, ph: 'Ex.: Inova Agro Consultoria Agrícola' },
+      { k: 'cnpj', l: 'CNPJ / CPF' }, { k: 'ie', l: 'Inscrição estadual' },
+      { k: 'endereco', l: 'Endereço', full: 1 }, { k: 'cidade', l: 'Cidade / UF' }, { k: 'telefone', l: 'Telefone' },
+      { k: 'email', l: 'E-mail de contato' }, { k: 'site', l: 'Site' },
+      { k: 'resp_tecnico', l: 'Responsável técnico (assina as receitas)' }, { k: 'crea', l: 'CREA / registro' },
+    ],
+    preferencias: [
+      { k: 'safra_padrao', l: 'Safra atual (padrão nas telas)', ph: 'Ex.: 2025/26' },
+      { k: 'dias_atividade', l: 'Dias de atividade no mapa do Início', t: 'number', ph: '15' },
+      { k: 'cultura_padrao', l: 'Cultura principal', ph: 'Ex.: Cana-de-açúcar' },
+      { k: 'vazao_padrao', l: 'Vazão padrão das aplicações (L/ha)', t: 'number' },
+      { k: 'carencia_padrao', l: 'Carência padrão (dias)', t: 'number' },
+      { k: 'rodape_receita', l: 'Texto no rodapé da receita', t: 'textarea', full: 1, ph: 'Ex.: Use EPI. Respeite o período de carência e a bula do produto.' },
+    ],
+  };
+  const conf = id => get('config', id) || {};
+  const diasAtv = () => num(conf('preferencias').dias_atividade) || 15;
+  function viewCfg(id) {
+    const root = $('#v-' + (id === 'sociedade' ? 'sociedade' : 'configuracao')), r = conf(id), F = CFG_FIELDS[id];
+    const tit = id === 'sociedade' ? ['Sociedade', 'Dados da sua empresa. Aparecem no cabeçalho e na assinatura das receitas e relatórios.'] : ['Configuração', 'Preferências gerais do sistema.'];
+    root.innerHTML = `<div class="page"><div class="page-head"><div><h2>${tit[0]}</h2><p>${tit[1]}</p></div>${podeEditar() && (S.papel === 'admin' || Store.mode !== 'supabase') ? `<button class="btn primary" data-cfg-edit="${id}">Editar</button>` : ''}</div>
+      ${S.faltaTabela ? avisoBanco() : ''}
+      <section class="card-box"><dl class="facts">${F.map(f => `<dt>${f.l}</dt><dd>${r[f.k] != null && r[f.k] !== '' ? esc(String(r[f.k])) : '<span class="muted">—</span>'}</dd>`).join('')}</dl></section>
+      ${id === 'sociedade' ? '<p class="muted" style="font-size:13px">O logotipo usado nos PDFs é o mesmo do sistema.</p>' : ''}</div>`;
+  }
+  function viewSociedade() { viewCfg('sociedade'); }
+  function viewConfiguracao() { viewCfg('preferencias'); }
+
+  // ---------- Tipos de trabalho ----------
+  const GRP_TIPO = { aplicacoes: 'Aplicações', plantio: 'Plantio', colheita: 'Colheita', fertilizacao: 'Fertilização', tratos: 'Tratos culturais', outros: 'Outros' };
+  const tiposOrdem = () => [...new Set([...ORD_TIPOS, ...(S.data.tipos_trabalho || []).filter(t => t.ativo !== 'Não').map(t => t.nome).filter(Boolean)])];
+
+  // ---------- Contorno dos talhões: importar KML ou GeoJSON ----------
+  function areaGeo(ring) {
+    // área esférica aproximada em hectares (anel em [lng, lat])
+    const R = 6378137, r = x => x * Math.PI / 180; let s = 0;
+    for (let i = 0; i < ring.length - 1; i++) { const [x1, y1] = ring[i], [x2, y2] = ring[i + 1]; s += r(x2 - x1) * (2 + Math.sin(r(y1)) + Math.sin(r(y2))); }
+    return Math.abs(s * R * R / 2) / 10000;
+  }
+  function lerContornos(txt, nomeArq) {
+    const out = [];
+    if (/\.(geo)?json$/i.test(nomeArq) || txt.trim().startsWith('{')) {
+      const gj = JSON.parse(txt), fs = gj.type === 'FeatureCollection' ? gj.features : gj.type === 'Feature' ? [gj] : [{ geometry: gj, properties: {} }];
+      for (const f of fs) { const g = f.geometry; if (!g || !/Polygon/.test(g.type)) continue; const p = f.properties || {}; out.push({ nome: String(p.name || p.nome || p.NAME || p.Name || p.talhao || ''), geometry: g }); }
+    } else {
+      const doc = new DOMParser().parseFromString(txt, 'application/xml');
+      for (const pm of doc.getElementsByTagName('Placemark')) {
+        const nome = pm.getElementsByTagName('name')[0]?.textContent?.trim() || '';
+        const polys = [...pm.getElementsByTagName('Polygon')].map(pg => { const ob = pg.getElementsByTagName('outerBoundaryIs')[0] || pg; const c = ob.getElementsByTagName('coordinates')[0]; return c ? [c.textContent.trim().split(/\s+/).map(s => s.split(',').slice(0, 2).map(Number)).filter(x => x.length === 2 && x.every(isFinite))] : null; }).filter(p => p && p[0].length >= 4);
+        if (!polys.length) continue;
+        out.push({ nome, geometry: polys.length === 1 ? { type: 'Polygon', coordinates: polys[0] } : { type: 'MultiPolygon', coordinates: polys } });
+      }
+    }
+    for (const c of out) { const rings = c.geometry.type === 'Polygon' ? [c.geometry.coordinates[0]] : c.geometry.coordinates.map(p => p[0]); c.area = Math.round(rings.reduce((a, r) => a + areaGeo(r), 0) * 100) / 100; }
+    return out;
+  }
+  function importarContornos() {
+    if (!podeEditar()) { toast('Seu acesso é só de consulta.'); return; }
+    const bg = document.createElement('div'); bg.className = 'modal-bg';
+    const fz = S.data.fazendas.slice().sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    bg.innerHTML = `<div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="kml-t"><header><h2 id="kml-t">Importar contorno dos talhões</h2><button class="x" data-close aria-label="Fechar">×</button></header>
+      <div style="padding:12px 18px;display:grid;gap:12px"><p class="muted" style="margin:0;font-size:13px">Use um arquivo KML (Google Earth) ou GeoJSON. Cada polígono vira um talhão. Se já existir um talhão com o mesmo nome na fazenda, só o contorno e a área são atualizados.</p>
+        <div class="grid2" style="gap:12px"><label class="field"><span>Fazenda</span><select id="kml-faz">${fz.map(f => `<option value="${esc(f.id)}" ${key(f.id) === key(S.sel.fazenda) ? 'selected' : ''}>${esc(f.nome)}</option>`).join('')}</select></label>
+        <label class="field"><span>Arquivo (.kml ou .geojson)</span><input type="file" id="kml-arq" accept=".kml,.geojson,.json,application/vnd.google-earth.kml+xml,application/geo+json"></label></div>
+        <div id="kml-prev"></div></div>
+      <footer><div class="right"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-kml-ok disabled>Importar</button></div></footer></div>`;
+    document.body.appendChild(bg);
+    let lista = [];
+    const prev = () => {
+      const fid = $('#kml-faz', bg).value, ts = S.talPorFaz.get(key(fid)) || [];
+      for (const c of lista) { const n = c.nome.trim().toLowerCase(); c.alvo = ts.find(t => [t.nome, nomeTal(t)].some(x => String(x || '').trim().toLowerCase() === n)) || null; }
+      $('#kml-prev', bg).innerHTML = lista.length ? `<div class="table-wrap"><table><thead><tr><th><input type="checkbox" data-kml-all checked aria-label="Todos"></th><th>Nome no arquivo</th><th class="r">Área (ha)</th><th>O que acontece</th></tr></thead><tbody>${lista.map((c, i) => `<tr><td><input type="checkbox" data-kml="${i}" ${c.off ? '' : 'checked'}></td><td><input type="text" data-kml-nome="${i}" value="${esc(c.nome)}" aria-label="Nome do talhão" style="width:100%"></td><td class="r">${fmtHa(c.area)}</td><td>${c.alvo ? '<span class="pill info">Atualiza contorno de ' + esc(c.alvo.nome) + '</span>' : '<span class="pill ok">Cria talhão novo</span>'}</td></tr>`).join('')}</tbody></table></div>` : '';
+      $('[data-kml-ok]', bg).disabled = !lista.some(c => !c.off);
+    };
+    bg.addEventListener('change', async e => {
+      if (e.target.id === 'kml-arq') { const f = e.target.files[0]; if (!f) return; try { lista = lerContornos(await f.text(), f.name); if (!lista.length) toast('Nenhum polígono encontrado no arquivo.'); lista.forEach((c, i) => { if (!c.nome) c.nome = 'Talhão ' + (i + 1); }); } catch (err) { toast('Não consegui ler o arquivo. Confira se é KML ou GeoJSON.'); lista = []; } prev(); }
+      if (e.target.id === 'kml-faz') prev();
+      if (e.target.matches('[data-kml]')) { lista[e.target.dataset.kml].off = !e.target.checked; prev(); }
+      if (e.target.matches('[data-kml-all]')) { lista.forEach(c => c.off = !e.target.checked); prev(); }
+      if (e.target.matches('[data-kml-nome]')) { lista[e.target.dataset.kmlNome].nome = e.target.value.trim(); prev(); }
+    });
+    bg.addEventListener('click', async e => {
+      if (e.target === bg || e.target.closest('[data-close]')) return bg.remove();
+      if (!e.target.closest('[data-kml-ok]')) return;
+      const fid = $('#kml-faz', bg).value, faz = get('fazendas', fid); let n = 0;
+      try {
+        for (const c of lista.filter(x => !x.off)) {
+          const rec = c.alvo ? Object.assign({}, get('talhoes', c.alvo.id), { geometry: c.geometry, area_ha: c.area }) : { id: newId(), nome: c.nome, fazenda_id: faz.id, area_ha: c.area, geometry: c.geometry };
+          delete rec._prod; await Store.save('talhoes', rec); n++;
+        }
+        toast(n + ' talhão(ões) importado(s).'); bg.remove();
+      } catch (err) { toast('Erro ao salvar: ' + (err.message || err)); }
+    });
+  }
 
   // ---------- Exportar ----------
   async function exportar() {
@@ -2210,7 +2318,9 @@
 
   document.addEventListener('click', e => {
     const lg = e.target.closest('[data-leg]'); if (lg) { const n = lg.dataset.leg; if (S.ocultos.has(n)) S.ocultos.delete(n); else S.ocultos.add(n); styleAll(); drawLegend(); return; }
-    const no = e.target.closest('[data-new-ord]'); if (no) { openForm('ordens', null, { status: 'Planejada', tipo: no.dataset.newOrd || undefined, data_prevista: today(), data_emissao: today() }); return; }
+    if (e.target.closest('[data-kml]')) { importarContornos(); return; }
+    const ce = e.target.closest('[data-cfg-edit]'); if (ce) { const id = ce.dataset.cfgEdit; openForm('config', Object.assign({ id }, conf(id)), null, { fields: CFG_FIELDS[id] }); return; }
+    const no = e.target.closest('[data-new-ord]'); if (no) { openForm('ordens', null, { status: 'Planejada', tipo: no.dataset.newOrd || undefined, data_prevista: today(), data_emissao: today(), vazao_l_ha: conf('preferencias').vazao_padrao ?? undefined, carencia_dias: conf('preferencias').carencia_padrao ?? undefined }); return; }
     const n = e.target.closest('[data-new]'); if (n) { openForm(n.dataset.new, null, n.dataset.new === 'monitoramentos' ? { data: today() } : n.dataset.new === 'ordens' ? { status: 'Planejada' } : {}); return; }
     const ed = e.target.closest('[data-edit]'); if (ed) { const [k, id] = ed.dataset.edit.split(':'); openForm(k, get(k, id)); return; }
     const mf = e.target.closest('[data-map-faz]'); if (mf) { e.stopPropagation(); location.hash = 'mapa'; setTimeout(() => selectFazenda(mf.dataset.mapFaz, true), 60); return; }
