@@ -160,9 +160,10 @@
       { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
     ],
     controles: [
-      { k: 'tipo', l: 'Tipo de controle', t: 'select', opts: ['Perda na colheita', 'Estande de plantas', 'Qualidade de plantio', 'Adubação', 'Outro'], req: 1 },
+      { k: 'tipo', l: 'Tipo de controle', t: 'select', opts: ['Perda na colheita', 'Falhas de plantio', 'Gemas por metro', 'Estande de plantas', 'Qualidade de plantio', 'Adubação', 'Outro'], req: 1 },
       { k: 'data', l: 'Data', t: 'date', req: 1 },
       { k: 'talhao_id', l: 'Talhão', t: 'talhao', req: 1, full: 1 },
+      { k: 'calc', l: 'Pontos amostrais', t: 'calc', full: 1 },
       { k: 'valor', l: 'Resultado', t: 'number' },
       { k: 'unidade', l: 'Unidade', ph: 'Ex.: t/ha, gemas/m, %' },
       { k: 'responsavel', l: 'Responsável' },
@@ -904,8 +905,8 @@
       cols: [['codigo', 'Código'], [r => r.situacao ? `<span class="pill ${{ Cheia: 'info', 'Em extração': 'warn', Extraída: 'ok' }[r.situacao] || ''}">${esc(r.situacao)}</span>` : '—', 'Situação'], ['produto', 'Produto'], ['safra', 'Safra'], [r => fazNome(r.fazenda_id), 'Fazenda'], [r => fmtHa(r.toneladas), 't', 1], ['data_enchimento', 'Enchimento', 0, 'd'], ['data_extracao', 'Extração', 0, 'd']], filtro: 'situacao' },
     avancos: { t: 'Avanços de plantio e colheita', s: 'Área plantada e colhida por talhão, com produtividade.', sort: '-data',
       cols: [['data', 'Data', 0, 'd'], [r => `<span class="pill ${r.tipo === 'Colheita' ? 'warn' : 'ok'}">${esc(r.tipo || '')}</span>`, 'Tipo'], [r => talNome(r.talhao_id), 'Talhão'], ['safra', 'Safra'], [r => fmtHa(r.area_ha), 'Área (ha)', 1], [r => r.produtividade == null ? '—' : fmtHa(r.produtividade), 't/ha', 1], ['finalizado', 'Finalizado']], filtro: 'tipo' },
-    controles: { t: 'Controles', s: 'Perdas na colheita, estande, qualidade de plantio e adubação.', sort: '-data',
-      cols: [['data', 'Data', 0, 'd'], ['tipo', 'Tipo'], [r => talNome(r.talhao_id), 'Talhão'], [r => r.valor == null ? '—' : esc(String(r.valor).replace('.', ',')) + ' ' + esc(r.unidade || ''), 'Resultado', 1], ['responsavel', 'Responsável']], filtro: 'tipo' },
+    controles: { t: 'Controles', s: 'Perda na colheita, falhas de plantio (Stolf), gemas por metro e estande de plantas, com cálculo automático a partir dos pontos amostrais.', sort: '-data',
+      cols: [['data', 'Data', 0, 'd'], ['tipo', 'Tipo'], [r => talNome(r.talhao_id), 'Talhão'], [r => r.valor == null ? '—' : esc(String(r.valor).replace('.', ',')) + ' ' + esc(r.unidade || ''), 'Resultado', 1], [r => ctrlClasse(r), 'Classificação'], [r => r.calc && r.calc.pontos ? fmtInt(r.calc.pontos.length) : '—', 'Pontos', 1], ['responsavel', 'Responsável']], filtro: 'tipo' },
     armadilhas: { t: 'Armadilhas', s: 'Armadilhas de pragas e a última contagem.', sort: 'nome',
       cols: [['nome', 'Armadilha'], ['tipo', 'Tipo'], ['praga_alvo', 'Praga alvo'], [r => fazNome(r.fazenda_id), 'Fazenda'], ['ultima_contagem', 'Última contagem', 1], ['data_contagem', 'Data', 0, 'd']] },
     etiquetas: { t: 'Etiquetas', s: 'Marcadores para organizar e filtrar visitas e ordens (ex.: Urgente, Reaplicar).', sort: 'nome',
@@ -1255,6 +1256,7 @@
       case 'ref': input = `<select id="${id}" name="${f.k}"${req}><option value="">Selecione…</option>${(S.data[f.kind] || []).slice().sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR')).map(r => `<option value="${esc(r.id)}" ${key(r.id) === key(v) ? 'selected' : ''}>${esc(r.nome || r.codigo || r.id)}</option>`).join('')}</select>`; break;
       case 'tags': { const sel = new Set(v || []); const tg = S.data.etiquetas.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR')); return `<div class="field full" style="display:grid;gap:4px"><span style="font-size:13px;font-weight:500;color:var(--muted)">${f.l}</span><div class="tagpick">${tg.map(t => `<label class="tag" style="--tag:${TAG_COR[t.cor] || OUTROS}"><input type="checkbox" name="${f.k}" value="${esc(t.nome)}" ${sel.has(t.nome) ? 'checked' : ''}> ${esc(t.nome)}</label>`).join('') || '<span class="muted" style="font-size:13px">Nenhuma etiqueta cadastrada. Crie em Administração → Etiquetas.</span>'}</div></div>`; }
       case 'produtos': return produtosHtml(v);
+      case 'calc': return '<div class="field full ctrl-ed" data-ctrl></div>';
       case 'talhoes': return `<div class="field full" style="display:grid;gap:4px"><span style="font-size:13px;font-weight:500;color:var(--muted)">${f.l}</span><div class="checks" id="${id}">${v}</div></div>`;
       default: input = `<input type="text" id="${id}" name="${f.k}" value="${esc(v)}"${ph}${req}>`;
     }
@@ -1293,7 +1295,7 @@
     const fields = FIELDS[kind];
     const bg = document.createElement('div');
     bg.className = 'modal-bg';
-    bg.innerHTML = `<div class="modal ${kind === 'monitoramentos' && rec.pontos ? 'wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mtitle"><header><h2 id="mtitle">${isNew ? 'Novo ' : podeEditar() ? 'Editar ' : ''}${esc(NOME[kind])}</h2><button class="x" data-close aria-label="Fechar">×</button></header>
+    bg.innerHTML = `<div class="modal ${(kind === 'monitoramentos' && rec.pontos) || kind === 'controles' || kind === 'ordens' ? 'wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mtitle"><header><h2 id="mtitle">${isNew ? 'Novo ' : podeEditar() ? 'Editar ' : ''}${esc(NOME[kind])}</h2><button class="x" data-close aria-label="Fechar">×</button></header>
       <form novalidate>${fields.map(f => fieldHtml(f, f.t === 'talhoes' ? talChecks(rec.fazenda_id, rec.talhao_ids) : rec[f.k])).join('')}</form>
       ${detalhes(kind, rec)}
       <footer>${isNew ? '' : '<button class="btn danger" data-del>Excluir</button>'}${kind === 'ordens' && !isNew ? `<button class="btn" data-receita>${icon('pdf')} Receita PDF</button>` : ''}<div class="right"><button class="btn" data-close>${podeEditar() ? 'Cancelar' : 'Fechar'}</button><button class="btn primary" data-save>Salvar</button></div></footer></div>`;
@@ -1303,6 +1305,7 @@
     if (fz && chk) fz.addEventListener('change', () => { chk.innerHTML = talChecks(fz.value, []); });
     const close = () => bg.remove();
     if (kind === 'ordens') prodEditor(bg, rec);
+    if (kind === 'controles') ctrlEditor(bg, rec);
     bg.addEventListener('click', async e => {
       if (e.target === bg || e.target.closest('[data-close]')) return close();
       if (e.target.closest('[data-receita]')) { const o = Object.assign({}, rec); if (podeEditar()) o.produtos = lerProdutos(bg, rec.produtos); receitaPDF(o); return; }
@@ -1318,6 +1321,7 @@
         if (!isNew) { Object.assign(out, get(kind, rec.id) || {}); delete out._prod; }
         let missing = null;
         for (const f of fields) {
+          if (f.t === 'calc') { const c = bg._lerCalc && bg._lerCalc(); out.calc = c ? c.calc : null; out.classificacao = c && c.r ? c.r.classe || null : null; continue; }
           if (f.t === 'produtos') { out[f.k] = lerProdutos(bg, rec.produtos); continue; }
           if (f.t === 'tags') { out[f.k] = [...form.querySelectorAll(`input[name="${f.k}"]:checked`)].map(i => i.value); continue; }
           if (f.t === 'talhoes') { out[f.k] = [...form.querySelectorAll('input[name="talhao_ids"]:checked')].map(i => { const t = get('talhoes', i.value); return t ? t.id : i.value; }); continue; }
@@ -1334,6 +1338,69 @@
     });
     setTimeout(() => { const first = form.querySelector('input,select,textarea'); if (first && podeEditar()) first.focus(); }, 20);
   }
+
+  // ---------- Controles de campo com cálculo (perda na colheita, falhas, gemas, estande) ----------
+  const CTRL = {
+    'Perda na colheita': {
+      d: 'Recolha a cana deixada no chão em cada ponto amostral (área em m²) e pese por tipo. O resultado sai em t/ha e em % da produtividade.',
+      cols: [['area', 'Área (m²)', 10], ['inteira', 'Cana inteira (kg)'], ['toletes', 'Toletes (kg)'], ['pedacos', 'Pedaços / lascas (kg)'], ['ponteiro', 'Ponteiro preso (kg)']],
+      params: [['prod', 'Produtividade estimada (t/ha)']],
+      calc: (ps, pr) => { const a = ps.reduce((s, p) => s + num(p.area), 0), kg = ps.reduce((s, p) => s + num(p.inteira) + num(p.toletes) + num(p.pedacos) + num(p.ponteiro), 0); if (!a) return null; const t = kg / a * 10, pc = num(pr.prod) ? t / num(pr.prod) * 100 : null; return { valor: Math.round(t * 100) / 100, unidade: 't/ha', extra: pc != null ? fmt1(pc) + '% da produtividade' : 'informe a produtividade para ver a %', classe: pc == null ? '' : pc <= 2.5 ? 'Baixa' : pc <= 4.5 ? 'Média' : 'Alta' }; },
+      cls: { Baixa: 'ok', Média: 'warn', Alta: 'bad' },
+    },
+    'Falhas de plantio': {
+      d: 'Método Stolf: em cada ponto, meça o comprimento de linha avaliado e some as falhas maiores que 0,5 m.',
+      cols: [['metros', 'Metros avaliados', 50], ['falhas', 'Soma das falhas > 0,5 m (m)']],
+      params: [],
+      calc: ps => { const m = ps.reduce((s, p) => s + num(p.metros), 0), f = ps.reduce((s, p) => s + num(p.falhas), 0); if (!m) return null; const pc = f / m * 100; return { valor: Math.round(pc * 10) / 10, unidade: '% de falhas', extra: fmt1(m) + ' m avaliados', classe: pc <= 10 ? 'Excelente' : pc <= 20 ? 'Normal' : pc <= 35 ? 'Subnormal' : pc <= 50 ? 'Ruim' : 'Péssimo' }; },
+      cls: { Excelente: 'ok', Normal: 'ok', Subnormal: 'warn', Ruim: 'bad', Péssimo: 'bad' },
+    },
+    'Gemas por metro': {
+      d: 'Qualidade do plantio: conte as gemas viáveis e os toletes em cada trecho de sulco.',
+      cols: [['metros', 'Metros de sulco', 2], ['gemas', 'Gemas viáveis'], ['toletes', 'Toletes']],
+      params: [],
+      calc: ps => { const m = ps.reduce((s, p) => s + num(p.metros), 0), g = ps.reduce((s, p) => s + num(p.gemas), 0), t = ps.reduce((s, p) => s + num(p.toletes), 0); if (!m) return null; const gm = g / m; return { valor: Math.round(gm * 10) / 10, unidade: 'gemas/m', extra: fmt1(t / m) + ' toletes/m', classe: gm >= 12 && gm <= 18 ? 'Adequado' : gm < 12 ? 'Abaixo' : 'Acima' }; },
+      cls: { Adequado: 'ok', Abaixo: 'bad', Acima: 'warn' },
+    },
+    'Estande de plantas': {
+      d: 'Conte as plantas em um trecho de linha em cada ponto. Informe o espaçamento entre linhas para calcular plantas por hectare.',
+      cols: [['metros', 'Metros de linha', 5], ['plantas', 'Plantas']],
+      params: [['esp', 'Espaçamento entre linhas (m)'], ['meta', 'Meta (plantas/ha)']],
+      calc: (ps, pr) => { const m = ps.reduce((s, p) => s + num(p.metros), 0), n = ps.reduce((s, p) => s + num(p.plantas), 0); if (!m) return null; const pm = n / m, ha = num(pr.esp) ? pm * 10000 / num(pr.esp) : null, pc = ha && num(pr.meta) ? ha / num(pr.meta) * 100 : null; return { valor: ha ? Math.round(ha) : Math.round(pm * 10) / 10, unidade: ha ? 'plantas/ha' : 'plantas/m', extra: fmt1(pm) + ' plantas/m' + (pc ? ' · ' + fmt1(pc) + '% da meta' : ''), classe: pc == null ? '' : pc >= 90 ? 'Adequado' : pc >= 80 ? 'Atenção' : 'Abaixo' }; },
+      cls: { Adequado: 'ok', Atenção: 'warn', Abaixo: 'bad' },
+    },
+  };
+  const fmt1 = v => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+  function ctrlEditor(bg, rec) {
+    const box = $('[data-ctrl]', bg), sel = $('#fld-tipo', bg); if (!box || !sel) return;
+    let calc = Object.assign({ pontos: [], params: {} }, rec.calc || {});
+    const render = () => {
+      const C = CTRL[sel.value];
+      if (!C) { box.innerHTML = '<span class="muted" style="font-size:13px">Para este tipo, preencha o resultado direto nos campos abaixo.</span>'; return; }
+      if (!calc.pontos.length) calc.pontos = [{}, {}, {}];
+      box.innerHTML = `<span style="font-size:13px;font-weight:500;color:var(--muted)">Pontos amostrais</span><p class="muted" style="margin:0;font-size:12.5px">${esc(C.d)}</p>
+        ${C.params.length ? `<div class="ctrl-par">${C.params.map(([k, l]) => `<label class="field"><span>${l}</span><input type="number" step="any" data-par="${k}" value="${esc(calc.params[k] ?? '')}"></label>`).join('')}</div>` : ''}
+        <div class="table-wrap"><table class="prod-t ctrl-t"><thead><tr><th>#</th>${C.cols.map(c => `<th class="r">${c[1]}</th>`).join('')}<th></th></tr></thead><tbody>${calc.pontos.map((p, i) => `<tr><td class="ord-n">${i + 1}</td>${C.cols.map(c => `<td><input type="number" step="any" class="r" data-pc="${c[0]}" value="${esc(p[c[0]] ?? (c[2] ?? ''))}" aria-label="${c[1]} ponto ${i + 1}"></td>`).join('')}<td><button type="button" class="btn small danger" data-pt-del aria-label="Remover ponto">×</button></td></tr>`).join('')}</tbody></table></div>
+        <div class="ctrl-res"><button type="button" class="btn small" data-pt-add>+ Ponto</button><div id="ctrl-out" aria-live="polite"></div></div>`;
+      atualiza();
+    };
+    const ler = () => { const C = CTRL[sel.value]; if (!C) return calc; calc.params = Object.fromEntries([...box.querySelectorAll('[data-par]')].map(i => [i.dataset.par, i.value === '' ? null : Number(i.value)])); calc.pontos = [...box.querySelectorAll('tbody tr')].map(tr => Object.fromEntries([...tr.querySelectorAll('[data-pc]')].map(i => [i.dataset.pc, i.value === '' ? null : Number(i.value)]))); return calc; };
+    const atualiza = () => {
+      const C = CTRL[sel.value], out = $('#ctrl-out', box); if (!C || !out) return;
+      ler(); const r = C.calc(calc.pontos, calc.params);
+      out.innerHTML = r ? `<b class="num">${esc(String(r.valor).replace('.', ','))} ${esc(r.unidade)}</b> ${r.classe ? `<span class="pill ${C.cls[r.classe] || ''}">${esc(r.classe)}</span>` : ''}<br><span class="muted">${esc(r.extra || '')}</span>` : '<span class="muted">Preencha os pontos para ver o resultado.</span>';
+      if (r) { const v = $('#fld-valor', bg), u = $('#fld-unidade', bg); if (v) v.value = r.valor; if (u) u.value = r.unidade; }
+    };
+    sel.addEventListener('change', () => { calc = { pontos: [], params: {} }; render(); });
+    box.addEventListener('input', atualiza);
+    box.addEventListener('click', e => {
+      if (e.target.closest('[data-pt-add]')) { ler(); calc.pontos.push({}); render(); $('tbody tr:last-child input', box)?.focus(); }
+      const d = e.target.closest('[data-pt-del]'); if (d) { d.closest('tr').remove(); ler(); render(); }
+    });
+    bg._lerCalc = () => { const C = CTRL[sel.value]; if (!C) return null; ler(); const pts = calc.pontos.filter(p => Object.values(p).some(v => v != null)); const r = C.calc(pts, calc.params); return { calc: { pontos: pts, params: calc.params }, r }; };
+    render();
+  }
+  const ctrlClasse = r => { const C = CTRL[r.tipo]; return r.classificacao ? `<span class="pill ${(C && C.cls[r.classificacao]) || ''}">${esc(r.classificacao)}</span>` : '—'; };
 
   // ---------- Atividade dos últimos 15 dias (cor do talhão como no painel inicial) ----------
   const ATV = {
