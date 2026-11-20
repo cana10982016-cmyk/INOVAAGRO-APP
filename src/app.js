@@ -2642,11 +2642,30 @@
     const ox = x + (w - (c - a) * k * s) / 2, oy = y + (h - (d - b) * s) / 2;
     const P = ([lo, la]) => [ox + (lo - a) * k * s, oy + (d - la) * s];
     doc.setFillColor(241, 243, 238); doc.setDrawColor(225); doc.setLineWidth(0.2); doc.roundedRect(x, y, w, h, 2, 2, 'FD');
-    const poli = (r, st) => { const pts = r.map(P); if (pts.length < 3) return; const dl = pts.slice(1).map((p, i) => [p[0] - pts[i][0], p[1] - pts[i][1]]); doc.lines(dl, pts[0][0], pts[0][1], [1, 1], st, true); };
+    // recorta cada polígono no retângulo do mapa, para nada passar por cima do texto do relatório
+    const x2 = x + w, y2 = y + h;
+    const corta = (pts, dentro, cruza) => { const out = []; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length], dp = dentro(p), dq = dentro(q); if (dp) out.push(p); if (dp !== dq) out.push(cruza(p, q)); } return out; };
+    const emX = (p, q, v) => [v, p[1] + (q[1] - p[1]) * (v - p[0]) / (q[0] - p[0])], emY = (p, q, v) => [p[0] + (q[0] - p[0]) * (v - p[1]) / (q[1] - p[1]), v];
+    const recorta = pts => {
+      pts = corta(pts, p => p[0] >= x, (p, q) => emX(p, q, x)); if (pts.length < 3) return pts;
+      pts = corta(pts, p => p[0] <= x2, (p, q) => emX(p, q, x2)); if (pts.length < 3) return pts;
+      pts = corta(pts, p => p[1] >= y, (p, q) => emY(p, q, y)); if (pts.length < 3) return pts;
+      return corta(pts, p => p[1] <= y2, (p, q) => emY(p, q, y2));
+    };
+    const poli = (r, st) => { const pts = recorta(r.map(P)); if (pts.length < 3) return; const dl = pts.slice(1).map((p, i) => [p[0] - pts[i][0], p[1] - pts[i][1]]); doc.lines(dl, pts[0][0], pts[0][1], [1, 1], st, true); };
     doc.saveGraphicsState && doc.saveGraphicsState();
     for (const v of vizinhos) { if (key(v.id) === key(t.id)) continue; doc.setFillColor(255, 255, 255); doc.setDrawColor(190, 195, 185); doc.setLineWidth(0.2); for (const r of aneis(v.geometry)) { const pts = r.map(P); if (pts.every(p => p[0] < x || p[0] > x + w || p[1] < y || p[1] > y + h)) continue; poli(r, 'FD'); } }
     doc.setFillColor(214, 230, 196); doc.setDrawColor(79, 122, 58); doc.setLineWidth(0.6); for (const r of alvo) poli(r, 'FD');
-    pontos.forEach((p, i) => { const [px, py] = P([p.lng, p.lat]); doc.setFillColor(250, 178, 25); doc.setDrawColor(255); doc.setLineWidth(0.4); doc.circle(px, py, 2.2, 'FD'); doc.setFontSize(6); doc.setTextColor(32, 30, 30); doc.setFont('helvetica', 'bold'); doc.text(String(i + 1), px, py + 0.8, { align: 'center' }); });
+    // pontos muito próximos viram um marcador só, com todos os números (ex.: "1, 2, 3")
+    const grupos = [];
+    pontos.forEach((p, i) => { const [px, py] = P([p.lng, p.lat]); const n = p.n || i + 1; const g = grupos.find(g => Math.hypot(g.x - px, g.y - py) < 4); if (g) g.ns.push(n); else grupos.push({ x: px, y: py, ns: [n] }); });
+    doc.setFontSize(6); doc.setFont('helvetica', 'bold');
+    for (const g of grupos) {
+      const txt = g.ns.join(', '), tw = doc.getTextWidth(txt), rw = Math.max(4.4, tw + 2.6);
+      doc.setFillColor(250, 178, 25); doc.setDrawColor(255); doc.setLineWidth(0.4);
+      if (g.ns.length === 1) doc.circle(g.x, g.y, 2.2, 'FD'); else doc.roundedRect(g.x - rw / 2, g.y - 2.2, rw, 4.4, 2.2, 2.2, 'FD');
+      doc.setTextColor(32, 30, 30); doc.text(txt, g.x, g.y + 0.8, { align: 'center' });
+    }
     doc.saveGraphicsState && doc.restoreGraphicsState();
     doc.setFontSize(7); doc.setTextColor(120); doc.setFont('helvetica', 'normal'); doc.text('Talhão em verde · pontos da visita numerados · demais talhões da fazenda em branco', x + 2, y + h - 2);
     return true;
@@ -2677,7 +2696,7 @@
     if (m.amostras_detalhe && m.amostras_detalhe.length) { doc.autoTable({ startY: y, margin: { left: M, right: M }, head: [['Amostra', 'Alvo', 'Medida', 'Valor', 'Nível']], body: m.amostras_detalhe.map(a => [a.amostra, a.alvo || '', a.medida || '', String(a.valor ?? '—').replace('.', ','), a.nivel || '']), theme: 'striped', headStyles: head, styles: { fontSize: 8, textColor: TINTA } }); y = doc.lastAutoTable.finalY + 6; }
     const tit = (s) => { if (y > 270) { doc.addPage(); y = 18; } doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...TINTA); doc.text(s, M, y); y += 5; };
     if (m.obs) { tit('Observações e recomendações'); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...TINTA); const ln = doc.splitTextToSize(m.obs, W - 2 * M); for (const l of ln) { if (y > 280) { doc.addPage(); y = 18; } doc.text(l, M, y); y += 4.6; } y += 4; }
-    const pts = (m.pontos || []).filter(q => q.lat != null && q.lng != null).map(q => ({ lat: num(q.lat), lng: num(q.lng) }));
+    const pts = (m.pontos || []).map((q, i) => ({ lat: q.lat == null ? null : num(q.lat), lng: q.lng == null ? null : num(q.lng), n: i + 1 })).filter(q => q.lat != null && q.lng != null && (q.lat || q.lng)); // mantém o número do ponto igual ao das fotos
     if (t && t.geometry) { if (y > 190) { doc.addPage(); y = 18; } tit('Mapa do talhão'); if (mapaPDF(doc, M, y, W - 2 * M, 72, t, pts)) y += 78; }
     const fotos = (m.pontos || []).map((q, i) => Object.assign({ n: i + 1 }, q)).filter(q => q.foto);
     if (fotos.length) {
