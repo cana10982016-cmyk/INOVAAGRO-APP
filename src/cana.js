@@ -7,26 +7,36 @@ window.CANA = (function () {
   // leitura: 'pct' (percentual 0–100), 'cont' (contagem / número), 'pres' (presença: 1 = sim, 0 = não)
   const C = [
     // ---- Pragas ----
-    { id: 'broca', g: 'Pragas', nome: 'Broca-da-cana', sci: 'Diatraea saccharalis', un: '% de entrenós brocados (II)', lt: 'pct', am: 2, vm: 3,
+    { id: 'broca', g: 'Pragas', nome: 'Broca-da-cana', apel: 'broca comum broca do colmo', sci: 'Diatraea saccharalis', un: '% de entrenós brocados (II)', lt: 'pct', am: 2, vm: 3,
       prot: 'Abra 20 colmos seguidos por ponto e conte os entrenós totais e os brocados. Intensidade de infestação = brocados ÷ total × 100.' },
-    { id: 'broca_lag', g: 'Pragas', nome: 'Broca-da-cana (lagartas)', sci: 'Diatraea saccharalis', un: 'lagartas por hora-homem', lt: 'cont', am: 400, vm: 800,
-      prot: 'Procure lagartas nos colmos durante 1 hora por homem. Usado para decidir a liberação de Cotesia flavipes.' },
-    { id: 'cigarrinha', g: 'Pragas', nome: 'Cigarrinha-das-raízes', sci: 'Mahanarva fimbriolata', un: 'ninfas por metro', lt: 'cont', am: 2, vm: 4,
+    { id: 'broquinha', g: 'Pragas', nome: 'Broquinha (Diatraea < 1,5 cm)', apel: 'broquinha broca pequena lagarta pequena diatraea', sci: 'Diatraea saccharalis', un: 'lagartas < 1,5 cm por hora-homem', lt: 'cont', am: 5, vm: 10,
+      prot: 'Lagartas novas, menores que 1,5 cm, ainda raspando as folhas e a bainha antes de entrar no colmo. É a fase do controle químico. Procure nas plantas durante 1 hora por homem e conte só as lagartas com menos de 1,5 cm. Lance o total por hora-homem.' },
+    { id: 'broca_lag', g: 'Pragas', nome: 'Broca (Diatraea ≥ 1,5 cm)', apel: 'broca grande lagarta grande diatraea cotesia', sci: 'Diatraea saccharalis', un: 'lagartas ≥ 1,5 cm por hora-homem', lt: 'cont', am: 5, vm: 10,
+      prot: 'Lagartas com 1,5 cm ou mais, já dentro do colmo. É a fase do controle biológico com Cotesia flavipes. Abra os colmos atacados durante 1 hora por homem e conte as lagartas com 1,5 cm ou mais. Lance o total por hora-homem.' },
+    { id: 'cigarrinha', g: 'Pragas', nome: 'Cigarrinha-das-raízes', apel: 'cigarrinha espuma', sci: 'Mahanarva fimbriolata', un: 'ninfas por metro', lt: 'cont', am: 2, vm: 4,
       prot: 'Afaste a palha da base da touceira em 2 m de sulco e conte as espumas com ninfas. Divida por 2 para ter ninfas por metro.' },
-    { id: 'sphenophorus', g: 'Pragas', nome: 'Bicudo-da-cana (Sphenophorus)', sci: 'Sphenophorus levis', un: '% de tocos atacados', lt: 'pct', am: 5, vm: 10,
+    { id: 'sphenophorus', g: 'Pragas', nome: 'Bicudo-da-cana (Sphenophorus)', apel: 'bicudo sphenophorus gorgulho', sci: 'Sphenophorus levis', un: '% de tocos atacados', lt: 'pct', am: 5, vm: 10,
       prot: 'Abra trincheiras de 1 m × 0,5 m sobre a linha e examine 20 tocos. Conte os tocos com galerias ou larvas.' },
     { id: 'migdolus', g: 'Pragas', nome: 'Migdolus', sci: 'Migdolus fryanus', un: 'larvas por trincheira', lt: 'cont', am: 1, vm: 2,
       prot: 'Trincheira de 0,5 m × 0,5 m × 0,5 m no sulco. Conte as larvas encontradas.' },
     { id: 'cupins', g: 'Pragas', nome: 'Cupins de solo', sci: 'Heterotermes, Neocapritermes, Procornitermes', un: '% de trincheiras com cupins', lt: 'pct', am: 10, vm: 25,
       prot: 'Abra trincheiras no talhão (antes do plantio ou na reforma) e anote se há cupins em cada uma.' },
-    { id: 'elasmo', g: 'Pragas', nome: 'Lagarta-elasmo', sci: 'Elasmopalpus lignosellus', un: '% de perfilhos com coração morto', lt: 'pct', am: 2, vm: 5,
-      prot: 'Em 10 m de sulco, conte os perfilhos totais e os com coração morto (mais comum em época seca).' },
+    { id: 'elasmo', g: 'Pragas', nome: 'Lagarta-elasmo', apel: 'elasmo coracao morto', sci: 'Elasmopalpus lignosellus', un: '% de perfilhos com coração morto', lt: 'pct', am: 2, vm: 5,
+      prot: 'Ataca a base de brotos novos em cana-planta e soca jovem, principalmente na seca. Em 10 m de sulco, conte os perfilhos totais e os com coração morto e furo na base. % = atacados ÷ total × 100.' },
     { id: 'broca_gigante', g: 'Pragas', nome: 'Broca-gigante', sci: 'Telchin licus', un: '% de touceiras atacadas', lt: 'pct', am: 1, vm: 3,
       prot: 'Examine 50 touceiras seguidas e conte as que têm colmos com galeria larga e serragem.' },
     { id: 'pulgao', g: 'Pragas', nome: 'Pulgão-amarelo', sci: 'Sipha flava', un: '% de folhas infestadas', lt: 'pct', am: 20, vm: 40,
       prot: 'Examine a folha +1 de 25 plantas e conte as que têm colônias.' },
     { id: 'cigarrinha_folha', g: 'Pragas', nome: 'Cigarrinha-da-folha', sci: 'Mahanarva posticata', un: 'adultos por colmo', lt: 'cont', am: 1, vm: 2,
       prot: 'Conte os adultos nas folhas de 20 colmos e divida pelo número de colmos.' },
+    { id: 'cartucho', g: 'Pragas', nome: 'Lagarta-do-cartucho', apel: 'spodoptera lagarta militar', sci: 'Spodoptera frugiperda', un: '% de plantas com cartucho atacado', lt: 'pct', am: 10, vm: 20,
+      prot: 'Em cana jovem, examine 20 plantas seguidas por ponto e conte as que têm folhas raspadas ou furadas no cartucho, com lagarta viva.' },
+    { id: 'percevejo_castanho', g: 'Pragas', nome: 'Percevejo-castanho', apel: 'percevejo castanho da raiz', sci: 'Scaptocoris castanea', un: 'percevejos por trincheira', lt: 'cont', am: 2, vm: 5,
+      prot: 'Abra trincheiras de 0,5 m × 0,5 m × 0,3 m na linha, procure em reboleiras de cana amarelada e conte ninfas e adultos (cheiro forte).' },
+    { id: 'coros', g: 'Pragas', nome: 'Corós (pão-de-galinha)', apel: 'coro pao de galinha bicho bolo', sci: 'Liogenys, Phyllophaga, Cyclocephala spp.', un: 'larvas por trincheira', lt: 'cont', am: 2, vm: 5,
+      prot: 'Trincheira de 0,5 m × 0,5 m × 0,3 m na linha. Conte as larvas brancas em forma de C.' },
+    { id: 'mocis', g: 'Pragas', nome: 'Lagarta-curuquerê-dos-capinzais', apel: 'mocis lagarta desfolhadora curuquere', sci: 'Mocis latipes', un: '% de desfolha', lt: 'pct', am: 15, vm: 30,
+      prot: 'Avalie 10 plantas por ponto e estime a área das folhas comida pelas lagartas.' },
     { id: 'formiga', g: 'Pragas', nome: 'Formigas cortadeiras', sci: 'Atta spp.', un: 'formigueiros ativos por hectare', lt: 'cont', am: 1, vm: 2,
       prot: 'Percorra o talhão e conte os formigueiros ativos (olheiros com movimento).' },
     { id: 'nematoides', g: 'Pragas', nome: 'Nematoides', sci: 'Pratylenchus zeae, Meloidogyne javanica', un: 'nematoides por 10 g de raízes (laudo)', lt: 'cont', am: null, vm: null,
@@ -71,6 +81,7 @@ window.CANA = (function () {
   const porId = new Map(C.map(x => [x.id, x]));
   const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
   const porNome = new Map(C.map(x => [norm(x.nome), x]));
+  porNome.set(norm('Broca-da-cana (lagartas)'), porId.get('broca_lag')); // nome antigo
   return {
     itens: C, GRUPOS, TIPO_MON, ESTADIOS, CORTES, NIVEL, SEMAF,
     get: id => porId.get(id) || null,

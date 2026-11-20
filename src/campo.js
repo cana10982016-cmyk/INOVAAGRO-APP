@@ -620,7 +620,7 @@ window.Campo = (function () {
       let h = '';
       if (!q && usados.length) h += `<h4>Usados por último</h4><div class="cp-catl">${usados.map(b).join('')}</div>`;
       for (const g of CN().GRUPOS) {
-        const l = CN().itens.filter(it => it.g === g && (!q || norm(it.nome + ' ' + it.sci).includes(q)));
+        const l = CN().itens.filter(it => it.g === g && (!q || norm(it.nome + ' ' + it.sci + ' ' + (it.apel || '')).includes(q)));
         if (l.length) h += `<h4>${g}</h4><div class="cp-catl">${l.map(b).join('')}</div>`;
       }
       $('#cp-clist').innerHTML = (h || '<p class="cp-mut">Nada encontrado com esse nome.</p>') + `<button class="cp-btn cp-outro" data-cp="am-livre">Outro alvo (digitar o nome)</button>`;
