@@ -1139,6 +1139,8 @@ a.tile:hover { border-color: var(--brand-2); }
 .ctrl-res { display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 #ctrl-out { text-align: right; font-size: 13px; }
 #ctrl-out b { font-size: 16px; }
+.alertas { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-bottom: 10px; }
+.alertas .pill { font-size: 12.5px; padding: 3px 9px; }
 
 </style>
 <aside class="nav" id="nav" aria-label="Menu principal">
@@ -1402,6 +1404,8 @@ a.tile:hover { border-color: var(--brand-2); }
       { k: 'fazenda_id', l: 'Fazenda', t: 'fazenda', full: 1 },
       { k: 'lat', l: 'Latitude', t: 'number' }, { k: 'lng', l: 'Longitude', t: 'number' },
       { k: 'raio_ha', l: 'Área de cobertura (ha)', t: 'number' },
+      { k: 'raio_km', l: 'Raio de abrangência (km)', t: 'number', ph: 'Padrão: 5 km' },
+      { k: 'talhao_ids', l: 'Talhões atendidos (se vazio, usa o raio)', t: 'talhoes', full: 1 },
       { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
     ],
     chuvas: [
@@ -2178,8 +2182,9 @@ a.tile:hover { border-color: var(--brand-2); }
         <div id="cl-aviso"></div>
         <section class="card-box"><h3>Previsão e últimos 30 dias <small>fonte: Open-Meteo</small></h3>
           <div class="toolbar"><select id="cl-faz" aria-label="Fazenda"></select></div><div id="cl-prev"><p class="muted">Escolha uma fazenda.</p></div></section>
-        <section class="card-box"><h3>Chuvas registradas <small id="cl-tot"></small></h3><div class="table-wrap"><table><thead><tr><th>Data</th><th>Pluviômetro</th><th class="r">mm</th><th>Granizo</th><th>Geada</th><th>Vento</th><th>Observações</th></tr></thead><tbody id="cl-tb"></tbody></table></div></section></div>`;
-      $('#cl-faz').addEventListener('change', e => { CL.faz = e.target.value; desenharPrev(); });
+        <section class="card-box"><h3>Chuvas registradas <small id="cl-tot"></small></h3><div class="table-wrap"><table><thead><tr><th>Data</th><th>Pluviômetro</th><th class="r">mm</th><th>Granizo</th><th>Geada</th><th>Vento</th><th>Observações</th></tr></thead><tbody id="cl-tb"></tbody></table></div></section>
+        <section class="card-box"><h3>Chuva acumulada por talhão <small id="cl-acu-s"></small></h3><p class="muted" style="margin:0;font-size:13px">Cada talhão usa o pluviômetro que o atende (escolhido no cadastro do pluviômetro), ou o mais próximo dentro do raio, ou o da mesma fazenda.</p><div class="table-wrap"><table><thead><tr><th>Talhão</th><th>Pluviômetro</th><th class="r">7 dias</th><th class="r">30 dias</th><th class="r">Na safra atual</th><th>Último registro</th></tr></thead><tbody id="cl-acu"></tbody></table></div></section></div>`;
+      $('#cl-faz').addEventListener('change', e => { CL.faz = e.target.value; desenharPrev(); acumulados(); });
       $('#cl-tb').addEventListener('click', e => { const tr = e.target.closest('tr[data-row]'); if (tr) openForm('chuvas', get('chuvas', tr.dataset.row)); });
     }
     $('#cl-aviso').innerHTML = S.faltaTabela ? avisoBanco() : '';
@@ -2190,7 +2195,41 @@ a.tile:hover { border-color: var(--brand-2); }
     $('#cl-tot').textContent = fmtInt(ch.length) + ' registros · ' + fmtHa0(ch.reduce((a, x) => a + num(x.mm), 0)) + ' mm no total';
     const sn = v => v === 'Sim' ? '<span class="pill warn">Sim</span>' : '<span class="muted">Não</span>';
     $('#cl-tb').innerHTML = ch.map(c => `<tr data-row="${esc(c.id)}"><td>${fmtDate(c.data)}</td><td>${esc(nomeRef('pluviometros', c.pluviometro_id))}</td><td class="r">${esc(String(c.mm ?? '—').replace('.', ','))}</td><td>${sn(c.granizo)}</td><td>${sn(c.geada)}</td><td>${sn(c.vento_forte)}</td><td class="wrap">${esc(c.obs || '')}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Nenhum registro de chuva.</td></tr>';
-    desenharPrev();
+    desenharPrev(); acumulados();
+  }
+  function distKm(a, b) { const R = 6371, r = x => x * Math.PI / 180, dl = r(b[0] - a[0]), dg = r(b[1] - a[1]); const h = Math.sin(dl / 2) ** 2 + Math.cos(r(a[0])) * Math.cos(r(b[0])) * Math.sin(dg / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); }
+  function pluvDoTalhao(t) {
+    const pv = S.data.pluviometros, k = key(t.id);
+    const exp = pv.find(p => (p.talhao_ids || []).some(x => key(x) === k)); if (exp) return exp;
+    const c = centroTal(t);
+    if (c) { let best = null, bd = 1e9; for (const p of pv) { if (p.lat == null || p.lng == null) continue; const d = distKm(c, [num(p.lat), num(p.lng)]); if (d <= (num(p.raio_km) || 5) && d < bd) { bd = d; best = p; } } if (best) return best; }
+    return pv.find(p => key(p.fazenda_id) === key(t.fazenda_id)) || null;
+  }
+  function acumulados() {
+    const tb = $('#cl-acu'); if (!tb) return;
+    const ts = (S.talPorFaz.get(CL.faz) || []).slice().sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true }));
+    const soma = (cs, f) => cs.filter(f).reduce((a, c) => a + num(c.mm), 0), mm = v => v.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mm';
+    let semPv = 0;
+    tb.innerHTML = ts.map(t => {
+      const p = pluvDoTalhao(t); if (!p) { semPv++; return `<tr><td>${esc(nomeTal(t))}</td><td class="muted" colspan="5">Sem pluviômetro</td></tr>`; }
+      const cs = S.data.chuvas.filter(c => key(c.pluviometro_id) === key(p.id)), cult = culturaAtual(t), ini = cult?.data_plantio || '';
+      const ult = cs.map(c => c.data).sort().pop();
+      return `<tr><td>${esc(nomeTal(t))}</td><td>${esc(p.nome)}</td><td class="r">${mm(soma(cs, c => diasDesde(c.data) <= 7))}</td><td class="r">${mm(soma(cs, c => diasDesde(c.data) <= 30))}</td><td class="r">${ini ? mm(soma(cs, c => (c.data || '') >= ini)) : '<span class="muted">sem plantio</span>'}</td><td>${ult ? fmtDate(ult) : '—'}</td></tr>`;
+    }).join('') || '<tr><td colspan="6" class="muted">Fazenda sem talhões.</td></tr>';
+    $('#cl-acu-s').textContent = fmtInt(ts.length) + ' talhões' + (semPv ? ' · ' + fmtInt(semPv) + ' sem pluviômetro' : '');
+  }
+  function alertasClima(fut) {
+    const out = [], dd = t => new Date(t + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' });
+    for (const x of fut) {
+      if (x.min != null && x.min <= 3) out.push(['bad', 'Risco de geada', dd(x.t) + ': mínima de ' + Math.round(x.min) + ' °C']);
+      if (num(x.mm) >= 30) out.push(['warn', 'Chuva forte', dd(x.t) + ': ' + Math.round(x.mm) + ' mm previstos']);
+      if (num(x.vento) >= 40) out.push(['warn', 'Vento forte', dd(x.t) + ': até ' + Math.round(x.vento) + ' km/h']);
+      if (x.max != null && x.max >= 36) out.push(['warn', 'Calor extremo', dd(x.t) + ': máxima de ' + Math.round(x.max) + ' °C']);
+    }
+    const seco = fut.filter(x => num(x.mm) < 1).length;
+    if (fut.length >= 7 && seco === fut.length) out.push(['info', 'Sem chuva prevista', 'nenhum dia com chuva nos próximos ' + fut.length + ' dias']);
+    const apl = fut.filter(x => num(x.mm) < 1 && num(x.vento) < 15).length;
+    return `<div class="alertas">${out.length ? out.map(([c, t, d]) => `<span class="pill ${c}"><b>${t}</b> · ${esc(d)}</span>`).join('') : '<span class="pill ok">Sem alertas de clima para os próximos dias</span>'}<span class="muted" style="font-size:12.5px">${apl} dia(s) bons para pulverizar (sem chuva e vento abaixo de 15 km/h)</span></div>`;
   }
   async function desenharPrev() {
     const el = $('#cl-prev'), f = get('fazendas', CL.faz); if (!el || !f) return;
@@ -2201,7 +2240,7 @@ a.tile:hover { border-color: var(--brand-2); }
     const fut = dias.filter(x => x.t >= hoje), pas = dias.filter(x => x.t < hoje);
     const tot30 = pas.reduce((a, x) => a + num(x.mm), 0), max = Math.max(1, ...pas.map(x => num(x.mm)));
     const dsem = t => new Date(t + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
-    el.innerHTML = `<div class="prev">${fut.map(x => `<div class="dia"><b>${esc(dsem(x.t))}</b><span class="mm">${num(x.mm).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mm</span><span class="muted">${x.prob != null ? x.prob + '% chance' : ''}</span><span>${Math.round(x.min)}° / ${Math.round(x.max)}°</span><span class="muted">vento ${Math.round(x.vento)} km/h</span></div>`).join('')}</div>
+    el.innerHTML = alertasClima(fut) + `<div class="prev">${fut.map(x => `<div class="dia"><b>${esc(dsem(x.t))}</b><span class="mm">${num(x.mm).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mm</span><span class="muted">${x.prob != null ? x.prob + '% chance' : ''}</span><span>${Math.round(x.min)}° / ${Math.round(x.max)}°</span><span class="muted">vento ${Math.round(x.vento)} km/h</span></div>`).join('')}</div>
       <h4 style="margin:6px 0 0;font-size:13px">Chuva nos últimos 30 dias: <span class="num">${tot30.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mm</span> <span class="muted" style="font-weight:400">(estimativa por satélite/modelo)</span></h4>
       <div class="hist" role="img" aria-label="Chuva diária nos últimos 30 dias">${pas.map(x => `<span title="${fmtDate(x.t)}: ${num(x.mm).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mm" style="height:${Math.max(2, num(x.mm) / max * 100)}%"></span>`).join('')}</div>`;
   }
@@ -2907,6 +2946,7 @@ a.tile:hover { border-color: var(--brand-2); }
       else if (o.status === 'Concluída' && diasDesde(o.data_conclusao) <= 15) out.push({ id: 'exe-' + o.id, tipo: 'atividades', data: o.data_conclusao, cor: '#2a78d6', t: `Ordem executada: ${o.titulo}`, d: f, go: 'ordens:' + o.id });
       else if (pendente(o) && o.data_emissao && diasDesde(o.data_emissao) <= 15) out.push({ id: 'emi-' + o.id, tipo: 'atividades', data: o.data_emissao, cor: '#7a4fd0', t: `Nova ordem emitida: ${o.titulo}`, d: f, go: 'ordens:' + o.id });
     }
+    for (const c of S.data.chuvas) { const ev = [c.granizo === 'Sim' && 'granizo', c.geada === 'Sim' && 'geada', c.vento_forte === 'Sim' && 'dano por vento'].filter(Boolean); if (ev.length && diasDesde(c.data) <= 15) out.push({ id: 'cev-' + c.id, tipo: 'atividades', data: c.data, cor: '#d03b3b', t: 'Alerta de clima: ' + ev.join(', '), d: nomeRef('pluviometros', c.pluviometro_id), go: 'chuvas:' + c.id }); }
     for (const c of S.data.chuvas) if (diasDesde(c.data) <= 7) out.push({ id: 'chu-' + c.id, tipo: 'atividades', data: c.data, cor: '#2a78d6', t: `Chuva registrada: ${String(c.mm).replace('.', ',')} mm`, d: nomeRef('pluviometros', c.pluviometro_id), go: 'chuvas:' + c.id });
     return out.sort((a, b) => (b.data || '').localeCompare(a.data || ''));
   }
