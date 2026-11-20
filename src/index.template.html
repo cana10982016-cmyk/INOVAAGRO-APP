@@ -2,26 +2,27 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="icon" type="image/png" href="{{FAVICON}}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <style>
 /*LEAFLET_CSS*/
 /*APP_CSS*/
 </style>
 <aside class="nav" id="nav" aria-label="Menu principal">
   <div class="nav-brand">
-    <img class="logo logo-claro" src="{{LOGO}}" alt="InovaAgro Consultoria Agrícola">
-    <img class="logo logo-escuro" src="{{LOGO_ESCURO}}" alt="InovaAgro Consultoria Agrícola">
+    <img class="ws-ic" src="{{ICONE}}" alt="">
+    <div class="ws-t"><b>InovaAgro</b><span>Consultoria Agrícola</span></div>
   </div>
+  <label class="nav-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="nav-q" placeholder="Buscar no menu" aria-label="Buscar no menu" autocomplete="off"><kbd>Ctrl K</kbd></label>
   <nav class="nav-links" id="nav-links"></nav>
   <div class="nav-foot" id="acct" hidden>
-    <div class="who"><b id="who-email"></b><span id="who-papel"></span></div>
+    <div class="nav-me"><span class="avatar sm" id="who-av"></span><div class="who"><b id="who-email"></b><span id="who-papel"></span></div></div>
     <div class="nav-foot-btns"><button class="btn small ghost" data-act="import" data-papel-min="admin">Importar dados</button><button class="btn small ghost" data-act="logout">Sair</button></div>
   </div>
 </aside>
 <div class="nav-scrim" data-act="nav-close"></div>
 <header class="topbar">
   <button class="icon-btn menu-btn" data-act="nav-open" aria-label="Abrir menu"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></button>
-  <h1 id="page-title">Painel</h1>
+  <div class="crumb"><span id="page-grp"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg><h1 id="page-title">Painel</h1></div>
   <a class="icon-btn bell" href="#notificacoes" aria-label="Notificações"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span class="badge" id="badge-bell" hidden></span></a>
   <div class="sync" id="sync" data-mode="local"><i></i><span>Carregando…</span></div>
   <input type="file" id="imp-file" accept=".json,application/json" hidden>

@@ -2,10 +2,6 @@
    Telas: Painel, Mapa, cadastros, Monitoramentos, Ordens, Relatórios (PDF/Excel) e Equipe (usuários e permissões). */
 (function () {
   'use strict';
-  // Aparência: direção visual escolhida (cada navegador pode trocar em Configuração)
-  const VISUAIS = { floresta: 'Floresta (menu escuro)', campo: 'Campo claro', terra: 'Terra (cabeçalho verde)' }, VISUAL_PADRAO = 'floresta';
-  const visualAtual = () => { try { const v = localStorage.getItem('inovaagro.visual'); return VISUAIS[v] ? v : VISUAL_PADRAO; } catch (e) { return VISUAL_PADRAO; } };
-  document.documentElement.dataset.visual = visualAtual();
 
   // ---------- Configuração dos cadastros ----------
   const CULTURAS = ['Soja', 'Milho', 'Milho safrinha', 'Sorgo', 'Feijão', 'Algodão', 'Cana-de-açúcar', 'Café', 'Trigo', 'Pastagem', 'Pousio', 'Outra'];
@@ -360,7 +356,7 @@
     $('span', el).textContent = Store.mode === 'supabase' ? 'Online' : Store.mode === 'nuvem' ? 'Salvo na nuvem' : 'Salvo neste navegador';
     el.dataset.mode = Store.mode === 'local' ? 'local' : 'nuvem';
     $('#acct').hidden = Store.mode !== 'supabase';
-    if (SB.user) { $('#who-email').textContent = SB.user.email; $('#who-papel').textContent = PAPEIS[S.papel]?.l || S.papel; }
+    if (SB.user) { $('#who-av').textContent = SB.user.email.slice(0, 2).toUpperCase(); $('#who-email').textContent = SB.user.email; $('#who-papel').textContent = PAPEIS[S.papel]?.l || S.papel; }
   }
   function setPapel(p) { S.papel = PAPEIS[p] ? p : 'editor'; document.body.dataset.papel = S.papel; renderNav(); setSync(); }
 
@@ -477,7 +473,7 @@
     satelite: '<rect x="9" y="9" width="6" height="6" rx="1" transform="rotate(45 12 12)"/><path d="M4 4l4 4M16 16l4 4M5 13l-2 2 6 6 2-2M13 5l2-2 6 6-2 2"/>',
     print: '<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>',
   };
-  const icon = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n] || IC[ORD_ICON[n]] || IC.ordens}</svg>`;
+  const icon = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n] || IC[ORD_ICON[n]] || IC.ordens}</svg>`;
   const ORD_ICON = { 'ord-aplicacoes': 'aplicacao', 'ord-plantio': 'safras', 'ord-colheita': 'colheita', 'ord-fertilizacao': 'insumos', 'ord-tratos': 'tratos', 'ord-outros': 'ordens' };
   const NAV = [
     ['painel', 'Início'], ['feed', 'Feed'], ['notificacoes', 'Notificações'], ['mapa', 'Mapa'],
@@ -490,15 +486,29 @@
     'Silo bag', ['silobolsas', 'Silobolsas'], ['depositos', 'Depósitos'],
   ];
   const TITULO = Object.fromEntries(NAV.filter(Array.isArray));
+  const GRUPO = {}; { let g = ''; for (const n of NAV) if (Array.isArray(n)) GRUPO[n[0]] = g; else g = n; }
+  const NAV_CT = ['produtores', 'fazendas', 'talhoes'];
   const mostraEquipe = () => S.papel === 'admin' || S.equipePendente;
   const soAdmin = { equipe: 1, importar: 1 };
   function renderNav() {
     $('#nav-links').innerHTML = NAV.map(n => {
       if (!Array.isArray(n)) return `<div class="grp">${n}</div>`;
       if (soAdmin[n[0]] && !mostraEquipe()) return '';
-      return `<a href="#${n[0]}" data-nav="${n[0]}">${icon(n[0])}<span>${n[1]}</span>${n[0] === 'ordens' ? '<span class="badge" id="badge-ordens" hidden></span>' : n[0] === 'notificacoes' ? '<span class="badge" id="badge-not" hidden></span>' : ''}</a>`;
+      return `<a href="#${n[0]}" data-nav="${n[0]}">${icon(n[0])}<span>${n[1]}</span>${NAV_CT.includes(n[0]) && S.data[n[0]] ? `<span class="ct num">${fmtInt(S.data[n[0]].length)}</span>` : ''}${n[0] === 'ordens' ? '<span class="badge" id="badge-ordens" hidden></span>' : n[0] === 'notificacoes' ? '<span class="badge" id="badge-not" hidden></span>' : ''}</a>`;
     }).join('');
-    markNav(); updateBadges();
+    markNav(); updateBadges(); filtraNav();
+  }
+  function filtraNav() {
+    const norm = t => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const q = norm($('#nav-q')?.value || '');
+    let grp = null, vis = 0;
+    const fecha = () => { if (grp) grp.hidden = !vis; };
+    for (const el of $('#nav-links').children) {
+      if (el.classList.contains('grp')) { fecha(); grp = el; vis = 0; continue; }
+      const ok = !q || norm(el.textContent).includes(q) || norm(GRUPO[el.dataset.nav] || '').includes(q);
+      el.hidden = !ok; if (ok) vis++;
+    }
+    fecha();
   }
   function markNav() { document.querySelectorAll('#nav-links a').forEach(a => { if (a.dataset.nav === current) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }); }
   function updateBadges() {
@@ -518,6 +528,7 @@
     document.querySelectorAll('.view').forEach(el => el.hidden = el.id !== 'v-' + name);
     current = name; markNav();
     $('#page-title').textContent = TITULO[name] || 'INOVAAGRO';
+    $('#page-grp').textContent = GRUPO[name] || 'Geral';
     document.title = (TITULO[name] ? TITULO[name] + ' · ' : '') + 'INOVAAGRO';
     document.body.classList.remove('nav-open');
     VIEWS[name](true);
@@ -2246,7 +2257,7 @@
     root.innerHTML = `<div class="page"><div class="page-head"><div><h2>${tit[0]}</h2><p>${tit[1]}</p></div>${podeEditar() && (S.papel === 'admin' || Store.mode !== 'supabase') ? `<button class="btn primary" data-cfg-edit="${id}">Editar</button>` : ''}</div>
       ${S.faltaTabela ? avisoBanco() : ''}
       <section class="card-box"><dl class="facts">${F.map(f => `<dt>${f.l}</dt><dd>${r[f.k] != null && r[f.k] !== '' ? esc(String(r[f.k])) : '<span class="muted">—</span>'}</dd>`).join('')}</dl></section>
-      ${id === 'sociedade' ? '<p class="muted" style="font-size:13px">O logotipo usado nos PDFs é o mesmo do sistema.</p>' : `<section class="card-box"><h3>Aparência <small>vale para este navegador</small></h3><div class="seg" role="group" aria-label="Aparência">${Object.entries(VISUAIS).map(([k, l]) => `<button data-visual="${k}" aria-pressed="${k === visualAtual()}">${l}</button>`).join('')}</div></section>`}</div>`;
+      ${id === 'sociedade' ? '<p class="muted" style="font-size:13px">O logotipo usado nos PDFs é o mesmo do sistema.</p>' : ''}</div>`;
   }
   function viewSociedade() { viewCfg('sociedade'); }
   function viewConfiguracao() { viewCfg('preferencias'); }
@@ -2499,7 +2510,6 @@
 
   document.addEventListener('click', e => {
     const lg = e.target.closest('[data-leg]'); if (lg) { const n = lg.dataset.leg; if (S.ocultos.has(n)) S.ocultos.delete(n); else S.ocultos.add(n); styleAll(); drawLegend(); return; }
-    const vb = e.target.closest('button[data-visual]'); if (vb) { try { localStorage.setItem('inovaagro.visual', vb.dataset.visual); } catch (err) { } document.documentElement.dataset.visual = vb.dataset.visual; viewConfiguracao(); return; }
     if (e.target.closest('[data-kml]')) { importarContornos(); return; }
     const ce = e.target.closest('[data-cfg-edit]'); if (ce) { const id = ce.dataset.cfgEdit; openForm('config', Object.assign({ id }, conf(id)), null, { fields: CFG_FIELDS[id] }); return; }
     const no = e.target.closest('[data-new-ord]'); if (no) { openForm('ordens', null, { status: 'Planejada', tipo: no.dataset.newOrd || undefined, data_prevista: today(), data_emissao: today(), vazao_l_ha: conf('preferencias').vazao_padrao ?? undefined, carencia_dias: conf('preferencias').carencia_padrao ?? undefined }); return; }
@@ -2542,6 +2552,9 @@
   document.addEventListener('change', e => { if (e.target.closest('#v-equipe')) acaoEquipe(e); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = $('.modal-bg'); if (m) m.remove(); document.body.classList.remove('nav-open'); } });
   $('#q-mapa').addEventListener('input', renderTree);
+  $('#nav-q').addEventListener('input', filtraNav);
+  $('#nav-q').addEventListener('keydown', e => { if (e.key === 'Enter') { const a = [...$('#nav-links').querySelectorAll('a')].find(x => !x.hidden); if (a) { location.hash = a.dataset.nav; e.target.value = ''; filtraNav(); e.target.blur(); } } });
+  document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); document.body.classList.add('nav-open'); $('#nav-q').focus(); } });
   $('#color-by').addEventListener('change', e => { S.colorBy = e.target.value; S.ocultos.clear(); styleAll(); drawLegend(); renderTree(); if (map) drawLayers(); });
   window.addEventListener('hashchange', route);
 
@@ -2569,6 +2582,6 @@
     route();
     $('#loading').hidden = true;
     await Store.init();
-    rebuild(); refresh();
+    rebuild(); renderNav(); refresh();
   })();
 })();

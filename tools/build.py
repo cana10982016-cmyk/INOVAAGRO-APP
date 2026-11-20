@@ -3,7 +3,7 @@ import base64, json, os
 R = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 rd = lambda p: open(os.path.join(R, p), encoding='utf-8').read()
 b64 = lambda p: 'data:image/png;base64,' + base64.b64encode(open(os.path.join(R, p), 'rb').read()).decode()
-ASSETS = {'{{LOGO}}': 'assets/logo.png', '{{LOGO_ESCURO}}': 'assets/logo-escuro.png', '{{FAVICON}}': 'assets/favicon.png'}
+ASSETS = {'{{LOGO}}': 'assets/logo.png', '{{LOGO_ESCURO}}': 'assets/logo-escuro.png', '{{FAVICON}}': 'assets/favicon.png', '{{ICONE}}': 'assets/icone.png'}
 html = (rd('src/index.template.html')
         .replace('/*LEAFLET_CSS*/', rd('src/leaflet.css'))
         .replace('/*APP_CSS*/', rd('src/app.css'))
