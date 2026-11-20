@@ -1,4 +1,4 @@
-<title>Gleba</title>
+<title>INOVAAGRO</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&display=swap">
@@ -12,6 +12,8 @@
     <a href="#mapa">Mapa</a><a href="#produtores">Produtores</a><a href="#fazendas">Fazendas</a><a href="#talhoes">Talhões</a><a href="#safras">Safras</a><a href="#monitoramentos">Monitoramentos</a><a href="#ordens">Ordens de trabalho</a>
   </nav>
   <div class="sync" id="sync" data-mode="local"><i></i><span>Carregando…</span></div>
+  <div id="acct" hidden style="display:flex;gap:6px"><button class="btn small" data-act="import">Importar dados</button><button class="btn small" data-act="logout">Sair</button></div>
+  <input type="file" id="imp-file" accept=".json,application/json" hidden>
 </header>
 <main>
   <section class="view" id="v-mapa">
@@ -38,9 +40,20 @@
   <section class="view" id="v-safras" hidden></section>
   <section class="view" id="v-monitoramentos" hidden></section>
   <section class="view" id="v-ordens" hidden></section>
+  <div id="login" hidden class="login-bg"><form id="login-form" class="login-card">
+    <div class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" rx="7" fill="var(--accent)"/><path d="M7 22c4-1 7-4 9-9m-9 4c3-.6 5-2.6 6.4-5.6M11 25c5-1.5 9-5.5 11.5-12M17 25.5c3-2 5.5-5.2 7-9.5" fill="none" stroke="var(--accent-fg)" stroke-width="1.8" stroke-linecap="round"/></svg>INOVAAGRO</div>
+    <p class="muted" style="margin:0">Entre com seu e-mail e senha.</p>
+    <label class="field"><span>E-mail</span><input type="text" inputmode="email" autocomplete="username" id="lg-email" required></label>
+    <label class="field"><span>Senha</span><input type="password" autocomplete="current-password" id="lg-senha" required style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface)"></label>
+    <button class="btn primary" type="submit" style="justify-content:center">Entrar</button>
+    <button class="btn" type="submit" data-criar="1" style="justify-content:center">Primeiro acesso: criar minha senha</button>
+    <button class="btn" type="button" id="login-out" hidden data-act="logout" style="justify-content:center">Sair</button>
+    <p id="login-msg" class="muted" role="status" style="margin:0;min-height:1.2em"></p>
+  </form></div>
   <div id="loading" style="position:absolute;inset:0;display:grid;place-items:center;background:var(--bg);z-index:1500"><p class="muted">Carregando fazendas e talhões…</p></div>
 </main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<!--HOSTED_SCRIPTS-->
 <script>
 /*APP_JS*/
 </script>
