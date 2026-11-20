@@ -498,3 +498,7 @@ a.tile:hover { border-color: var(--brand-2); }
 .fz-list summary { cursor: pointer; padding: 4px 0; }
 .fz-it { display: flex; gap: 8px; align-items: center; padding: 3px 0 3px 26px; font-size: 13.5px; }
 .head-acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.exec-ed { display: grid; gap: 6px; }
+.exec-t { min-width: 520px; }
+.exec-t tfoot td { padding: 6px 4px; border-top: 1px solid var(--line); }
+.sec-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }

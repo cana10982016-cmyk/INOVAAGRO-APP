@@ -1147,6 +1147,10 @@ a.tile:hover { border-color: var(--brand-2); }
 .fz-list summary { cursor: pointer; padding: 4px 0; }
 .fz-it { display: flex; gap: 8px; align-items: center; padding: 3px 0 3px 26px; font-size: 13.5px; }
 .head-acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.exec-ed { display: grid; gap: 6px; }
+.exec-t { min-width: 520px; }
+.exec-t tfoot td { padding: 6px 4px; border-top: 1px solid var(--line); }
+.sec-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 </style>
 <aside class="nav" id="nav" aria-label="Menu principal">
@@ -1307,6 +1311,7 @@ a.tile:hover { border-color: var(--brand-2); }
       { k: 'status', l: 'Situação', t: 'select', opts: STATUS, req: 1 },
       { k: 'fazenda_id', l: 'Fazenda', t: 'fazenda', req: 1, full: 1 },
       { k: 'talhao_ids', l: 'Talhões', t: 'talhoes', full: 1 },
+      { k: 'talhoes_detalhe', l: 'Execução por talhão', t: 'exec', full: 1 },
       { k: 'data_prevista', l: 'Data prevista', t: 'date' },
       { k: 'data_conclusao', l: 'Data de conclusão', t: 'date' },
       { k: 'responsavel', l: 'Responsável / operador' },
@@ -2552,6 +2557,7 @@ a.tile:hover { border-color: var(--brand-2); }
       case 'ref': input = `<select id="${id}" name="${f.k}"${req}><option value="">Selecione…</option>${(S.data[f.kind] || []).slice().sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR')).map(r => `<option value="${esc(r.id)}" ${key(r.id) === key(v) ? 'selected' : ''}>${esc(r.nome || r.codigo || r.id)}</option>`).join('')}</select>`; break;
       case 'tags': { const sel = new Set(v || []); const tg = S.data.etiquetas.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR')); return `<div class="field full" style="display:grid;gap:4px"><span style="font-size:13px;font-weight:500;color:var(--muted)">${f.l}</span><div class="tagpick">${tg.map(t => `<label class="tag" style="--tag:${TAG_COR[t.cor] || OUTROS}"><input type="checkbox" name="${f.k}" value="${esc(t.nome)}" ${sel.has(t.nome) ? 'checked' : ''}> ${esc(t.nome)}</label>`).join('') || '<span class="muted" style="font-size:13px">Nenhuma etiqueta cadastrada. Crie em Administração → Etiquetas.</span>'}</div></div>`; }
       case 'produtos': return produtosHtml(v);
+      case 'exec': return '<div class="field full exec-ed" data-exec></div>';
       case 'calc': return '<div class="field full ctrl-ed" data-ctrl></div>';
       case 'talhoes': return `<div class="field full" style="display:grid;gap:4px"><span style="font-size:13px;font-weight:500;color:var(--muted)">${f.l}</span><div class="checks" id="${id}">${v}</div></div>`;
       default: input = `<input type="text" id="${id}" name="${f.k}" value="${esc(v)}"${ph}${req}>`;
@@ -2575,7 +2581,7 @@ a.tile:hover { border-color: var(--brand-2); }
     if (kind === 'ordens') {
       const cond = [['Vazão', r.vazao_l_ha, ' L/ha'], ['Temperatura', r.temperatura_c, ' °C'], ['Umidade', r.umidade_pct, '%'], ['Vento', r.vento_kmh, ' km/h']].filter(x => x[1] != null);
       if (r.data_confirmacao) rows.push(['Confirmada em', fmtDate(r.data_confirmacao)]);
-      if (r.talhoes_detalhe) rows.push(['Área por talhão', tabela(['Talhão', 'Planejada (ha)', 'Aplicada (ha)'], r.talhoes_detalhe.map(x => [esc(nomeTal(get('talhoes', x.talhao_id))), fmtHa(x.area_planejada), x.area_aplicada != null ? fmtHa(x.area_aplicada) : '—']))]);
+      if (r.talhoes_detalhe && !FIELDS.ordens.some(f => f.t === 'exec')) rows.push(['Área por talhão', tabela(['Talhão', 'Planejada (ha)', 'Aplicada (ha)'], r.talhoes_detalhe.map(x => [esc(nomeTal(get('talhoes', x.talhao_id))), fmtHa(x.area_planejada), x.area_aplicada != null ? fmtHa(x.area_aplicada) : '—']))]);
       if (r.aplicacoes) rows.push(['Aplicado no campo', tabela(['Data', 'Talhão', 'Produto', 'Dose', 'Área (ha)', 'Total'], r.aplicacoes.map(a => [fmtDate(a.data), esc(nomeTal(get('talhoes', a.talhao_id))), esc(a.produto || ''), esc(String(a.dose ?? '—').replace('.', ',')) + ' ' + esc(a.unidade || ''), fmtHa(a.area), esc(String(a.total ?? '—').replace('.', ',')) + ' ' + esc(a.unidade_total || '')]))]);
     }
     let fotos = '';
@@ -2602,6 +2608,7 @@ a.tile:hover { border-color: var(--brand-2); }
     const close = () => bg.remove();
     if (kind === 'ordens') prodEditor(bg, rec);
     if (kind === 'controles') ctrlEditor(bg, rec);
+    if (kind === 'ordens') execEditor(bg, rec);
     bg.addEventListener('click', async e => {
       if (e.target === bg || e.target.closest('[data-close]')) return close();
       if (e.target.closest('[data-receita]')) { const o = Object.assign({}, rec); if (podeEditar()) o.produtos = lerProdutos(bg, rec.produtos); receitaPDF(o); return; }
@@ -2617,6 +2624,7 @@ a.tile:hover { border-color: var(--brand-2); }
         if (!isNew) { Object.assign(out, get(kind, rec.id) || {}); delete out._prod; }
         let missing = null;
         for (const f of fields) {
+          if (f.t === 'exec') { const ex = bg._lerExec ? bg._lerExec() : null; out[f.k] = ex; if (ex && ex.length) { const ap = ex.reduce((a, x) => a + num(x.area_aplicada), 0), pl = ex.reduce((a, x) => a + num(x.area_planejada), 0); if (pl) out.area_ha = Math.round(pl * 100) / 100; out.area_aplicada_ha = Math.round(ap * 100) / 100; } continue; }
           if (f.t === 'calc') { const c = bg._lerCalc && bg._lerCalc(); out.calc = c ? c.calc : null; out.classificacao = c && c.r ? c.r.classe || null : null; continue; }
           if (f.t === 'produtos') { out[f.k] = lerProdutos(bg, rec.produtos); continue; }
           if (f.t === 'tags') { out[f.k] = [...form.querySelectorAll(`input[name="${f.k}"]:checked`)].map(i => i.value); continue; }
@@ -3335,12 +3343,12 @@ a.tile:hover { border-color: var(--brand-2); }
   }
   const prodRow = (p = {}) => `<tr><td class="ord-n"></td><td><input type="text" list="dl-insumos" class="p-prod" value="${esc(p.produto || '')}" aria-label="Produto"></td><td><input type="number" step="any" class="p-dose r" value="${p.dose ?? ''}" aria-label="Dose recomendada"></td><td><select class="p-un" aria-label="Unidade">${['Lt/ha', 'Kg/ha', 'Ml/ha', 'Gr/ha', 't/ha', 'Sementes/m'].map(u => `<option ${u === (p.unidade || 'Lt/ha') ? 'selected' : ''}>${u}</option>`).join('')}</select></td><td><input type="number" step="any" class="p-exec r" value="${p.dose_exec ?? ''}" aria-label="Dose executada"></td><td class="nowrap"><button type="button" class="btn small" data-prod-up aria-label="Subir">↑</button><button type="button" class="btn small" data-prod-down aria-label="Descer">↓</button><button type="button" class="btn small danger" data-prod-del aria-label="Remover">×</button></td></tr>`;
   function prodEditor(bg, rec) {
-    const tb = $('.prod-t tbody', bg); if (!tb) return;
+    const tb = $('.prod-ed .prod-t tbody', bg); if (!tb) return;
     const num_ = () => tb.querySelectorAll('tr').forEach((tr, i) => $('.ord-n', tr).textContent = i + 1);
     num_();
     bg.addEventListener('click', e => {
       if (e.target.closest('[data-prod-add]')) { tb.insertAdjacentHTML('beforeend', prodRow()); num_(); $('tr:last-child .p-prod', tb).focus(); }
-      const tr = e.target.closest('.prod-t tr'); if (!tr) return;
+      const tr = e.target.closest('.prod-ed .prod-t tr'); if (!tr) return;
       if (e.target.closest('[data-prod-del]')) tr.remove();
       if (e.target.closest('[data-prod-up]') && tr.previousElementSibling) tr.parentNode.insertBefore(tr, tr.previousElementSibling);
       if (e.target.closest('[data-prod-down]') && tr.nextElementSibling) tr.parentNode.insertBefore(tr.nextElementSibling, tr);
@@ -3349,7 +3357,7 @@ a.tile:hover { border-color: var(--brand-2); }
     bg.addEventListener('change', e => { const i = e.target.closest('.p-prod'); if (!i) return; const ins = S.data.insumos.find(x => x.nome === i.value); if (ins && ins.unidade) { const s = $('.p-un', i.closest('tr')); s.value = ins.unidade; } });
   }
   function lerProdutos(bg, antigos) {
-    return [...bg.querySelectorAll('.prod-t tbody tr')].map(tr => {
+    return [...bg.querySelectorAll('.prod-ed .prod-t tbody tr')].map(tr => {
       const nome = $('.p-prod', tr).value.trim(); if (!nome) return null;
       const old = (antigos || []).find(p => p.produto === nome) || {}, ins = S.data.insumos.find(x => x.nome === nome);
       const d = $('.p-dose', tr).value, x = $('.p-exec', tr).value;
@@ -3460,6 +3468,33 @@ a.tile:hover { border-color: var(--brand-2); }
   // ---------- Tipos de trabalho ----------
   const GRP_TIPO = { aplicacoes: 'Aplicações', plantio: 'Plantio', colheita: 'Colheita', fertilizacao: 'Fertilização', tratos: 'Tratos culturais', outros: 'Outros' };
   const tiposOrdem = () => [...new Set([...ORD_TIPOS, ...(S.data.tipos_trabalho || []).filter(t => t.ativo !== 'Não').map(t => t.nome).filter(Boolean)])];
+
+  // ---------- Execução da ordem por talhão (área planejada x aplicada) ----------
+  function execEditor(bg, rec) {
+    const box = $('[data-exec]', bg); if (!box) return;
+    const atual = new Map((rec.talhoes_detalhe || []).map(x => [key(x.talhao_id), Object.assign({}, x)]));
+    const marcados = () => [...bg.querySelectorAll('input[name="talhao_ids"]:checked')].map(i => i.value);
+    const lerTela = () => box.querySelectorAll('tr[data-tid]').forEach(tr => { const x = atual.get(tr.dataset.tid) || { talhao_id: tr.dataset.tid }; const v = n => { const i = $(`[data-ex="${n}"]`, tr); return i.value === '' ? null : i.type === 'number' ? Number(i.value) : i.value; }; x.area_planejada = v('plan'); x.area_aplicada = v('apl'); x.data = v('data'); atual.set(tr.dataset.tid, x); });
+    const render = () => {
+      const ids = marcados();
+      if (!ids.length) { box.innerHTML = '<span class="muted" style="font-size:13px">Marque os talhões da ordem para registrar a execução.</span>'; return; }
+      let tp = 0, ta = 0;
+      const linhas = ids.map(id => { const t = get('talhoes', id), x = atual.get(key(id)) || {}; const plan = x.area_planejada ?? num(t?.area_ha); tp += num(plan); ta += num(x.area_aplicada); const pc = plan ? Math.round(num(x.area_aplicada) / plan * 100) : 0;
+        return `<tr data-tid="${esc(key(id))}"><td>${esc(t ? nomeTal(t) : id)}</td><td><input type="number" step="any" class="r" data-ex="plan" value="${plan ?? ''}" aria-label="Área planejada"></td><td><input type="number" step="any" class="r" data-ex="apl" value="${x.area_aplicada ?? ''}" aria-label="Área aplicada"></td><td><input type="date" data-ex="data" value="${esc(x.data || '')}" aria-label="Data da aplicação"></td><td class="r"><span class="pill ${pc >= 100 ? 'ok' : pc > 0 ? 'warn' : ''}">${pc}%</span></td></tr>`; }).join('');
+      box.innerHTML = `<div class="sec-row"><span style="font-size:13px;font-weight:500;color:var(--muted)">Execução por talhão</span><button type="button" class="btn small" data-ex-tudo>Aplicado 100% hoje</button></div>
+        <div class="table-wrap"><table class="prod-t exec-t"><thead><tr><th>Talhão</th><th class="r">Planejada (ha)</th><th class="r">Aplicada (ha)</th><th>Data</th><th class="r">Feito</th></tr></thead><tbody>${linhas}</tbody>
+        <tfoot><tr><td><b>Total</b></td><td class="r"><b>${fmtHa(tp)}</b></td><td class="r"><b>${fmtHa(ta)}</b></td><td></td><td class="r"><b>${tp ? Math.round(ta / tp * 100) : 0}%</b></td></tr></tfoot></table></div>`;
+    };
+    bg.addEventListener('change', e => { if (e.target.name === 'talhao_ids' || e.target.id === 'fld-fazenda_id') { lerTela(); setTimeout(render); } else if (e.target.closest('[data-exec]')) { lerTela(); render(); } });
+    box.addEventListener('click', e => {
+      if (!e.target.closest('[data-ex-tudo]')) return; lerTela();
+      for (const id of marcados()) { const x = atual.get(key(id)) || { talhao_id: id }; const t = get('talhoes', id); x.area_planejada = x.area_planejada ?? num(t?.area_ha); x.area_aplicada = x.area_planejada; x.data = x.data || today(); atual.set(key(id), x); }
+      render(); const st = $('#fld-status', bg), dc = $('#fld-data_conclusao', bg); if (st) st.value = 'Concluída'; if (dc && !dc.value) dc.value = today();
+      toast('Execução marcada. Clique em Salvar para gravar.');
+    });
+    bg._lerExec = () => { if (!box.querySelector('tr[data-tid]')) return rec.talhoes_detalhe || null; lerTela(); const ids = new Set(marcados().map(key)); return [...atual.values()].filter(x => ids.has(key(x.talhao_id))).map(x => Object.assign(x, { talhao_id: get('talhoes', x.talhao_id)?.id ?? x.talhao_id })); };
+    render();
+  }
 
   // ---------- Contorno dos talhões: importar KML ou GeoJSON ----------
   function areaGeo(ring) {
