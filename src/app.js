@@ -120,6 +120,7 @@
   const Store = {
     mode: 'local', db: null,
     async init() {
+      if (SB.on) { this.mode = 'supabase'; setSync(); return; }
       try {
         if (window.claude && window.claude.use) {
           const db = await Promise.race([window.claude.use('db'), new Promise(r => setTimeout(() => r(null), 8000))]);
@@ -142,6 +143,13 @@
     async save(k, obj) {
       obj = Object.assign({}, obj, { atualizado_em: new Date().toISOString() });
       delete obj._prod;
+      if (this.mode === 'supabase') {
+        try { if (obj._del) await SB.del(k, obj.id); else await SB.upsert(k, [obj]); }
+        catch (e) { toast(/permission|policy|JWT/i.test(e.message || '') ? 'Você não tem permissão para alterar estes dados.' : 'Não foi possível salvar. Verifique a internet e tente de novo.'); throw e; }
+        if (obj._del) S.base[k] = S.base[k].filter(r => key(r.id) !== key(obj.id));
+        else { const i = S.base[k].findIndex(r => key(r.id) === key(obj.id)); if (i >= 0) S.base[k][i] = obj; else S.base[k].push(obj); }
+        rebuild(); refresh(); return;
+      }
       S.over[k][key(obj.id)] = obj; rebuild(); refresh();
       if (this.db) {
         try { await this.db.collection(k).doc(key(obj.id)).set(obj); }
@@ -153,11 +161,68 @@
   };
   function setSync() {
     const el = $('#sync'); el.dataset.mode = Store.mode;
-    $('span', el).textContent = Store.mode === 'nuvem' ? 'Salvo na nuvem' : 'Salvo neste navegador';
+    $('span', el).textContent = Store.mode === 'supabase' ? (SB.user ? SB.user.email : 'Online') : Store.mode === 'nuvem' ? 'Salvo na nuvem' : 'Salvo neste navegador';
+    el.dataset.mode = Store.mode === 'local' ? 'local' : 'nuvem';
+    $('#acct').hidden = Store.mode !== 'supabase';
+  }
+
+  // ---------- Supabase (versão hospedada: banco + login) ----------
+  const CFG = window.GLEBA_CONFIG || {};
+  const SB = {
+    on: !!(CFG.supabaseUrl && CFG.supabaseKey && window.supabase),
+    cli: null, user: null,
+    init() { this.cli = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey); },
+    async session() { const { data } = await this.cli.auth.getSession(); this.user = data.session ? data.session.user : null; return this.user; },
+    async loadAll() {
+      for (const k of KINDS) {
+        const rows = []; let from = 0;
+        for (;;) {
+          const { data, error } = await this.cli.from(k).select('id,dados').range(from, from + 999);
+          if (error) throw error;
+          rows.push(...data.map(r => Object.assign({}, r.dados, { id: r.dados && r.dados.id != null ? r.dados.id : r.id })));
+          if (data.length < 1000) break; from += 1000;
+        }
+        S.base[k] = rows; S.over[k] = {};
+      }
+    },
+    async upsert(k, list) {
+      for (let i = 0; i < list.length; i += 200) {
+        const chunk = list.slice(i, i + 200).map(o => ({ id: key(o.id), dados: o }));
+        const { error } = await this.cli.from(k).upsert(chunk);
+        if (error) throw error;
+      }
+    },
+    async del(k, id) { const { error } = await this.cli.from(k).delete().eq('id', key(id)); if (error) throw error; },
+  };
+  function showLogin(msg) {
+    const el = $('#login'); el.hidden = false; $('#loading').hidden = true;
+    $('#login-msg').textContent = msg || '';
+  }
+  async function doLogin(e) {
+    e.preventDefault();
+    const email = $('#lg-email').value.trim(), senha = $('#lg-senha').value;
+    const criar = e.submitter && e.submitter.dataset.criar;
+    $('#login-msg').textContent = 'Entrando…';
+    const r = criar ? await SB.cli.auth.signUp({ email, password: senha, options: { emailRedirectTo: location.origin + location.pathname } })
+                    : await SB.cli.auth.signInWithPassword({ email, password: senha });
+    if (r.error) { $('#login-msg').textContent = /Invalid login/i.test(r.error.message) ? 'E-mail ou senha incorretos.' : /registered/i.test(r.error.message) ? 'Este e-mail já tem cadastro. Use "Entrar".' : /least/i.test(r.error.message) ? 'A senha precisa ter pelo menos 6 caracteres.' : 'Não foi possível entrar: ' + r.error.message; return; }
+    if (criar && !r.data.session) { $('#login-msg').textContent = 'Conta criada. Abra o e-mail de confirmação que enviamos e depois clique em Entrar.'; return; }
+    location.reload();
+  }
+  async function importarArquivo(file) {
+    let json; try { json = JSON.parse(await file.text()); } catch (e) { toast('Arquivo inválido: escolha o JSON exportado.'); return; }
+    const kinds = KINDS.filter(k => Array.isArray(json[k]));
+    if (!kinds.length) { toast('Este arquivo não tem dados do aplicativo.'); return; }
+    try {
+      let n = 0;
+      for (const k of kinds) { toast('Importando ' + k + '…'); await SB.upsert(k, json[k].map(r => { const c = Object.assign({}, r); delete c._prod; return c; })); n += json[k].length; }
+      toast(fmtInt(n) + ' registros importados.'); setTimeout(() => location.reload(), 1200);
+    } catch (e) { toast('Falhou ao importar: ' + (e.message || e)); }
   }
 
   // ---------- Carregar dados base ----------
   async function loadBase() {
+    if (SB.on) return;
     const pre = window.GLEBA_DATA || {};
     await Promise.all(KINDS.map(async k => {
       if (pre[k]) { S.base[k] = pre[k]; return; }
@@ -597,6 +662,8 @@
         case 'fit-all': S.sel = { produtor: null, fazenda: null, talhao: null }; afterSel(false); { const b = boundsOf(S.data.talhoes); if (b) map.fitBounds(b, { padding: [20, 20] }); } break;
         case 'color': S.colorBy = S.colorBy === 'produtor' ? 'cultura' : 'produtor'; act.textContent = S.colorBy === 'produtor' ? 'Colorir por cultura' : 'Colorir por produtor'; styleAll(); drawLegend(); break;
         case 'export': exportar(); break;
+        case 'import': $('#imp-file').click(); break;
+        case 'logout': SB.cli.auth.signOut().then(() => location.reload()); break;
       }
       return;
     }
@@ -611,7 +678,18 @@
   $('#q-mapa').addEventListener('input', renderTree);
   window.addEventListener('hashchange', route);
 
+  $('#login-form').addEventListener('submit', doLogin);
+  $('#imp-file').addEventListener('change', e => { const f = e.target.files[0]; if (f) importarArquivo(f); e.target.value = ''; });
   (async function start() {
+    if (SB.on) {
+      SB.init();
+      if (!(await SB.session())) { showLogin(); return; }
+      try { await SB.loadAll(); }
+      catch (e) { showLogin('Não foi possível carregar os dados: ' + (e.message || e)); return; }
+      const ok = await SB.cli.rpc('sou_membro');
+      if (ok.error || !ok.data) { showLogin('O e-mail ' + SB.user.email + ' ainda não tem acesso. Peça ao administrador para liberar.'); $('#login-out').hidden = false; return; }
+      if (!S.base.produtores.length) setTimeout(() => toast('Banco vazio. Use "Importar dados" para carregar o arquivo exportado.'), 800);
+    }
     await loadBase();
     S.version = 0;
     rebuild();
