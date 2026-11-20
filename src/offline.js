@@ -2,12 +2,12 @@
    de alterações feitas sem internet, que é enviada ao Supabase quando a conexão volta. */
 window.GlebaOffline = (function () {
   'use strict';
-  const NOME = 'inovaagro-offline', VERSAO = 1;
+  const NOME = 'inovaagro-offline', VERSAO = 2;
   let aberto = null;
   function abrir() {
     if (!aberto) aberto = new Promise((ok, falha) => {
       const r = indexedDB.open(NOME, VERSAO);
-      r.onupgradeneeded = () => { const d = r.result; d.createObjectStore('copia'); d.createObjectStore('fila'); };
+      r.onupgradeneeded = () => { const d = r.result; for (const n of ['copia', 'fila', 'midia']) if (!d.objectStoreNames.contains(n)) d.createObjectStore(n); };
       r.onsuccess = () => ok(r.result);
       r.onerror = () => falha(r.error);
     });
@@ -36,7 +36,12 @@ window.GlebaOffline = (function () {
       const atual = await op('fila', 'readonly', s => s.get(chave(it.k, it.id)));
       if (atual && atual.em === it.em) await op('fila', 'readwrite', s => s.delete(chave(it.k, it.id)));
     },
-    limpar: () => Promise.all([op('copia', 'readwrite', s => s.clear()), op('fila', 'readwrite', s => s.clear())]),
+    limpar: () => Promise.all(['copia', 'fila', 'midia'].map(n => op(n, 'readwrite', s => s.clear()))),
+    // Fotos, vídeos, áudios e anexos feitos no campo, esperando envio ao armazenamento
+    guardarMidia: (id, blob, meta) => op('midia', 'readwrite', s => s.put(Object.assign({ id, blob, em: new Date().toISOString() }, meta), id)),
+    lerMidia: id => op('midia', 'readonly', s => s.get(id)).catch(() => null),
+    listarMidia: () => op('midia', 'readonly', s => s.getAll()).then(l => l || []).catch(() => []),
+    tirarMidia: id => op('midia', 'readwrite', s => s.delete(id)),
     // Aplica a fila em cima dos dados carregados
     aplicar(base, fila) {
       for (const it of fila) {
