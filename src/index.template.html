@@ -1,22 +1,33 @@
 <title>INOVAAGRO</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<link rel="icon" type="image/png" href="{{FAVICON}}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&display=swap">
 <style>
 /*LEAFLET_CSS*/
 /*APP_CSS*/
 </style>
+<aside class="nav" id="nav" aria-label="Menu principal">
+  <div class="nav-brand">
+    <img class="logo logo-claro" src="{{LOGO}}" alt="InovaAgro Consultoria Agrícola">
+    <img class="logo logo-escuro" src="{{LOGO_ESCURO}}" alt="InovaAgro Consultoria Agrícola">
+  </div>
+  <nav class="nav-links" id="nav-links"></nav>
+  <div class="nav-foot" id="acct" hidden>
+    <div class="who"><b id="who-email"></b><span id="who-papel"></span></div>
+    <div class="nav-foot-btns"><button class="btn small ghost" data-act="import" data-papel-min="admin">Importar dados</button><button class="btn small ghost" data-act="logout">Sair</button></div>
+  </div>
+</aside>
+<div class="nav-scrim" data-act="nav-close"></div>
 <header class="topbar">
-  <div class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" rx="7" fill="var(--accent)"/><path d="M7 22c4-1 7-4 9-9m-9 4c3-.6 5-2.6 6.4-5.6M11 25c5-1.5 9-5.5 11.5-12M17 25.5c3-2 5.5-5.2 7-9.5" fill="none" stroke="var(--accent-fg)" stroke-width="1.8" stroke-linecap="round"/></svg><b>Gleba</b></div>
-  <nav class="tabs" aria-label="Seções">
-    <a href="#mapa">Mapa</a><a href="#produtores">Produtores</a><a href="#fazendas">Fazendas</a><a href="#talhoes">Talhões</a><a href="#safras">Safras</a><a href="#monitoramentos">Monitoramentos</a><a href="#ordens">Ordens de trabalho</a>
-  </nav>
+  <button class="icon-btn menu-btn" data-act="nav-open" aria-label="Abrir menu"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></button>
+  <h1 id="page-title">Painel</h1>
   <div class="sync" id="sync" data-mode="local"><i></i><span>Carregando…</span></div>
-  <div id="acct" hidden style="display:flex;gap:6px"><button class="btn small" data-act="import">Importar dados</button><button class="btn small" data-act="logout">Sair</button></div>
   <input type="file" id="imp-file" accept=".json,application/json" hidden>
 </header>
 <main>
-  <section class="view" id="v-mapa">
+  <section class="view" id="v-painel" hidden></section>
+  <section class="view" id="v-mapa" hidden>
     <div class="map-layout">
       <aside class="side">
         <div class="side-head">
@@ -27,9 +38,17 @@
       </aside>
       <div class="map-wrap">
         <div id="map" role="application" aria-label="Mapa dos talhões"></div>
-        <div class="legend" id="legend"></div>
-        <div class="map-tools"><button class="btn small" data-act="fit-all">Ver tudo</button><button class="btn small" data-act="color">Colorir por cultura</button><button class="btn small" data-act="export">Exportar dados</button></div>
-        <div class="map-note" id="mapnote" hidden>A imagem de satélite não carrega nesta visualização. Os contornos dos talhões estão corretos; no aplicativo publicado o fundo de satélite aparece.</div>
+        <div class="map-panel" id="map-panel">
+          <div class="seg" role="group" aria-label="Fundo do mapa">
+            <button data-base="sat" aria-pressed="true">Satélite</button><button data-base="hib" aria-pressed="false">Satélite + nomes</button><button data-base="ruas" aria-pressed="false">Mapa</button>
+          </div>
+          <label class="color-by"><span>Colorir por</span><select id="color-by" aria-label="Colorir talhões por">
+            <option value="produtor">Produtor</option><option value="situacao">Situação</option><option value="condicao">Condição (último monitoramento)</option><option value="variedade">Variedade</option><option value="cultura">Cultura</option>
+          </select></label>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="map-tools"><button class="btn small" data-act="fit-all">Ver tudo</button><button class="btn small" data-act="export">Exportar dados</button></div>
+        <div class="map-note" id="mapnote" hidden>A imagem de satélite não carregou. Os contornos dos talhões estão corretos; verifique a internet.</div>
         <div class="sheet" id="sheet" hidden></div>
       </div>
     </div>
@@ -40,18 +59,22 @@
   <section class="view" id="v-safras" hidden></section>
   <section class="view" id="v-monitoramentos" hidden></section>
   <section class="view" id="v-ordens" hidden></section>
-  <div id="login" hidden class="login-bg"><form id="login-form" class="login-card">
-    <div class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" rx="7" fill="var(--accent)"/><path d="M7 22c4-1 7-4 9-9m-9 4c3-.6 5-2.6 6.4-5.6M11 25c5-1.5 9-5.5 11.5-12M17 25.5c3-2 5.5-5.2 7-9.5" fill="none" stroke="var(--accent-fg)" stroke-width="1.8" stroke-linecap="round"/></svg>INOVAAGRO</div>
-    <p class="muted" style="margin:0">Entre com seu e-mail e senha.</p>
-    <label class="field"><span>E-mail</span><input type="text" inputmode="email" autocomplete="username" id="lg-email" required></label>
-    <label class="field"><span>Senha</span><input type="password" autocomplete="current-password" id="lg-senha" required style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface)"></label>
-    <button class="btn primary" type="submit" style="justify-content:center">Entrar</button>
-    <button class="btn" type="submit" data-criar="1" style="justify-content:center">Primeiro acesso: criar minha senha</button>
-    <button class="btn" type="button" id="login-out" hidden data-act="logout" style="justify-content:center">Sair</button>
-    <p id="login-msg" class="muted" role="status" style="margin:0;min-height:1.2em"></p>
-  </form></div>
-  <div id="loading" style="position:absolute;inset:0;display:grid;place-items:center;background:var(--bg);z-index:1500"><p class="muted">Carregando fazendas e talhões…</p></div>
+  <section class="view" id="v-relatorios" hidden></section>
+  <section class="view" id="v-equipe" hidden></section>
 </main>
+<div id="login" hidden class="login-bg"><form id="login-form" class="login-card">
+  <img class="login-logo logo-claro" src="{{LOGO}}" alt="InovaAgro Consultoria Agrícola">
+  <img class="login-logo logo-escuro" src="{{LOGO_ESCURO}}" alt="InovaAgro Consultoria Agrícola">
+  <h2>Entrar no sistema</h2>
+  <p class="muted" style="margin:0">Use o e-mail cadastrado pela sua equipe.</p>
+  <label class="field"><span>E-mail</span><input type="text" inputmode="email" autocomplete="username" id="lg-email" required></label>
+  <label class="field"><span>Senha</span><input type="password" autocomplete="current-password" id="lg-senha" required></label>
+  <button class="btn primary big" type="submit">Entrar</button>
+  <button class="btn big" type="submit" data-criar="1">Primeiro acesso: criar minha senha</button>
+  <button class="btn big" type="button" id="login-out" hidden data-act="logout">Sair</button>
+  <p id="login-msg" class="muted" role="status" style="margin:0;min-height:1.2em"></p>
+</form></div>
+<div id="loading" class="loading"><img class="logo-claro" src="{{LOGO}}" alt=""><img class="logo-escuro" src="{{LOGO_ESCURO}}" alt=""><p class="muted">Carregando fazendas e talhões…</p></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <!--HOSTED_SCRIPTS-->
 <script>

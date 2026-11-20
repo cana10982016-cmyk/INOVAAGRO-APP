@@ -1,11 +1,21 @@
 # INOVAAGRO — gestão agrícola
 
-(Nome de trabalho do protótipo: Gleba.)
 
 Aplicativo próprio com mapa de fazendas e talhões, produtores, safras, monitoramentos e ordens de trabalho.
 Os dados vieram da exportação do SIMA (`/mnt/project-files/migracao-sima/`).
 
+## Telas
+Painel (resumo de área, safra, ordens pendentes e atrasadas, monitoramentos), Mapa (satélite, satélite com nomes ou mapa de ruas; cores por produtor, situação, condição, variedade ou cultura), cadastros, Monitoramentos, Ordens de trabalho, Relatórios por produtor/fazenda (PDF, Excel ou impressão) e Equipe e permissões.
+
+## Permissões
+- **Administrador**: tudo, inclusive cadastrar pessoas na equipe.
+- **Técnico**: vê tudo, cadastra e edita.
+- **Consulta**: só visualiza.
+
+Para ativar, rode uma vez `supabase/02_equipe.sql` no editor SQL do Supabase (a tela Equipe tem o botão "Copiar comando"). Ele também garante que sempre existe um administrador ativo.
+
 ## Estrutura
+- `assets/` logo e ícones da InovaAgro.
 - `src/` código-fonte (HTML, CSS, JavaScript puro + Leaflet). Sem etapa de compilação além de `tools/build.py`.
 - `data/*.json` dados importados do SIMA (ids do SIMA preservados). **Não vão para o GitHub**: ficam no banco de dados, protegidos por login.
 - `tools/importar_sima.py` converte a exportação do SIMA em `data/*.json` (rode de novo para reimportar).
