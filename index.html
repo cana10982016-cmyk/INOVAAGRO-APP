@@ -1171,6 +1171,78 @@ tr.click:hover td { background: rgba(94,129,69,.06); }
 .ndvi-leg i { flex: 1; height: 10px; border-radius: 5px; background: linear-gradient(90deg, #a50026, #f46d43, #fee08b, #a6d96a, #1a9850, #006837); }
 @media (max-width: 760px) { .sat-grid { grid-template-columns: 1fr; } #sat-map { height: 50vh; } .cenas { max-height: 30vh; } }
 
+/* ===== Direções visuais (data-visual no <html>) ===== */
+/* A · Floresta: menu verde-floresta escuro, conteúdo claro */
+:root[data-visual="floresta"] { --nav-bg: #1d2b18; --nav-fg: #c7d3b8; --nav-active: rgba(177,210,67,.16); --bg: #f4f6f0; --radius: 12px; --shadow: 0 1px 2px rgba(29,43,24,.06), 0 6px 20px rgba(29,43,24,.07); }
+:root[data-visual="floresta"] .nav { background: linear-gradient(180deg, #22331c 0%, #182414 100%); border-right: 0; }
+:root[data-visual="floresta"] .nav-brand { border-bottom-color: rgba(255,255,255,.08); }
+:root[data-visual="floresta"] .nav .logo-claro { display: none; }
+:root[data-visual="floresta"] .nav .logo-escuro { display: block; }
+:root[data-visual="floresta"] .nav-links .grp { color: #7f9670; }
+:root[data-visual="floresta"] .nav-links a:hover { background: rgba(255,255,255,.06); color: #fff; }
+:root[data-visual="floresta"] .nav-links a[aria-current="page"] { color: #fff; }
+:root[data-visual="floresta"] .nav-links a[aria-current="page"]::before { background: var(--lime); }
+:root[data-visual="floresta"] .nav-links a[aria-current="page"] svg { color: var(--lime); }
+:root[data-visual="floresta"] .nav-foot { border-top-color: rgba(255,255,255,.08); color: #c7d3b8; }
+:root[data-visual="floresta"] .nav-foot .btn { color: #e6eedd; border-color: rgba(255,255,255,.18); }
+:root[data-visual="floresta"] .topbar { background: rgba(255,255,255,.92); backdrop-filter: blur(8px); }
+:root[data-visual="floresta"] .tile { border: 0; }
+:root[data-visual="floresta"] .card-box { border-color: transparent; }
+:root[data-visual="floresta"] th { background: #eef2e7; }
+
+/* B · Campo claro: tudo claro, mais ar, faixa verde-limão no topo */
+:root[data-visual="campo"] { --bg: #fafbf8; --radius: 14px; --line: #e3e8dc; --shadow: 0 1px 1px rgba(32,30,30,.03), 0 8px 24px rgba(32,30,30,.05); }
+:root[data-visual="campo"] .topbar { border-bottom: 0; box-shadow: inset 0 -1px 0 var(--line); }
+:root[data-visual="campo"] .topbar::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: linear-gradient(90deg, var(--brand), var(--brand-2), var(--lime)); }
+:root[data-visual="campo"] .nav { border-right-color: var(--line); }
+:root[data-visual="campo"] .nav-links a { border-radius: 10px; }
+:root[data-visual="campo"] .nav-links a[aria-current="page"] { background: var(--brand); color: #fff; }
+:root[data-visual="campo"] .nav-links a[aria-current="page"]::before { display: none; }
+:root[data-visual="campo"] .nav-links a[aria-current="page"] svg { color: #fff; }
+:root[data-visual="campo"] .tile::after { left: 16px; right: auto; top: 0; bottom: auto; width: 36px; height: 3px; border-radius: 0 0 3px 3px; }
+:root[data-visual="campo"] .tile .val { color: var(--brand); }
+:root[data-visual="campo"] th { background: transparent; border-bottom: 2px solid var(--line); }
+
+/* C · Terra: cabeçalho verde com o título, menu oliva, fundo areia */
+:root[data-visual="terra"] { --nav-bg: #3a5130; --nav-fg: #e3ead7; --nav-active: rgba(255,255,255,.14); --bg: #f5f3ec; --surface-2: #efede4; --line: #e0dccd; --radius: 10px; }
+:root[data-visual="terra"] .nav { background: #3a5130; border-right: 0; }
+:root[data-visual="terra"] .nav-brand { background: #fff; border-bottom: 0; }
+:root[data-visual="terra"] .nav-links .grp { color: #b7c7a3; }
+:root[data-visual="terra"] .nav-links a:hover { background: rgba(255,255,255,.08); color: #fff; }
+:root[data-visual="terra"] .nav-links a[aria-current="page"] { color: #fff; }
+:root[data-visual="terra"] .nav-links a[aria-current="page"]::before { background: var(--lime); }
+:root[data-visual="terra"] .nav-links a[aria-current="page"] svg { color: var(--lime); }
+:root[data-visual="terra"] .nav-foot { color: #e3ead7; border-top-color: rgba(255,255,255,.12); }
+:root[data-visual="terra"] .nav-foot .btn { color: #fff; border-color: rgba(255,255,255,.25); }
+:root[data-visual="terra"] .topbar { background: linear-gradient(90deg, #4b6a37, #5e8145 60%, #87b44b); border-bottom: 0; color: #fff; }
+:root[data-visual="terra"] .topbar .icon-btn, :root[data-visual="terra"] .topbar .sync { color: #fff; }
+:root[data-visual="terra"] .topbar .sync span { color: #fff; }
+:root[data-visual="terra"] .tile::after { background: var(--lime); }
+:root[data-visual="terra"] .card-box h3 { color: #3a5130; }
+
+/* ===== Polimento geral ===== */
+tbody tr { transition: background-color .12s; }
+tbody tr[data-row]:hover td, tbody tr.click:hover td { background: var(--accent-soft); cursor: pointer; }
+.page-head h2 { font-size: 24px; letter-spacing: -0.015em; }
+.page-head p { max-width: 70ch; }
+
+.tile .val { letter-spacing: -0.02em; }
+.btn { transition: background-color .12s, border-color .12s, filter .12s; }
+.btn.primary { box-shadow: 0 1px 0 rgba(0,0,0,.08); }
+input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea { transition: border-color .12s, box-shadow .12s; }
+input:not([type=checkbox]):not([type=radio]):not([type=file]):focus, select:focus, textarea:focus { border-color: var(--brand-2); box-shadow: 0 0 0 3px rgba(135,180,75,.22); outline: none; }
+.empty { padding: 18px 12px; text-align: center; }
+.modal { border-radius: 16px; }
+.modal header { border-bottom: 1px solid var(--line); }
+.toast { border-radius: 10px; }
+/* Login com a marca */
+:root[data-visual="floresta"] .login-bg, :root[data-visual="terra"] .login-bg { background: radial-gradient(1200px 600px at 10% 0%, #3c5a2c 0%, transparent 60%), linear-gradient(160deg, #22331c, #121a0f); }
+:root[data-visual="campo"] .login-bg { background: radial-gradient(900px 500px at 0% 0%, #e6efda, transparent 60%), radial-gradient(700px 400px at 100% 100%, #eef6d6, transparent 60%), var(--bg); }
+.login-card { border: 0; box-shadow: 0 24px 60px rgba(0,0,0,.28); }
+.login-card::before { content: ""; display: block; height: 4px; margin: -28px -26px 18px; border-radius: 14px 14px 0 0; background: linear-gradient(90deg, var(--brand), var(--brand-2), var(--lime)); }
+.login-card { border-top: 0; }
+.login-card { overflow: hidden; }
+
 </style>
 <aside class="nav" id="nav" aria-label="Menu principal">
   <div class="nav-brand">
@@ -1250,6 +1322,10 @@ tr.click:hover td { background: rgba(94,129,69,.06); }
    Telas: Painel, Mapa, cadastros, Monitoramentos, Ordens, Relatórios (PDF/Excel) e Equipe (usuários e permissões). */
 (function () {
   'use strict';
+  // Aparência: direção visual escolhida (cada navegador pode trocar em Configuração)
+  const VISUAIS = { floresta: 'Floresta (menu escuro)', campo: 'Campo claro', terra: 'Terra (cabeçalho verde)' }, VISUAL_PADRAO = 'floresta';
+  const visualAtual = () => { try { const v = localStorage.getItem('inovaagro.visual'); return VISUAIS[v] ? v : VISUAL_PADRAO; } catch (e) { return VISUAL_PADRAO; } };
+  document.documentElement.dataset.visual = visualAtual();
 
   // ---------- Configuração dos cadastros ----------
   const CULTURAS = ['Soja', 'Milho', 'Milho safrinha', 'Sorgo', 'Feijão', 'Algodão', 'Cana-de-açúcar', 'Café', 'Trigo', 'Pastagem', 'Pousio', 'Outra'];
@@ -3490,7 +3566,7 @@ tr.click:hover td { background: rgba(94,129,69,.06); }
     root.innerHTML = `<div class="page"><div class="page-head"><div><h2>${tit[0]}</h2><p>${tit[1]}</p></div>${podeEditar() && (S.papel === 'admin' || Store.mode !== 'supabase') ? `<button class="btn primary" data-cfg-edit="${id}">Editar</button>` : ''}</div>
       ${S.faltaTabela ? avisoBanco() : ''}
       <section class="card-box"><dl class="facts">${F.map(f => `<dt>${f.l}</dt><dd>${r[f.k] != null && r[f.k] !== '' ? esc(String(r[f.k])) : '<span class="muted">—</span>'}</dd>`).join('')}</dl></section>
-      ${id === 'sociedade' ? '<p class="muted" style="font-size:13px">O logotipo usado nos PDFs é o mesmo do sistema.</p>' : ''}</div>`;
+      ${id === 'sociedade' ? '<p class="muted" style="font-size:13px">O logotipo usado nos PDFs é o mesmo do sistema.</p>' : `<section class="card-box"><h3>Aparência <small>vale para este navegador</small></h3><div class="seg" role="group" aria-label="Aparência">${Object.entries(VISUAIS).map(([k, l]) => `<button data-visual="${k}" aria-pressed="${k === visualAtual()}">${l}</button>`).join('')}</div></section>`}</div>`;
   }
   function viewSociedade() { viewCfg('sociedade'); }
   function viewConfiguracao() { viewCfg('preferencias'); }
@@ -3743,6 +3819,7 @@ tr.click:hover td { background: rgba(94,129,69,.06); }
 
   document.addEventListener('click', e => {
     const lg = e.target.closest('[data-leg]'); if (lg) { const n = lg.dataset.leg; if (S.ocultos.has(n)) S.ocultos.delete(n); else S.ocultos.add(n); styleAll(); drawLegend(); return; }
+    const vb = e.target.closest('button[data-visual]'); if (vb) { try { localStorage.setItem('inovaagro.visual', vb.dataset.visual); } catch (err) { } document.documentElement.dataset.visual = vb.dataset.visual; viewConfiguracao(); return; }
     if (e.target.closest('[data-kml]')) { importarContornos(); return; }
     const ce = e.target.closest('[data-cfg-edit]'); if (ce) { const id = ce.dataset.cfgEdit; openForm('config', Object.assign({ id }, conf(id)), null, { fields: CFG_FIELDS[id] }); return; }
     const no = e.target.closest('[data-new-ord]'); if (no) { openForm('ordens', null, { status: 'Planejada', tipo: no.dataset.newOrd || undefined, data_prevista: today(), data_emissao: today(), vazao_l_ha: conf('preferencias').vazao_padrao ?? undefined, carencia_dias: conf('preferencias').carencia_padrao ?? undefined }); return; }

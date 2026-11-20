@@ -2,6 +2,10 @@
    Telas: Painel, Mapa, cadastros, Monitoramentos, Ordens, Relatórios (PDF/Excel) e Equipe (usuários e permissões). */
 (function () {
   'use strict';
+  // Aparência: direção visual escolhida (cada navegador pode trocar em Configuração)
+  const VISUAIS = { floresta: 'Floresta (menu escuro)', campo: 'Campo claro', terra: 'Terra (cabeçalho verde)' }, VISUAL_PADRAO = 'floresta';
+  const visualAtual = () => { try { const v = localStorage.getItem('inovaagro.visual'); return VISUAIS[v] ? v : VISUAL_PADRAO; } catch (e) { return VISUAL_PADRAO; } };
+  document.documentElement.dataset.visual = visualAtual();
 
   // ---------- Configuração dos cadastros ----------
   const CULTURAS = ['Soja', 'Milho', 'Milho safrinha', 'Sorgo', 'Feijão', 'Algodão', 'Cana-de-açúcar', 'Café', 'Trigo', 'Pastagem', 'Pousio', 'Outra'];
@@ -2242,7 +2246,7 @@
     root.innerHTML = `<div class="page"><div class="page-head"><div><h2>${tit[0]}</h2><p>${tit[1]}</p></div>${podeEditar() && (S.papel === 'admin' || Store.mode !== 'supabase') ? `<button class="btn primary" data-cfg-edit="${id}">Editar</button>` : ''}</div>
       ${S.faltaTabela ? avisoBanco() : ''}
       <section class="card-box"><dl class="facts">${F.map(f => `<dt>${f.l}</dt><dd>${r[f.k] != null && r[f.k] !== '' ? esc(String(r[f.k])) : '<span class="muted">—</span>'}</dd>`).join('')}</dl></section>
-      ${id === 'sociedade' ? '<p class="muted" style="font-size:13px">O logotipo usado nos PDFs é o mesmo do sistema.</p>' : ''}</div>`;
+      ${id === 'sociedade' ? '<p class="muted" style="font-size:13px">O logotipo usado nos PDFs é o mesmo do sistema.</p>' : `<section class="card-box"><h3>Aparência <small>vale para este navegador</small></h3><div class="seg" role="group" aria-label="Aparência">${Object.entries(VISUAIS).map(([k, l]) => `<button data-visual="${k}" aria-pressed="${k === visualAtual()}">${l}</button>`).join('')}</div></section>`}</div>`;
   }
   function viewSociedade() { viewCfg('sociedade'); }
   function viewConfiguracao() { viewCfg('preferencias'); }
@@ -2495,6 +2499,7 @@
 
   document.addEventListener('click', e => {
     const lg = e.target.closest('[data-leg]'); if (lg) { const n = lg.dataset.leg; if (S.ocultos.has(n)) S.ocultos.delete(n); else S.ocultos.add(n); styleAll(); drawLegend(); return; }
+    const vb = e.target.closest('button[data-visual]'); if (vb) { try { localStorage.setItem('inovaagro.visual', vb.dataset.visual); } catch (err) { } document.documentElement.dataset.visual = vb.dataset.visual; viewConfiguracao(); return; }
     if (e.target.closest('[data-kml]')) { importarContornos(); return; }
     const ce = e.target.closest('[data-cfg-edit]'); if (ce) { const id = ce.dataset.cfgEdit; openForm('config', Object.assign({ id }, conf(id)), null, { fields: CFG_FIELDS[id] }); return; }
     const no = e.target.closest('[data-new-ord]'); if (no) { openForm('ordens', null, { status: 'Planejada', tipo: no.dataset.newOrd || undefined, data_prevista: today(), data_emissao: today(), vazao_l_ha: conf('preferencias').vazao_padrao ?? undefined, carencia_dias: conf('preferencias').carencia_padrao ?? undefined }); return; }
