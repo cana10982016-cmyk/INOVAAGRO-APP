@@ -331,6 +331,26 @@ body[data-papel="leitura"] .modal form { pointer-events: none; }
   th { position: static; }
 }
 
+/* Módulos novos */
+.prev { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.prev .dia { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: grid; gap: 2px; font-size: 12px; }
+.prev .dia b { text-transform: capitalize; font-size: 13px; }
+.prev .dia .mm { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--info); font-variant-numeric: tabular-nums; }
+.hist { display: flex; align-items: flex-end; gap: 2px; height: 90px; border-bottom: 1px solid var(--line); }
+.hist span { flex: 1; background: var(--info); border-radius: 3px 3px 0 0; min-width: 3px; }
+.fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.fotos figure { margin: 0; display: grid; gap: 4px; font-size: 12px; }
+.fotos img, .fotos .semfoto { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; background: var(--surface-2); display: grid; place-items: center; color: var(--muted); }
+.modal.wide { width: min(900px, 100%); }
+.tg { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+.pin-foto { width: 22px; height: 22px; border-radius: 50%; background: #fab219; color: #201e1e; border: 2px solid #fff; display: grid; place-items: center; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.pop { display: grid; gap: 6px; font-size: 12px; }
+.pop img { width: 100%; border-radius: 6px; }
+.pop p { margin: 0; }
+.page, .card-box, .toolbar > select { min-width: 0; }
+.card-box .table-wrap { max-width: 100%; overflow-x: auto; }
+.card-box > * { min-width: 0; }
+
 /* Celular / modo offline */
 .sync[data-mode="offline"] i { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 30%, transparent); }
 .sync[data-mode="offline"] span { color: var(--warn); font-weight: 600; }

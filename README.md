@@ -12,7 +12,7 @@ Painel (resumo de área, safra, ordens pendentes e atrasadas, monitoramentos), M
 - **Técnico**: vê tudo, cadastra e edita.
 - **Consulta**: só visualiza.
 
-Para ativar, rode uma vez `supabase/02_equipe.sql` no editor SQL do Supabase (a tela Equipe tem o botão "Copiar comando"). Ele também garante que sempre existe um administrador ativo.
+Para ativar, rode uma vez `supabase/02_atualizacao.sql` no editor SQL do Supabase (a tela Equipe tem o botão "Copiar comando"). Ele também garante que sempre existe um administrador ativo.
 
 ## Estrutura
 - `assets/` logo e ícones da InovaAgro.
