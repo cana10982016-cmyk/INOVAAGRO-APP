@@ -144,11 +144,11 @@
       obj = Object.assign({}, obj, { atualizado_em: new Date().toISOString() });
       delete obj._prod;
       if (this.mode === 'supabase') {
-        try { if (obj._del) await SB.del(k, obj.id); else await SB.upsert(k, [obj]); }
-        catch (e) { toast(/permission|policy|JWT/i.test(e.message || '') ? 'Você não tem permissão para alterar estes dados.' : 'Não foi possível salvar. Verifique a internet e tente de novo.'); throw e; }
+        // Grava primeiro no aparelho (fila) e depois tenta enviar; sem internet fica na fila.
+        await Off.enfileirar(k, obj);
         if (obj._del) S.base[k] = S.base[k].filter(r => key(r.id) !== key(obj.id));
         else { const i = S.base[k].findIndex(r => key(r.id) === key(obj.id)); if (i >= 0) S.base[k][i] = obj; else S.base[k].push(obj); }
-        rebuild(); refresh(); return;
+        rebuild(); refresh(); sincronizar(true); return;
       }
       S.over[k][key(obj.id)] = obj; rebuild(); refresh();
       if (this.db) {
@@ -161,9 +161,60 @@
   };
   function setSync() {
     const el = $('#sync'); el.dataset.mode = Store.mode;
-    $('span', el).textContent = Store.mode === 'supabase' ? (SB.user ? SB.user.email : 'Online') : Store.mode === 'nuvem' ? 'Salvo na nuvem' : 'Salvo neste navegador';
-    el.dataset.mode = Store.mode === 'local' ? 'local' : 'nuvem';
+    $('span', el).textContent = Store.mode === 'supabase' ? syncTexto() : Store.mode === 'nuvem' ? 'Salvo na nuvem' : 'Salvo neste navegador';
+    el.dataset.mode = Store.mode === 'local' ? 'local' : Store.mode === 'supabase' && (!navigator.onLine || Sync.pend) ? 'offline' : 'nuvem';
+    el.title = Sync.pend ? Sync.pend + ' alteração(ões) esperando internet para enviar' : '';
     $('#acct').hidden = Store.mode !== 'supabase';
+  }
+
+  // ---------- Modo offline (celular no campo) ----------
+  const Off = window.GlebaOffline;
+  const Sync = { pend: 0, rodando: false, offline: false };
+  function syncTexto() {
+    if (Sync.rodando) return 'Enviando…';
+    if (!navigator.onLine || Sync.offline) return Sync.pend ? 'Sem internet · ' + Sync.pend + ' para enviar' : 'Sem internet';
+    if (Sync.pend) return Sync.pend + ' para enviar';
+    return SB.user ? SB.user.email : 'Online';
+  }
+  async function sincronizar(avisar) {
+    if (Store.mode !== 'supabase' || Sync.rodando) return;
+    let fila = await Off.fila(); Sync.pend = fila.length;
+    if (!fila.length || !navigator.onLine) { setSync(); if (fila.length && avisar) toast('Salvo no aparelho. Será enviado quando a internet voltar.'); return; }
+    Sync.rodando = true; setSync();
+    let falhou = false;
+    try {
+      if (!(await SB.session().catch(() => null))) { falhou = true; if (avisar !== false) toast('Entre de novo no app para enviar as alterações salvas no aparelho.'); return; }
+      for (const it of fila) {
+        try { if (it.del) await SB.del(it.k, it.id); else await SB.upsert(it.k, [it.obj]); await Off.tirar(it); }
+        catch (e) {
+          if (Off.erroDeRede(e)) { falhou = true; break; }
+          await Off.tirar(it);
+          toast(/permission|policy|JWT|RLS/i.test(e.message || '') ? 'Você não tem permissão para alterar estes dados.' : 'Uma alteração não foi aceita pelo servidor: ' + (e.message || e));
+        }
+      }
+      Sync.offline = falhou && !SB.user;
+    } finally {
+      Sync.rodando = false; Sync.pend = (await Off.fila()).length; setSync();
+      if (falhou && avisar) toast('Salvo no aparelho. Será enviado quando a internet voltar.');
+    }
+  }
+  window.addEventListener('online', () => { Sync.offline = false; setSync(); sincronizar(false); });
+  window.addEventListener('offline', setSync);
+  setInterval(() => { if (Sync.pend) sincronizar(false); }, 60000);
+  async function abrirSemInternet() {
+    const c = await Off.lerCopia();
+    if (!c) return false;
+    for (const k of KINDS) { S.base[k] = c.base[k] || []; S.over[k] = {}; }
+    Off.aplicar(S.base, await Off.fila());
+    SB.user = SB.user || { email: c.email }; Sync.offline = true;
+    $('#login').hidden = true;
+    return true;
+  }
+  async function sair() {
+    const n = (await Off.fila()).length;
+    if (n && !confirm(n + ' alteração(ões) ainda não foram enviadas e serão perdidas se você sair agora. Sair mesmo assim?')) return;
+    await Off.limpar().catch(() => {});
+    SB.cli.auth.signOut().finally(() => location.reload());
   }
 
   // ---------- Supabase (versão hospedada: banco + login) ----------
@@ -184,6 +235,8 @@
         }
         S.base[k] = rows; S.over[k] = {};
       }
+      Off.salvarCopia(S.base, this.user && this.user.email).catch(() => {});
+      Off.aplicar(S.base, await Off.fila());
     },
     async upsert(k, list) {
       for (let i = 0; i < list.length; i += 200) {
@@ -252,7 +305,11 @@
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     tileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Imagem: Esri' });
     let tileErrors = 0, tileOk = 0;
-    tileLayer.on('tileerror', () => { if (++tileErrors > 3 && !tileOk) { map.removeLayer(tileLayer); $('#mapnote').hidden = false; } });
+    tileLayer.on('tileerror', () => {
+      if (!navigator.onLine) { const n = $('#mapnote'); n.textContent = 'Sem internet: a imagem de satélite aparece só nas áreas guardadas com "Salvar mapa offline". Os contornos dos talhões aparecem sempre.'; n.hidden = false; return; }
+      if (++tileErrors > 3 && !tileOk) { map.removeLayer(tileLayer); $('#mapnote').hidden = false; }
+    });
+    window.addEventListener('online', () => { $('#mapnote').hidden = true; });
     tileLayer.on('tileload', () => { tileOk++; });
     tileLayer.addTo(map);
     layerTal = L.featureGroup().addTo(map);
@@ -642,6 +699,70 @@
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' })); a.download = name; a.click();
   }
 
+  // ---------- Celular: localização, mapa offline e instalação ----------
+  let gpsLayer = null, gpsWatch = null;
+  function minhaLocalizacao() {
+    if (!navigator.geolocation) { toast('Este aparelho não informa a localização.'); return; }
+    if (gpsWatch != null) { navigator.geolocation.clearWatch(gpsWatch); gpsWatch = null; if (gpsLayer) map.removeLayer(gpsLayer); gpsLayer = null; toast('Localização desligada.'); return; }
+    toast('Procurando sua localização…');
+    let primeira = true;
+    gpsWatch = navigator.geolocation.watchPosition(p => {
+      const ll = [p.coords.latitude, p.coords.longitude];
+      if (!gpsLayer) gpsLayer = L.layerGroup([L.circle(ll, { radius: p.coords.accuracy, color: '#3b8ee8', weight: 1, fillOpacity: 0.12 }), L.circleMarker(ll, { radius: 7, color: '#fff', weight: 2, fillColor: '#3b8ee8', fillOpacity: 1 })]).addTo(map);
+      else gpsLayer.eachLayer(l => { l.setLatLng(ll); if (l.setRadius && l instanceof L.Circle) l.setRadius(p.coords.accuracy); });
+      if (primeira) { primeira = false; map.setView(ll, Math.max(map.getZoom(), 16)); const t = talhaoEm(ll); if (t) selectTalhao(t.id, false); }
+    }, e => { toast(e.code === 1 ? 'Permita o acesso à localização nas configurações do celular.' : 'Não foi possível achar sua localização.'); gpsWatch = null; }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 });
+  }
+  function talhaoEm(ll) {
+    const [y, x] = ll;
+    const dentro = ring => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+    for (const t of S.data.talhoes) {
+      const g = t.geometry; if (!g) continue;
+      const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+      if (polys.some(pl => dentro(pl[0]))) return t;
+    }
+    return null;
+  }
+  // Baixa as imagens de satélite da área visível para usar sem internet (ficam no cache do app).
+  async function baixarMapa() {
+    if (!('caches' in window)) { toast('Este navegador não guarda mapas offline.'); return; }
+    if (!navigator.onLine) { toast('Conecte na internet para baixar o mapa.'); return; }
+    const b = map.getBounds(), z0 = Math.max(map.getZoom(), 10), urls = [];
+    const tile = (lat, lng, z) => { const n = 2 ** z, x = Math.floor((lng + 180) / 360 * n), r = lat * Math.PI / 180; return [x, Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n)]; };
+    for (let z = z0; z <= Math.min(z0 + 4, 18); z++) {
+      const [x1, y1] = tile(b.getNorth(), b.getWest(), z), [x2, y2] = tile(b.getSouth(), b.getEast(), z);
+      if ((x2 - x1 + 1) * (y2 - y1 + 1) + urls.length > 3000) break;
+      for (let x = x1; x <= x2; x++) for (let y = y1; y <= y2; y++) urls.push(`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`);
+    }
+    const cache = await caches.open('inovaagro-mapa');
+    let feitos = 0, erros = 0;
+    toast('Baixando mapa: 0 de ' + urls.length);
+    for (let i = 0; i < urls.length; i += 8) {
+      await Promise.all(urls.slice(i, i + 8).map(async u => {
+        try { if (!(await cache.match(u))) { const r = await fetch(u, { mode: 'no-cors' }); await cache.put(u, r); } } catch (e) { erros++; }
+        feitos++;
+      }));
+      toast('Baixando mapa: ' + feitos + ' de ' + urls.length);
+    }
+    toast(erros ? 'Mapa baixado com ' + erros + ' falhas. Tente de novo para completar.' : 'Mapa desta área salvo para usar sem internet.');
+  }
+  let pedidoInstalar = null;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); pedidoInstalar = e; const b = $('#btn-instalar'); if (b) b.hidden = false; });
+  window.addEventListener('appinstalled', () => { const b = $('#btn-instalar'); if (b) b.hidden = true; toast('App instalado.'); });
+  const instalado = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (!instalado() && /iphone|ipad|ipod/i.test(navigator.userAgent)) setTimeout(() => { const b = $('#btn-instalar'); if (b) b.hidden = false; }, 0);
+  function instalarApp() {
+    if (pedidoInstalar) { pedidoInstalar.prompt(); pedidoInstalar = null; return; }
+    const bg = document.createElement('div'); bg.className = 'modal-bg';
+    bg.innerHTML = `<div class="modal" role="dialog" aria-label="Instalar o app"><header><h2>Instalar o INOVAAGRO no celular</h2></header><div style="padding:4px 18px;line-height:1.55">
+      <p><b>iPhone (Safari):</b> toque no botão <b>Compartilhar</b> (quadrado com seta para cima), depois em <b>Adicionar à Tela de Início</b> e em <b>Adicionar</b>.</p>
+      <p><b>Android (Chrome):</b> toque nos <b>três pontinhos</b> no canto de cima e em <b>Instalar app</b> (ou <b>Adicionar à tela inicial</b>).</p>
+      <p class="muted">Depois de instalado, abra o app uma vez com internet para ele guardar os dados no celular.</p></div>
+      <footer><div class="right"><button class="btn primary" type="button" data-fechar>Entendi</button></div></footer></div>`;
+    bg.addEventListener('click', e => { if (e.target === bg || e.target.closest('[data-fechar]')) bg.remove(); });
+    document.body.appendChild(bg);
+  }
+
   // ---------- Diversos ----------
   let toastT;
   function toast(msg) { let el = $('.toast'); if (!el) { el = document.createElement('div'); el.className = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); } el.textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => el.remove(), 2600); }
@@ -662,8 +783,12 @@
         case 'fit-all': S.sel = { produtor: null, fazenda: null, talhao: null }; afterSel(false); { const b = boundsOf(S.data.talhoes); if (b) map.fitBounds(b, { padding: [20, 20] }); } break;
         case 'color': S.colorBy = S.colorBy === 'produtor' ? 'cultura' : 'produtor'; act.textContent = S.colorBy === 'produtor' ? 'Colorir por cultura' : 'Colorir por produtor'; styleAll(); drawLegend(); break;
         case 'export': exportar(); break;
+        case 'gps': minhaLocalizacao(); break;
+        case 'baixar-mapa': baixarMapa(); break;
+        case 'instalar': instalarApp(); break;
         case 'import': $('#imp-file').click(); break;
-        case 'logout': SB.cli.auth.signOut().then(() => location.reload()); break;
+        case 'logout': sair(); break;
+        case 'offline': abrirSemInternet().then(ok => ok ? boot() : toast('Ainda não há dados salvos neste aparelho. Entre uma vez com internet.')); break;
       }
       return;
     }
@@ -683,13 +808,27 @@
   (async function start() {
     if (SB.on) {
       SB.init();
-      if (!(await SB.session())) { showLogin(); return; }
+      const temCopia = !!(await Off.lerCopia());
+      $('#login-offline').hidden = !temCopia;
+      const user = await SB.session().catch(() => null);
+      if (!user) {
+        // Sem internet e com dados já salvos no aparelho: abre direto com a cópia local.
+        if (temCopia && !navigator.onLine && await abrirSemInternet()) return boot();
+        showLogin(temCopia && !navigator.onLine ? 'Sem internet.' : ''); return;
+      }
       try { await SB.loadAll(); }
-      catch (e) { showLogin('Não foi possível carregar os dados: ' + (e.message || e)); return; }
+      catch (e) {
+        if (Off.erroDeRede(e) && await abrirSemInternet()) return boot();
+        showLogin('Não foi possível carregar os dados: ' + (e.message || e)); return;
+      }
       const ok = await SB.cli.rpc('sou_membro');
-      if (ok.error || !ok.data) { showLogin('O e-mail ' + SB.user.email + ' ainda não tem acesso. Peça ao administrador para liberar.'); $('#login-out').hidden = false; return; }
+      if (ok.error && Off.erroDeRede(ok.error)) { /* caiu a internet: segue com o que já carregou */ }
+      else if (ok.error || !ok.data) { await Off.limpar().catch(() => {}); showLogin('O e-mail ' + SB.user.email + ' ainda não tem acesso. Peça ao administrador para liberar.'); $('#login-out').hidden = false; return; }
       if (!S.base.produtores.length) setTimeout(() => toast('Banco vazio. Use "Importar dados" para carregar o arquivo exportado.'), 800);
     }
+    boot();
+  })();
+  async function boot() {
     await loadBase();
     S.version = 0;
     rebuild();
@@ -697,7 +836,8 @@
     $('#loading').hidden = true;
     await Store.init();
     rebuild(); refresh();
-  })();
+    if (SB.on) sincronizar(false);
+  }
   const _save = Store.save.bind(Store);
   Store.save = async (k, o) => { S.version = (S.version || 0) + 1; return _save(k, o); };
 })();

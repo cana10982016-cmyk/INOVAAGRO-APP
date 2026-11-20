@@ -3,6 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2F4424">
+<link rel="icon" type="image/png" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="INOVAAGRO">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 </head>
 <body>
 <title>INOVAAGRO</title>
@@ -833,6 +841,11 @@ tbody tr:last-child td { border-bottom: 0; }
 .login-card { width: min(380px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 24px; display: grid; gap: 12px; }
 .login-card .brand { margin-bottom: 4px; }
 
+/* Celular / modo offline */
+.sync[data-mode="offline"] i { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 30%, transparent); }
+.sync[data-mode="offline"] span { color: var(--warn); font-weight: 600; }
+@media (max-width: 760px) { .sync[data-mode="offline"] span { display: inline; } }
+
 </style>
 <header class="topbar">
   <div class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" rx="7" fill="var(--accent)"/><path d="M7 22c4-1 7-4 9-9m-9 4c3-.6 5-2.6 6.4-5.6M11 25c5-1.5 9-5.5 11.5-12M17 25.5c3-2 5.5-5.2 7-9.5" fill="none" stroke="var(--accent-fg)" stroke-width="1.8" stroke-linecap="round"/></svg><b>Gleba</b></div>
@@ -840,6 +853,7 @@ tbody tr:last-child td { border-bottom: 0; }
     <a href="#mapa">Mapa</a><a href="#produtores">Produtores</a><a href="#fazendas">Fazendas</a><a href="#talhoes">Talhões</a><a href="#safras">Safras</a><a href="#monitoramentos">Monitoramentos</a><a href="#ordens">Ordens de trabalho</a>
   </nav>
   <div class="sync" id="sync" data-mode="local"><i></i><span>Carregando…</span></div>
+  <button class="btn small" id="btn-instalar" data-act="instalar" hidden>Instalar app</button>
   <div id="acct" hidden style="display:flex;gap:6px"><button class="btn small" data-act="import">Importar dados</button><button class="btn small" data-act="logout">Sair</button></div>
   <input type="file" id="imp-file" accept=".json,application/json" hidden>
 </header>
@@ -856,7 +870,7 @@ tbody tr:last-child td { border-bottom: 0; }
       <div class="map-wrap">
         <div id="map" role="application" aria-label="Mapa dos talhões"></div>
         <div class="legend" id="legend"></div>
-        <div class="map-tools"><button class="btn small" data-act="fit-all">Ver tudo</button><button class="btn small" data-act="color">Colorir por cultura</button><button class="btn small" data-act="export">Exportar dados</button></div>
+        <div class="map-tools"><button class="btn small" data-act="fit-all">Ver tudo</button><button class="btn small" data-act="color">Colorir por cultura</button><button class="btn small" data-act="export">Exportar dados</button><button class="btn small" data-act="gps">Onde estou</button><button class="btn small" data-act="baixar-mapa" title="Guarda a imagem de satélite da área que está na tela para usar sem internet">Salvar mapa offline</button></div>
         <div class="map-note" id="mapnote" hidden>A imagem de satélite não carrega nesta visualização. Os contornos dos talhões estão corretos; no aplicativo publicado o fundo de satélite aparece.</div>
         <div class="sheet" id="sheet" hidden></div>
       </div>
@@ -875,15 +889,73 @@ tbody tr:last-child td { border-bottom: 0; }
     <label class="field"><span>Senha</span><input type="password" autocomplete="current-password" id="lg-senha" required style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface)"></label>
     <button class="btn primary" type="submit" style="justify-content:center">Entrar</button>
     <button class="btn" type="submit" data-criar="1" style="justify-content:center">Primeiro acesso: criar minha senha</button>
+    <button class="btn" type="button" id="login-offline" hidden data-act="offline" style="justify-content:center">Usar sem internet (dados salvos no aparelho)</button>
     <button class="btn" type="button" id="login-out" hidden data-act="logout" style="justify-content:center">Sair</button>
     <p id="login-msg" class="muted" role="status" style="margin:0;min-height:1.2em"></p>
   </form></div>
-  <div id="loading" style="position:absolute;inset:0;display:grid;place-items:center;background:var(--bg);z-index:1500"><p class="muted">Carregando fazendas e talhões…</p></div>
+  <div id="loading" style="position:absolute;inset:0;display:grid;place-items:center;align-content:center;gap:18px;background:var(--bg);z-index:1500"><img src="icons/logo-inovaagro.png" alt="InovaAgro Consultoria Agrícola" style="width:min(320px,72vw);height:auto" onerror="this.remove()"><p class="muted">Carregando fazendas e talhões…</p></div>
 </main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <script>
+/* INOVAAGRO offline: guarda uma cópia dos dados no aparelho (IndexedDB) e uma fila
+   de alterações feitas sem internet, que é enviada ao Supabase quando a conexão volta. */
+window.GlebaOffline = (function () {
+  'use strict';
+  const NOME = 'inovaagro-offline', VERSAO = 1;
+  let aberto = null;
+  function abrir() {
+    if (!aberto) aberto = new Promise((ok, falha) => {
+      const r = indexedDB.open(NOME, VERSAO);
+      r.onupgradeneeded = () => { const d = r.result; d.createObjectStore('copia'); d.createObjectStore('fila'); };
+      r.onsuccess = () => ok(r.result);
+      r.onerror = () => falha(r.error);
+    });
+    return aberto;
+  }
+  async function op(loja, modo, fn) {
+    const d = await abrir();
+    return new Promise((ok, falha) => {
+      const t = d.transaction(loja, modo), s = t.objectStore(loja);
+      let res; const req = fn(s);
+      if (req) req.onsuccess = () => { res = req.result; };
+      t.oncomplete = () => ok(res);
+      t.onerror = t.onabort = () => falha(t.error);
+    });
+  }
+  const chave = (k, id) => k + ':' + String(id);
+  return {
+    // Cópia completa dos dados (usada para abrir o app sem internet)
+    salvarCopia: (base, email) => op('copia', 'readwrite', s => s.put({ base, email, em: new Date().toISOString() }, 'dados')),
+    lerCopia: () => op('copia', 'readonly', s => s.get('dados')).catch(() => null),
+    // Fila: uma entrada por registro (a última alteração vale)
+    enfileirar: (k, obj) => op('fila', 'readwrite', s => s.put({ k, id: String(obj.id), obj, del: !!obj._del, em: obj.atualizado_em || new Date().toISOString() }, chave(k, obj.id))),
+    fila: () => op('fila', 'readonly', s => s.getAll()).then(l => l || []).catch(() => []),
+    // Só tira da fila se ninguém alterou o registro de novo enquanto ele era enviado
+    tirar: async it => {
+      const atual = await op('fila', 'readonly', s => s.get(chave(it.k, it.id)));
+      if (atual && atual.em === it.em) await op('fila', 'readwrite', s => s.delete(chave(it.k, it.id)));
+    },
+    limpar: () => Promise.all([op('copia', 'readwrite', s => s.clear()), op('fila', 'readwrite', s => s.clear())]),
+    // Aplica a fila em cima dos dados carregados
+    aplicar(base, fila) {
+      for (const it of fila) {
+        const lista = base[it.k]; if (!lista) continue;
+        const i = lista.findIndex(r => String(r.id) === it.id);
+        if (it.del) { if (i >= 0) lista.splice(i, 1); }
+        else if (i >= 0) lista[i] = it.obj; else lista.push(it.obj);
+      }
+    },
+    erroDeRede: e => !navigator.onLine || /fetch|network|load failed|timed? ?out|conex/i.test(String((e && (e.message || e.details)) || e)),
+  };
+})();
+
+// Instala o service worker (só no site publicado; precisa de https ou localhost)
+if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/.test(location.href) && document.querySelector('link[rel=manifest]')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('sw', e)));
+}
+
 /* Gleba — gestão agrícola. Dados base importados do SIMA (data/*.json) + alterações salvas (nuvem ou navegador). */
 (function () {
   'use strict';
@@ -1030,11 +1102,11 @@ tbody tr:last-child td { border-bottom: 0; }
       obj = Object.assign({}, obj, { atualizado_em: new Date().toISOString() });
       delete obj._prod;
       if (this.mode === 'supabase') {
-        try { if (obj._del) await SB.del(k, obj.id); else await SB.upsert(k, [obj]); }
-        catch (e) { toast(/permission|policy|JWT/i.test(e.message || '') ? 'Você não tem permissão para alterar estes dados.' : 'Não foi possível salvar. Verifique a internet e tente de novo.'); throw e; }
+        // Grava primeiro no aparelho (fila) e depois tenta enviar; sem internet fica na fila.
+        await Off.enfileirar(k, obj);
         if (obj._del) S.base[k] = S.base[k].filter(r => key(r.id) !== key(obj.id));
         else { const i = S.base[k].findIndex(r => key(r.id) === key(obj.id)); if (i >= 0) S.base[k][i] = obj; else S.base[k].push(obj); }
-        rebuild(); refresh(); return;
+        rebuild(); refresh(); sincronizar(true); return;
       }
       S.over[k][key(obj.id)] = obj; rebuild(); refresh();
       if (this.db) {
@@ -1047,9 +1119,60 @@ tbody tr:last-child td { border-bottom: 0; }
   };
   function setSync() {
     const el = $('#sync'); el.dataset.mode = Store.mode;
-    $('span', el).textContent = Store.mode === 'supabase' ? (SB.user ? SB.user.email : 'Online') : Store.mode === 'nuvem' ? 'Salvo na nuvem' : 'Salvo neste navegador';
-    el.dataset.mode = Store.mode === 'local' ? 'local' : 'nuvem';
+    $('span', el).textContent = Store.mode === 'supabase' ? syncTexto() : Store.mode === 'nuvem' ? 'Salvo na nuvem' : 'Salvo neste navegador';
+    el.dataset.mode = Store.mode === 'local' ? 'local' : Store.mode === 'supabase' && (!navigator.onLine || Sync.pend) ? 'offline' : 'nuvem';
+    el.title = Sync.pend ? Sync.pend + ' alteração(ões) esperando internet para enviar' : '';
     $('#acct').hidden = Store.mode !== 'supabase';
+  }
+
+  // ---------- Modo offline (celular no campo) ----------
+  const Off = window.GlebaOffline;
+  const Sync = { pend: 0, rodando: false, offline: false };
+  function syncTexto() {
+    if (Sync.rodando) return 'Enviando…';
+    if (!navigator.onLine || Sync.offline) return Sync.pend ? 'Sem internet · ' + Sync.pend + ' para enviar' : 'Sem internet';
+    if (Sync.pend) return Sync.pend + ' para enviar';
+    return SB.user ? SB.user.email : 'Online';
+  }
+  async function sincronizar(avisar) {
+    if (Store.mode !== 'supabase' || Sync.rodando) return;
+    let fila = await Off.fila(); Sync.pend = fila.length;
+    if (!fila.length || !navigator.onLine) { setSync(); if (fila.length && avisar) toast('Salvo no aparelho. Será enviado quando a internet voltar.'); return; }
+    Sync.rodando = true; setSync();
+    let falhou = false;
+    try {
+      if (!(await SB.session().catch(() => null))) { falhou = true; if (avisar !== false) toast('Entre de novo no app para enviar as alterações salvas no aparelho.'); return; }
+      for (const it of fila) {
+        try { if (it.del) await SB.del(it.k, it.id); else await SB.upsert(it.k, [it.obj]); await Off.tirar(it); }
+        catch (e) {
+          if (Off.erroDeRede(e)) { falhou = true; break; }
+          await Off.tirar(it);
+          toast(/permission|policy|JWT|RLS/i.test(e.message || '') ? 'Você não tem permissão para alterar estes dados.' : 'Uma alteração não foi aceita pelo servidor: ' + (e.message || e));
+        }
+      }
+      Sync.offline = falhou && !SB.user;
+    } finally {
+      Sync.rodando = false; Sync.pend = (await Off.fila()).length; setSync();
+      if (falhou && avisar) toast('Salvo no aparelho. Será enviado quando a internet voltar.');
+    }
+  }
+  window.addEventListener('online', () => { Sync.offline = false; setSync(); sincronizar(false); });
+  window.addEventListener('offline', setSync);
+  setInterval(() => { if (Sync.pend) sincronizar(false); }, 60000);
+  async function abrirSemInternet() {
+    const c = await Off.lerCopia();
+    if (!c) return false;
+    for (const k of KINDS) { S.base[k] = c.base[k] || []; S.over[k] = {}; }
+    Off.aplicar(S.base, await Off.fila());
+    SB.user = SB.user || { email: c.email }; Sync.offline = true;
+    $('#login').hidden = true;
+    return true;
+  }
+  async function sair() {
+    const n = (await Off.fila()).length;
+    if (n && !confirm(n + ' alteração(ões) ainda não foram enviadas e serão perdidas se você sair agora. Sair mesmo assim?')) return;
+    await Off.limpar().catch(() => {});
+    SB.cli.auth.signOut().finally(() => location.reload());
   }
 
   // ---------- Supabase (versão hospedada: banco + login) ----------
@@ -1070,6 +1193,8 @@ tbody tr:last-child td { border-bottom: 0; }
         }
         S.base[k] = rows; S.over[k] = {};
       }
+      Off.salvarCopia(S.base, this.user && this.user.email).catch(() => {});
+      Off.aplicar(S.base, await Off.fila());
     },
     async upsert(k, list) {
       for (let i = 0; i < list.length; i += 200) {
@@ -1138,7 +1263,11 @@ tbody tr:last-child td { border-bottom: 0; }
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     tileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Imagem: Esri' });
     let tileErrors = 0, tileOk = 0;
-    tileLayer.on('tileerror', () => { if (++tileErrors > 3 && !tileOk) { map.removeLayer(tileLayer); $('#mapnote').hidden = false; } });
+    tileLayer.on('tileerror', () => {
+      if (!navigator.onLine) { const n = $('#mapnote'); n.textContent = 'Sem internet: a imagem de satélite aparece só nas áreas guardadas com "Salvar mapa offline". Os contornos dos talhões aparecem sempre.'; n.hidden = false; return; }
+      if (++tileErrors > 3 && !tileOk) { map.removeLayer(tileLayer); $('#mapnote').hidden = false; }
+    });
+    window.addEventListener('online', () => { $('#mapnote').hidden = true; });
     tileLayer.on('tileload', () => { tileOk++; });
     tileLayer.addTo(map);
     layerTal = L.featureGroup().addTo(map);
@@ -1528,6 +1657,70 @@ tbody tr:last-child td { border-bottom: 0; }
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' })); a.download = name; a.click();
   }
 
+  // ---------- Celular: localização, mapa offline e instalação ----------
+  let gpsLayer = null, gpsWatch = null;
+  function minhaLocalizacao() {
+    if (!navigator.geolocation) { toast('Este aparelho não informa a localização.'); return; }
+    if (gpsWatch != null) { navigator.geolocation.clearWatch(gpsWatch); gpsWatch = null; if (gpsLayer) map.removeLayer(gpsLayer); gpsLayer = null; toast('Localização desligada.'); return; }
+    toast('Procurando sua localização…');
+    let primeira = true;
+    gpsWatch = navigator.geolocation.watchPosition(p => {
+      const ll = [p.coords.latitude, p.coords.longitude];
+      if (!gpsLayer) gpsLayer = L.layerGroup([L.circle(ll, { radius: p.coords.accuracy, color: '#3b8ee8', weight: 1, fillOpacity: 0.12 }), L.circleMarker(ll, { radius: 7, color: '#fff', weight: 2, fillColor: '#3b8ee8', fillOpacity: 1 })]).addTo(map);
+      else gpsLayer.eachLayer(l => { l.setLatLng(ll); if (l.setRadius && l instanceof L.Circle) l.setRadius(p.coords.accuracy); });
+      if (primeira) { primeira = false; map.setView(ll, Math.max(map.getZoom(), 16)); const t = talhaoEm(ll); if (t) selectTalhao(t.id, false); }
+    }, e => { toast(e.code === 1 ? 'Permita o acesso à localização nas configurações do celular.' : 'Não foi possível achar sua localização.'); gpsWatch = null; }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 });
+  }
+  function talhaoEm(ll) {
+    const [y, x] = ll;
+    const dentro = ring => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+    for (const t of S.data.talhoes) {
+      const g = t.geometry; if (!g) continue;
+      const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+      if (polys.some(pl => dentro(pl[0]))) return t;
+    }
+    return null;
+  }
+  // Baixa as imagens de satélite da área visível para usar sem internet (ficam no cache do app).
+  async function baixarMapa() {
+    if (!('caches' in window)) { toast('Este navegador não guarda mapas offline.'); return; }
+    if (!navigator.onLine) { toast('Conecte na internet para baixar o mapa.'); return; }
+    const b = map.getBounds(), z0 = Math.max(map.getZoom(), 10), urls = [];
+    const tile = (lat, lng, z) => { const n = 2 ** z, x = Math.floor((lng + 180) / 360 * n), r = lat * Math.PI / 180; return [x, Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n)]; };
+    for (let z = z0; z <= Math.min(z0 + 4, 18); z++) {
+      const [x1, y1] = tile(b.getNorth(), b.getWest(), z), [x2, y2] = tile(b.getSouth(), b.getEast(), z);
+      if ((x2 - x1 + 1) * (y2 - y1 + 1) + urls.length > 3000) break;
+      for (let x = x1; x <= x2; x++) for (let y = y1; y <= y2; y++) urls.push(`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`);
+    }
+    const cache = await caches.open('inovaagro-mapa');
+    let feitos = 0, erros = 0;
+    toast('Baixando mapa: 0 de ' + urls.length);
+    for (let i = 0; i < urls.length; i += 8) {
+      await Promise.all(urls.slice(i, i + 8).map(async u => {
+        try { if (!(await cache.match(u))) { const r = await fetch(u, { mode: 'no-cors' }); await cache.put(u, r); } } catch (e) { erros++; }
+        feitos++;
+      }));
+      toast('Baixando mapa: ' + feitos + ' de ' + urls.length);
+    }
+    toast(erros ? 'Mapa baixado com ' + erros + ' falhas. Tente de novo para completar.' : 'Mapa desta área salvo para usar sem internet.');
+  }
+  let pedidoInstalar = null;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); pedidoInstalar = e; const b = $('#btn-instalar'); if (b) b.hidden = false; });
+  window.addEventListener('appinstalled', () => { const b = $('#btn-instalar'); if (b) b.hidden = true; toast('App instalado.'); });
+  const instalado = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (!instalado() && /iphone|ipad|ipod/i.test(navigator.userAgent)) setTimeout(() => { const b = $('#btn-instalar'); if (b) b.hidden = false; }, 0);
+  function instalarApp() {
+    if (pedidoInstalar) { pedidoInstalar.prompt(); pedidoInstalar = null; return; }
+    const bg = document.createElement('div'); bg.className = 'modal-bg';
+    bg.innerHTML = `<div class="modal" role="dialog" aria-label="Instalar o app"><header><h2>Instalar o INOVAAGRO no celular</h2></header><div style="padding:4px 18px;line-height:1.55">
+      <p><b>iPhone (Safari):</b> toque no botão <b>Compartilhar</b> (quadrado com seta para cima), depois em <b>Adicionar à Tela de Início</b> e em <b>Adicionar</b>.</p>
+      <p><b>Android (Chrome):</b> toque nos <b>três pontinhos</b> no canto de cima e em <b>Instalar app</b> (ou <b>Adicionar à tela inicial</b>).</p>
+      <p class="muted">Depois de instalado, abra o app uma vez com internet para ele guardar os dados no celular.</p></div>
+      <footer><div class="right"><button class="btn primary" type="button" data-fechar>Entendi</button></div></footer></div>`;
+    bg.addEventListener('click', e => { if (e.target === bg || e.target.closest('[data-fechar]')) bg.remove(); });
+    document.body.appendChild(bg);
+  }
+
   // ---------- Diversos ----------
   let toastT;
   function toast(msg) { let el = $('.toast'); if (!el) { el = document.createElement('div'); el.className = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); } el.textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => el.remove(), 2600); }
@@ -1548,8 +1741,12 @@ tbody tr:last-child td { border-bottom: 0; }
         case 'fit-all': S.sel = { produtor: null, fazenda: null, talhao: null }; afterSel(false); { const b = boundsOf(S.data.talhoes); if (b) map.fitBounds(b, { padding: [20, 20] }); } break;
         case 'color': S.colorBy = S.colorBy === 'produtor' ? 'cultura' : 'produtor'; act.textContent = S.colorBy === 'produtor' ? 'Colorir por cultura' : 'Colorir por produtor'; styleAll(); drawLegend(); break;
         case 'export': exportar(); break;
+        case 'gps': minhaLocalizacao(); break;
+        case 'baixar-mapa': baixarMapa(); break;
+        case 'instalar': instalarApp(); break;
         case 'import': $('#imp-file').click(); break;
-        case 'logout': SB.cli.auth.signOut().then(() => location.reload()); break;
+        case 'logout': sair(); break;
+        case 'offline': abrirSemInternet().then(ok => ok ? boot() : toast('Ainda não há dados salvos neste aparelho. Entre uma vez com internet.')); break;
       }
       return;
     }
@@ -1569,13 +1766,27 @@ tbody tr:last-child td { border-bottom: 0; }
   (async function start() {
     if (SB.on) {
       SB.init();
-      if (!(await SB.session())) { showLogin(); return; }
+      const temCopia = !!(await Off.lerCopia());
+      $('#login-offline').hidden = !temCopia;
+      const user = await SB.session().catch(() => null);
+      if (!user) {
+        // Sem internet e com dados já salvos no aparelho: abre direto com a cópia local.
+        if (temCopia && !navigator.onLine && await abrirSemInternet()) return boot();
+        showLogin(temCopia && !navigator.onLine ? 'Sem internet.' : ''); return;
+      }
       try { await SB.loadAll(); }
-      catch (e) { showLogin('Não foi possível carregar os dados: ' + (e.message || e)); return; }
+      catch (e) {
+        if (Off.erroDeRede(e) && await abrirSemInternet()) return boot();
+        showLogin('Não foi possível carregar os dados: ' + (e.message || e)); return;
+      }
       const ok = await SB.cli.rpc('sou_membro');
-      if (ok.error || !ok.data) { showLogin('O e-mail ' + SB.user.email + ' ainda não tem acesso. Peça ao administrador para liberar.'); $('#login-out').hidden = false; return; }
+      if (ok.error && Off.erroDeRede(ok.error)) { /* caiu a internet: segue com o que já carregou */ }
+      else if (ok.error || !ok.data) { await Off.limpar().catch(() => {}); showLogin('O e-mail ' + SB.user.email + ' ainda não tem acesso. Peça ao administrador para liberar.'); $('#login-out').hidden = false; return; }
       if (!S.base.produtores.length) setTimeout(() => toast('Banco vazio. Use "Importar dados" para carregar o arquivo exportado.'), 800);
     }
+    boot();
+  })();
+  async function boot() {
     await loadBase();
     S.version = 0;
     rebuild();
@@ -1583,7 +1794,8 @@ tbody tr:last-child td { border-bottom: 0; }
     $('#loading').hidden = true;
     await Store.init();
     rebuild(); refresh();
-  })();
+    if (SB.on) sincronizar(false);
+  }
   const _save = Store.save.bind(Store);
   Store.save = async (k, o) => { S.version = (S.version || 0) + 1; return _save(k, o); };
 })();

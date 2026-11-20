@@ -185,3 +185,8 @@ tbody tr:last-child td { border-bottom: 0; }
 .login-bg { position: fixed; inset: 0; z-index: 2500; background: var(--bg); display: grid; place-items: center; padding: 16px; }
 .login-card { width: min(380px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 24px; display: grid; gap: 12px; }
 .login-card .brand { margin-bottom: 4px; }
+
+/* Celular / modo offline */
+.sync[data-mode="offline"] i { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 30%, transparent); }
+.sync[data-mode="offline"] span { color: var(--warn); font-weight: 600; }
+@media (max-width: 760px) { .sync[data-mode="offline"] span { display: inline; } }

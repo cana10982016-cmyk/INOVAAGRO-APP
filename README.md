@@ -16,6 +16,13 @@ Os dados vieram da exportação do SIMA (`/mnt/project-files/migracao-sima/`).
 Os dados importados são a base (somente leitura). O que for criado, editado ou excluído no app fica salvo por cima:
 na versão publicada no Claude, num banco na nuvem; rodando localmente, no navegador. "Exportar dados" baixa tudo em JSON.
 
+## App no celular (PWA, funciona sem internet)
+- `manifest.webmanifest` + `icons/` fazem o site virar app instalável (Android: Chrome > Instalar app; iPhone: Safari > Compartilhar > Adicionar à Tela de Início).
+- `sw.js` guarda o app (página, Leaflet, Supabase JS) e as imagens de satélite vistas ou baixadas em "Salvar mapa offline".
+- `src/offline.js` guarda uma cópia dos dados no aparelho (IndexedDB) e uma fila de alterações. Sem internet o app abre com a cópia; o que for salvo entra na fila e é enviado ao Supabase quando a conexão volta (vale a última alteração de cada registro).
+- No mapa: "Onde estou" mostra o GPS e abre o talhão onde você está.
+- Ao mudar `sw.js`, aumente `VERSAO` para os celulares baixarem a versão nova.
+
 ## Próximos passos
 - Hospedagem própria + banco (ex.: Supabase/Postgres com PostGIS) e login de usuários.
 - App móvel: o mesmo código empacotado com Capacitor (Android/iOS), com modo offline para monitoramento no campo.
