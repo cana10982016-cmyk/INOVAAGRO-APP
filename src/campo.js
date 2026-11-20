@@ -11,11 +11,11 @@ window.Campo = (function () {
   const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
   const LIMA = '#b1d243', AZUL = '#3b8ee8';
 
-  let pref = { faz: null, base: 'sat', nomes: true, pontos: true, pluv: true, calor: null, calorDias: 90, recentes: [] };
+  let pref = { faz: null, base: 'sat', nomes: true, pontos: true, pluv: true, calor: null, calorDias: 90, recentes: [], rotaDias: 15, rotaNunca: false };
   try { Object.assign(pref, JSON.parse(localStorage.getItem(LS) || '{}')); } catch (e) { }
   const salvarPref = () => { try { localStorage.setItem(LS, JSON.stringify(pref)); } catch (e) { } };
 
-  let root = null, map = null, bases = {}, baseAtual = null, lyTal, lyLbl, lyPts, lyPluv, lyGps, lyCalor;
+  let root = null, map = null, bases = {}, baseAtual = null, lyTal, lyLbl, lyPts, lyPluv, lyGps, lyCalor, lyRota;
   let selTal = null, pane = 'inicio', fila = new Set(), nMidia = 0, faixaFechada = -1;
   const gps = { pos: null, watch: null, seguir: false };
   const movidas = new Map(); // seções do site exibidas dentro do modo campo
@@ -24,6 +24,8 @@ window.Campo = (function () {
   // ---------- Ícones (traço simples, 24x24) ----------
   const P = {
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    rota: '<circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><path d="M8.2 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.8"/>',
+    cotesia: '<ellipse cx="12" cy="14.5" rx="3" ry="5"/><circle cx="12" cy="7" r="2"/><path d="M9.5 11.5 4 8.5M14.5 11.5l5.5-3M9 15H5M15 15h4M12 19.5V22"/>',
     semaforo: '<rect x="8" y="2.5" width="8" height="19" rx="3"/><circle cx="12" cy="7" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="17" r="1.6"/>',
     gps: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/>',
     camadas: '<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
@@ -74,6 +76,7 @@ window.Campo = (function () {
     ['Trabalho', [['Ordem de trabalho', 'trator', t => ordem(t, 'Tratos culturais')], ['Preparo de solo', 'solo', t => ordem(t, 'Preparo de solo')]]],
     ['Colheita', [['Ordem de colheita', 'colheita', t => ordem(t, 'Colheita')], ['Controle das perdas na colheita', 'perdas', t => controle(t, 'Perda na colheita')], ['Avanço da colheita', 'avanco', t => avanco(t, 'Colheita')]]],
     ['Fertilização', [['Ordem de fertilização', 'adubo', t => ordem(t, 'Fertilização')]]],
+    ['Controle biológico', [['Liberação de Cotesia', 'cotesia', t => cotesiaNova(t)]]],
     ['Clima', [['Registrar chuva', 'pluv', () => chuva()]]],
   ];
 
@@ -116,6 +119,7 @@ window.Campo = (function () {
         <div class="cp-tools">
           <button class="cp-round" data-cp="gps" aria-label="Minha localização" title="Minha localização">${ic('gps')}</button>
           <button class="cp-round" data-cp="camadas" aria-label="Camadas do mapa" title="Camadas">${ic('camadas')}</button>
+          <button class="cp-round" data-cp="rota" aria-label="Rota de visitas do dia" title="Rota do dia">${ic('rota')}</button>
           <button class="cp-round" data-cp="navegar" aria-label="Navegar até o talhão" title="Navegar até o talhão">${ic('navegar')}</button>
           <button class="cp-round" data-cp="chuva" aria-label="Registrar chuva no pluviômetro" title="Pluviômetro">${ic('pluv')}</button>
         </div>
@@ -156,6 +160,7 @@ window.Campo = (function () {
     lyPts = L.layerGroup();
     lyPluv = L.layerGroup();
     lyGps = L.layerGroup().addTo(map);
+    lyRota = L.layerGroup().addTo(map);
     setBase(pref.base);
     map.on('zoomend moveend', rotulos);
     map.on('click', e => { const t = talhaoEm(e.latlng); if (t) selecionar(t, false); else { selTal = null; desenharCard(); estilos(); } });
@@ -191,7 +196,7 @@ window.Campo = (function () {
   function rotulos() {
     if (!map || !map._loaded) return;
     lyLbl.clearLayers();
-    if (!pref.nomes || map.getZoom() < 14) return;
+    if (!pref.nomes || map.getZoom() < 14 || rotaAtual && lyRota.getLayers().length) return;
     const b = map.getBounds(); let n = 0;
     for (const t of I().S.data.talhoes) {
       const l = camadaTal.get(String(t.id)); if (!l) continue;
@@ -344,6 +349,8 @@ window.Campo = (function () {
         <p class="cp-mut2">O app envia sozinho quando a internet volta.</p></section>
       <nav class="cp-mlinks">
         <button data-cp="opcoes">${ic('opcoes')}Opções</button>
+        <button data-cp="rota">${ic('rota')}Rota de visitas do dia</button>
+        <button data-cp="cot-lista">${ic('cotesia')}Liberações de Cotesia</button>
         <button data-cp="niveis">${ic('semaforo')}Níveis de controle da cana</button>
         <button data-cp="tab" data-p="clima">${ic('clima')}Clima</button>
         <button data-cp="suporte">${ic('suporte')}Centro de suporte</button>
@@ -459,6 +466,95 @@ window.Campo = (function () {
     I().openForm('chuvas', null, { data: I().today(), pluviometro_id: p.id, criado_por: email(), criado_em: new Date().toISOString() });
   }
   const dist = (ll, p) => p.lat == null ? 1e12 : ll.distanceTo([p.lat, p.lng]);
+
+  // ---------- Liberação de Cotesia ----------
+  function cotesiaNova(t) {
+    I().openForm('controles', null, { tipo: I().COT, data: I().today(), talhao_id: t.id, area_ha: t.area_ha != null ? +(+t.area_ha).toFixed(2) : undefined, responsavel: email(), criado_por: email(), criado_em: new Date().toISOString() });
+  }
+  function cotesiaLista() {
+    fecharSheet(); fecharMenu();
+    const C = CN(), f0 = v => v == null ? '—' : I().fmtInt(Math.round(v));
+    const rels = I().S.data.controles.filter(c => c.tipo === I().COT && (!pref.faz || String((tal(c.talhao_id) || {}).fazenda_id) === String(pref.faz)))
+      .sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')));
+    tela(`<header class="cp-bar"><button class="cp-ib" data-cp="voltar" aria-label="Voltar">${ic('voltar')}</button><h1>Cotesia</h1><span></span></header>
+      <div class="cp-ctx">${pref.faz ? `<b>${esc(fazAtual()?.nome || '')}</b> · ` : ''}Broca ≥ 1,5 cm (lagartas/ha) no levantamento antes e depois de cada liberação.</div>
+      <div class="cp-lst">${rels.map(r => {
+        const t = tal(r.talhao_id), e = C ? C.eficiencia(r, I().S.data.monitoramentos) : {}, vh = C ? C.vespasHa(r) : null;
+        const cl = e.red == null ? '' : e.red > 0 ? 'c0' : e.red < 0 ? 'c2' : 'c1';
+        return `<button class="cp-cot" data-cp="abrir-reg" data-k="controles" data-id="${esc(r.id)}"><span><b>${esc(t ? t.nome : 'Talhão')}</b><small>${esc(I().fmtDate(r.data))} · ${I().fmtHa(r.area_ha)} ha · ${r.copos == null ? '—' : I().fmtInt(r.copos)} copos${vh ? ' · ' + f0(vh) + ' vespas/ha' : ''}</small>
+          <small>Antes: <b>${e.antes ? f0(e.antes.valor) : '—'}</b> · Depois: <b>${e.depois ? f0(e.depois.valor) : '—'}</b></small></span>
+          ${e.red == null ? '<em class="cp-cl">Sem levantamento</em>' : `<em class="cp-cl ${cl}">${e.red > 0 ? 'Caiu' : e.red < 0 ? 'Subiu' : 'Igual'} ${I().fmtInt(Math.abs(Math.round(e.red)))}%</em>`}</button>`;
+      }).join('') || '<p class="cp-mut cp-pad">Nenhuma liberação registrada. Use Atividade, "Liberação de Cotesia".</p>'}</div>
+      ${I().podeEditar() ? `<button class="cp-btn pri cp-concluir" data-cp="cot-nova">${ic('mais')}Nova liberação</button>` : ''}`, { cls: 'cp-cotl' });
+  }
+
+  // ---------- Rota de visitas do dia ----------
+  let rotaAtual = null;
+  const diasDesde = d => Math.floor((Date.now() - new Date(String(d).slice(0, 10) + 'T12:00:00').getTime()) / 864e5);
+  function rotaCalcular() {
+    const S = I().S, dias = pref.rotaDias || 15, hoje = I().today();
+    const ts = (pref.faz ? (S.talPorFaz.get(String(pref.faz)) || []) : S.data.talhoes).filter(t => t.geometry);
+    const cand = [];
+    for (const t of ts) {
+      const v = ultimaVisita(t), c = centroTal(t); if (!c) continue;
+      let m = null;
+      if (v && v.data === hoje) continue; // já visitado hoje
+      if (v && v.semaforo === 'Vermelho') m = { p: 0, txt: 'Vermelho', cl: 'c2' };
+      else if (v && v.semaforo === 'Amarelo') m = { p: 1, txt: 'Amarelo', cl: 'c1' };
+      else if (v && v.data && diasDesde(v.data) > dias) m = { p: 2, txt: `Sem visita há ${diasDesde(v.data)} dias`, cl: '' };
+      else if (!v && pref.rotaNunca) m = { p: 3, txt: 'Nunca visitado', cl: '' };
+      if (m) cand.push({ t, c, v, m });
+    }
+    // urgentes primeiro; dentro de cada grupo, sempre o talhão mais perto do anterior
+    let pos = gps.pos ? L.latLng(gps.pos.lat, gps.pos.lng) : (fazAtual() && centroFaz(fazAtual())) || (cand[0] && cand[0].c);
+    const ini = pos, out = [];
+    for (const p of [0, 1, 2, 3]) {
+      const g = cand.filter(x => x.m.p === p);
+      while (g.length && out.length < 25) {
+        let bi = 0; for (let i = 1; i < g.length; i++) if (pos.distanceTo(g[i].c) < pos.distanceTo(g[bi].c)) bi = i;
+        const [x] = g.splice(bi, 1); x.km = pos.distanceTo(x.c) / 1000; out.push(x); pos = x.c;
+      }
+    }
+    return { ini, paradas: out, total: cand.length, gps: !!gps.pos };
+  }
+  function rota() {
+    fecharSheet(); fecharMenu(); ligarGps(false);
+    const R = rotaAtual = rotaCalcular(), km = R.paradas.reduce((a, x) => a + x.km, 0);
+    const el = tela(`<header class="cp-bar"><button class="cp-ib" data-cp="voltar" aria-label="Voltar">${ic('voltar')}</button><h1>Rota do dia</h1><span></span></header>
+      <div class="cp-ctx">${pref.faz ? `<b>${esc(fazAtual()?.nome || '')}</b>` : '<b>Todas as fazendas</b> · escolha uma fazenda no mapa para uma rota menor'}<br>Talhões em vermelho primeiro, depois amarelo e depois os sem visita recente, sempre indo para o mais perto.</div>
+      <div class="cp-rf">
+        <label class="cp-f"><span>Sem visita há mais de</span><select data-cp-rota="dias">${[7, 15, 30, 60].map(d => `<option value="${d}" ${pref.rotaDias === d ? 'selected' : ''}>${d} dias</option>`).join('')}</select></label>
+        <label class="cp-rtg"><input type="checkbox" data-cp-rota="nunca" ${pref.rotaNunca ? 'checked' : ''}><span>Incluir talhões nunca visitados</span></label>
+      </div>
+      <div class="cp-rsum"><b>${R.paradas.length} ${R.paradas.length === 1 ? 'parada' : 'paradas'}</b><span>cerca de ${km.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km em linha reta${R.gps ? ' a partir de você' : ''}${R.total > R.paradas.length ? ` · mostrando 25 de ${R.total}` : ''}</span></div>
+      ${R.paradas.length ? `<div class="cp-racts"><button class="cp-btn" data-cp="rota-mapa">${ic('camadas')}Ver no mapa</button><button class="cp-btn pri" data-cp="rota-gmaps">${ic('navegar')}Abrir no Google Maps</button></div>` : ''}
+      <ol class="cp-rl">${R.paradas.map((x, i) => `<li><i class="cp-rn ${x.m.cl}">${i + 1}</i><span><b>${esc(x.t.nome)}</b><small>${esc(faz(x.t.fazenda_id)?.nome || '')} · ${I().fmtHa(x.t.area_ha)} ha · ${x.km.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km</small><em class="cp-cl ${x.m.cl}">${esc(x.m.txt)}</em>${x.v ? `<small>Última visita: ${esc(I().fmtDate(x.v.data))}${x.v.alvo ? ' · ' + esc(x.v.alvo) : ''}</small>` : ''}</span>
+        <span class="cp-rb"><button class="cp-ib" data-cp="rota-ir" data-id="${esc(x.t.id)}" aria-label="Navegar até ${esc(x.t.nome)}">${ic('navegar')}</button><button class="cp-ib" data-cp="rota-visita" data-id="${esc(x.t.id)}" aria-label="Nova visita em ${esc(x.t.nome)}">${ic('lupa')}</button></span></li>`).join('')}</ol>
+      ${R.paradas.length ? '' : '<p class="cp-mut cp-pad">Nenhum talhão precisa de visita com esses filtros. Aumente o prazo ou inclua os talhões nunca visitados.</p>'}`, { cls: 'cp-rota' });
+    return el;
+  }
+  function rotaMapa() {
+    const R = rotaAtual; if (!R) return;
+    fecharTelas(); lyRota.clearLayers();
+    const pts = [R.ini, ...R.paradas.map(x => x.c)].filter(Boolean);
+    L.polyline(pts, { color: '#ffffff', weight: 3, dashArray: '6 8', opacity: 0.9, interactive: false }).addTo(lyRota);
+    R.paradas.forEach((x, i) => L.marker(x.c, { icon: L.divIcon({ className: 'cp-rmk ' + x.m.cl, html: `<span>${i + 1}</span>`, iconSize: [28, 28] }) }).on('click', () => selecionar(x.t, false)).addTo(lyRota));
+    rotulos();
+    if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [70, 70], maxZoom: 16 });
+    let bar = $('#cp-rbar'); if (!bar) { bar = document.createElement('div'); bar.id = 'cp-rbar'; bar.className = 'cp-rbar'; $('#cp-map').after(bar); }
+    bar.hidden = false;
+    bar.innerHTML = `<span>${ic('rota')}<b>Rota</b> · ${R.paradas.length} ${R.paradas.length === 1 ? 'parada' : 'paradas'}</span><button class="cp-lnk" data-cp="rota">Lista</button><button class="cp-ib" data-cp="rota-limpar" aria-label="Tirar a rota do mapa">${ic('fechar')}</button>`;
+  }
+  function rotaGmaps() {
+    const R = rotaAtual; if (!R || !R.paradas.length) return;
+    const f = c => c.lat.toFixed(6) + ',' + c.lng.toFixed(6), p = R.paradas.slice(0, 10);
+    const dest = p[p.length - 1], way = p.slice(0, -1);
+    let u = `https://www.google.com/maps/dir/?api=1&destination=${f(dest.c)}&travelmode=driving`;
+    if (R.gps && R.ini) u += `&origin=${f(R.ini)}`;
+    if (way.length) u += `&waypoints=${encodeURIComponent(way.map(x => f(x.c)).join('|'))}`;
+    if (R.paradas.length > 10) I().toast('O Google Maps aceita até 10 paradas. Abrindo as 10 primeiras.');
+    window.open(u, '_blank', 'noopener');
+  }
 
   // ---------- Levantamento da cana: médias, níveis e semáforo ----------
   const CN = () => window.CANA;
@@ -962,6 +1058,14 @@ window.Campo = (function () {
       case 'baixar-mapa': baixarMapa(); break;
       // visita
       case 'v-amostra': amostraForm(); break;
+      case 'rota': if (telas.length && telas[telas.length - 1].el.classList.contains('cp-rota')) voltarTela(); else { fecharTelas(); rota(); } break;
+      case 'rota-mapa': rotaMapa(); break;
+      case 'rota-gmaps': rotaGmaps(); break;
+      case 'rota-limpar': lyRota.clearLayers(); rotaAtual = null; { const bb = $('#cp-rbar'); if (bb) bb.hidden = true; } rotulos(); break;
+      case 'rota-ir': navegar(tal(b.dataset.id)); break;
+      case 'rota-visita': { const t = tal(b.dataset.id); if (t) novaVisita(t); break; }
+      case 'cot-lista': cotesiaLista(); break;
+      case 'cot-nova': comTalhao(cotesiaNova, 'Talhão da liberação'); break;
       case 'am-item': amostraItem(b.dataset.id); break;
       case 'am-livre': amostraLivre(); break;
       case 'niveis': if (CN()) niveisTela(); break;
@@ -980,6 +1084,8 @@ window.Campo = (function () {
     }
   }
   document.addEventListener('change', e => {
+    const ro = e.target.closest('[data-cp-rota]');
+    if (ro) { if (ro.dataset.cpRota === 'dias') pref.rotaDias = Number(ro.value); else pref.rotaNunca = ro.checked; salvarPref(); voltarTela(); rota(); return; }
     const c = e.target.closest('[data-cp-calor]');
     if (c) { if (c.dataset.cpCalor === 'dias') pref.calorDias = Number(c.value); else pref.calor = c.value || null; salvarPref(); calcCalor(); estilos(); return; }
     const f = e.target.closest('[data-cp-f]'); if (!f || !V) return;
@@ -1004,6 +1110,8 @@ window.Campo = (function () {
     if (!root) return;
     desenhar();
     if (pane === 'historico' && !telas.length) historico();
+    const top = telas[telas.length - 1];
+    if (top && top.el.classList.contains('cp-cotl')) { voltarTela(); cotesiaLista(); }
   });
   document.addEventListener('inova:sync', () => { if (root) { atualizarFila(); if (root.classList.contains('cp-menu-on')) menu(); } });
   window.addEventListener('online', () => { Midia.enviar(); });

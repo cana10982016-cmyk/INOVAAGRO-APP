@@ -251,3 +251,32 @@ body.campo-on .toast { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); ma
 .cp-niv-l label { display: grid; gap: 2px; }
 .cp-niv-l input { width: 100%; height: 40px; text-align: center; font-size: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--fg); }
 .cp-niv-a { position: sticky; bottom: 0; padding: 12px 16px; background: var(--surface); border-top: 1px solid var(--line); }
+
+/* ---------- Cotesia e rota do dia ---------- */
+.cp-pad { padding: 16px; }
+.cp-lst { display: grid; gap: 8px; padding: 12px 16px; }
+.cp-cot { display: flex; justify-content: space-between; align-items: center; gap: 10px; text-align: left; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.cp-cot > span { display: grid; gap: 3px; min-width: 0; }
+.cp-cot small { color: var(--muted); font-size: 12.5px; }
+.cp-cot small b { color: var(--fg); }
+.cp-rf { display: grid; grid-template-columns: 1fr; gap: 10px; padding: 12px 16px 0; }
+.cp-rtg { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.cp-rtg input { width: 22px; height: 22px; accent-color: var(--brand); }
+.cp-rsum { display: grid; gap: 2px; padding: 14px 16px 0; }
+.cp-rsum b { font-size: 18px; }
+.cp-rsum span { color: var(--muted); font-size: 13px; }
+.cp-racts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 16px 4px; }
+.cp-rl { list-style: none; margin: 0; padding: 8px 16px 24px; display: grid; gap: 8px; }
+.cp-rl li { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: start; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.cp-rl li > span:nth-child(2) { display: grid; gap: 4px; min-width: 0; justify-items: start; }
+.cp-rl small { color: var(--muted); font-size: 12.5px; }
+.cp-rn { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-weight: 700; font-size: 14px; background: var(--surface-2); color: var(--fg); border: 2px solid var(--line); }
+.cp-rn.c2 { background: #ef4444; border-color: #ef4444; color: #fff; }
+.cp-rn.c1 { background: #f59e0b; border-color: #f59e0b; color: #fff; }
+.cp-rb { display: grid; gap: 4px; }
+.cp-rmk span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #fff; color: #1f2a1c; font-weight: 800; font-size: 13px; border: 2px solid #1f2a1c; box-shadow: 0 2px 6px #0005; }
+.cp-rmk.c2 span { background: #ef4444; color: #fff; border-color: #fff; }
+.cp-rmk.c1 span { background: #f59e0b; color: #fff; border-color: #fff; }
+.cp-rbar { position: absolute; z-index: 550; left: 12px; right: 76px; top: calc(var(--cp-top) + 72px); display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; background: var(--surface); border-radius: 14px; box-shadow: 0 2px 10px #0003; font-size: 14px; }
+.cp-rbar > span { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cp-rbar .ic { width: 18px; height: 18px; flex: none; }

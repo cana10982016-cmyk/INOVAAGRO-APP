@@ -1442,6 +1442,10 @@ td small, td .muted { color: var(--muted); font-size: 12px; }
 .sync[data-mode="offline"] span { color: var(--warn); font-weight: 600; }
 @media (max-width: 760px) { .sync[data-mode="offline"] span { display: inline; } }
 
+/* Liberação de Cotesia */
+.cot-kpis { margin: 0 0 14px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+@media (max-width: 640px) { .cot-kpis { grid-template-columns: repeat(2, 1fr); row-gap: 12px; } }
+
 /* ===== Modo campo (celular) — src/campo.js ===== */
 body.campo-on .nav, body.campo-on .topbar, body.campo-on .nav-scrim { display: none !important; }
 body.campo-on main { top: 0; left: 0; right: 0; bottom: 0; }
@@ -1695,6 +1699,35 @@ body.campo-on .toast { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); ma
 .cp-niv-l label { display: grid; gap: 2px; }
 .cp-niv-l input { width: 100%; height: 40px; text-align: center; font-size: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--fg); }
 .cp-niv-a { position: sticky; bottom: 0; padding: 12px 16px; background: var(--surface); border-top: 1px solid var(--line); }
+
+/* ---------- Cotesia e rota do dia ---------- */
+.cp-pad { padding: 16px; }
+.cp-lst { display: grid; gap: 8px; padding: 12px 16px; }
+.cp-cot { display: flex; justify-content: space-between; align-items: center; gap: 10px; text-align: left; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.cp-cot > span { display: grid; gap: 3px; min-width: 0; }
+.cp-cot small { color: var(--muted); font-size: 12.5px; }
+.cp-cot small b { color: var(--fg); }
+.cp-rf { display: grid; grid-template-columns: 1fr; gap: 10px; padding: 12px 16px 0; }
+.cp-rtg { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.cp-rtg input { width: 22px; height: 22px; accent-color: var(--brand); }
+.cp-rsum { display: grid; gap: 2px; padding: 14px 16px 0; }
+.cp-rsum b { font-size: 18px; }
+.cp-rsum span { color: var(--muted); font-size: 13px; }
+.cp-racts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 16px 4px; }
+.cp-rl { list-style: none; margin: 0; padding: 8px 16px 24px; display: grid; gap: 8px; }
+.cp-rl li { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: start; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.cp-rl li > span:nth-child(2) { display: grid; gap: 4px; min-width: 0; justify-items: start; }
+.cp-rl small { color: var(--muted); font-size: 12.5px; }
+.cp-rn { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-weight: 700; font-size: 14px; background: var(--surface-2); color: var(--fg); border: 2px solid var(--line); }
+.cp-rn.c2 { background: #ef4444; border-color: #ef4444; color: #fff; }
+.cp-rn.c1 { background: #f59e0b; border-color: #f59e0b; color: #fff; }
+.cp-rb { display: grid; gap: 4px; }
+.cp-rmk span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #fff; color: #1f2a1c; font-weight: 800; font-size: 13px; border: 2px solid #1f2a1c; box-shadow: 0 2px 6px #0005; }
+.cp-rmk.c2 span { background: #ef4444; color: #fff; border-color: #fff; }
+.cp-rmk.c1 span { background: #f59e0b; color: #fff; border-color: #fff; }
+.cp-rbar { position: absolute; z-index: 550; left: 12px; right: 76px; top: calc(var(--cp-top) + 72px); display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; background: var(--surface); border-radius: 14px; box-shadow: 0 2px 10px #0003; font-size: 14px; }
+.cp-rbar > span { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cp-rbar .ic { width: 18px; height: 18px; flex: none; }
 
 </style>
 <aside class="nav" id="nav" aria-label="Menu principal">
@@ -2048,6 +2081,19 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
       { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
     ],
   };
+  // Liberação de Cotesia: fica na tabela de controles, com campos próprios
+  const COT = 'Liberação de Cotesia';
+  const COT_FIELDS = [
+    { k: 'tipo', l: 'Tipo', t: 'select', opts: [COT], req: 1 },
+    { k: 'data', l: 'Data da liberação', t: 'date', req: 1 },
+    { k: 'talhao_id', l: 'Talhão', t: 'talhao', req: 1, full: 1 },
+    { k: 'area_ha', l: 'Área liberada (ha)', t: 'number', req: 1 },
+    { k: 'copos', l: 'Copos liberados', t: 'number', req: 1 },
+    { k: 'vespas_copo', l: 'Vespas por copo', t: 'number', ph: 'Ex.: 1500' },
+    { k: 'lote', l: 'Lote / fornecedor' },
+    { k: 'responsavel', l: 'Responsável' },
+    { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
+  ];
 
   // ---------- Estado ----------
   const S = {
@@ -2230,6 +2276,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
       Sync.offline = falhou && !SB.user;
     } finally {
       Sync.rodando = false; Sync.pend = (await Off.fila()).length; setSync();
+      if (!falhou && Sync.pend) setTimeout(() => sincronizar(false), 300); // alterações feitas durante o envio
       if (falhou && avisar) toast('Salvo no aparelho. Será enviado quando a internet voltar.');
     }
   }
@@ -2331,6 +2378,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
 
   // ---------- Menu e roteamento ----------
   const IC = {
+    cotesia: '<ellipse cx="12" cy="14.5" rx="3" ry="5"/><circle cx="12" cy="7" r="2"/><path d="M9.5 11.5 4 8.5M14.5 11.5l5.5-3M9 15H5M15 15h4M12 19.5V22"/>',
     painel: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
     mapa: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>',
     produtores: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
@@ -2379,7 +2427,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
   const NAV = [
     ['painel', 'Início'], ['feed', 'Feed'], ['notificacoes', 'Notificações'], ['mapa', 'Mapa'],
     'Administração', ['produtores', 'Produtores'], ['fazendas', 'Fazendas'], ['talhoes', 'Talhões'], ['planejamento', 'Planejamento da cultura'], ['safras', 'Safras'], ['etiquetas', 'Etiquetas'], ['tipos_trabalho', 'Tipos de trabalho'], ['aplicadores', 'Empreiteiros'], ['maquinas', 'Máquinas'], ['insumos', 'Insumos'], ['equipe', 'Usuários e permissões'], ['importar', 'Importar / Exportar'], ['sociedade', 'Sociedade'], ['configuracao', 'Configuração'],
-    'Atividades', ['monitoramentos', 'Visitas'], ['ord-aplicacoes', 'Aplicações'], ['ord-plantio', 'Plantio'], ['ord-colheita', 'Colheita'], ['ord-fertilizacao', 'Fertilização'], ['ord-tratos', 'Tratos culturais'], ['ord-outros', 'Outros'], ['ordens', 'Todas as ordens'], ['avancos', 'Avanços de plantio e colheita'], ['controles', 'Controles de campo'], ['armadilhas', 'Armadilhas'],
+    'Atividades', ['monitoramentos', 'Visitas'], ['ord-aplicacoes', 'Aplicações'], ['ord-plantio', 'Plantio'], ['ord-colheita', 'Colheita'], ['ord-fertilizacao', 'Fertilização'], ['ord-tratos', 'Tratos culturais'], ['ord-outros', 'Outros'], ['ordens', 'Todas as ordens'], ['avancos', 'Avanços de plantio e colheita'], ['controles', 'Controles de campo'], ['cotesia', 'Liberação de Cotesia'], ['armadilhas', 'Armadilhas'],
     'Análise', ['analise', 'Painéis de análise'], ['relsis', 'Relatórios do sistema'], ['relatorios', 'Relatório por fazenda (PDF)'], ['custos', 'Custos por talhão'], ['comparar', 'Comparar safras'],
     'Clima', ['clima', 'Chuvas e previsão'], ['pluviometros', 'Pluviômetros'],
     'Imagens satelitais', ['satelite', 'NDVI e cor real'],
@@ -2422,6 +2470,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
   const VIEWS = { painel: viewPainel, mapa: viewMapa, produtores: viewProdutores, fazendas: viewFazendas, talhoes: viewTalhoes, safras: viewSafras, monitoramentos: viewMonitoramentos, ordens: viewOrdens, relatorios: viewRelatorios, equipe: viewEquipe, clima: viewClima, feed: viewFeed, notificacoes: viewNotificacoes, planejamento: viewPlanejamento, importar: viewImportar, analise: viewAnalise, relsis: viewRelSis, sociedade: viewSociedade, configuracao: viewConfiguracao, harvest: viewHarvest, satelite: viewSatelite, custos: viewCustos, comparar: viewComparar };
   for (const k of KINDS_NOVOS) if (k !== 'chuvas' && k !== 'config') VIEWS[k] = () => viewModulo(k);
   // Modo campo (celular): tela própria em src/campo.js
+  VIEWS.cotesia = viewCotesia;
   VIEWS.campo = first => window.Campo && window.Campo.view(first); TITULO.campo = 'Campo';
   let current = null;
   function route() {
@@ -2870,6 +2919,39 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
       click: id => openForm(k, get(k, id)),
     });
   }
+  // ---------- Liberação de Cotesia: solturas por talhão e população de broca antes e depois ----------
+  function viewCotesia() {
+    const root = $('#v-cotesia');
+    if (!root.dataset.ready) {
+      root.dataset.ready = 1;
+      root.innerHTML = `<div class="page"><div class="page-head"><div><h2>Liberação de Cotesia</h2><p>Solturas de Cotesia flavipes por talhão, comparadas com a população de broca (lagartas ≥ 1,5 cm por ha) no levantamento antes e depois.</p></div><button class="btn primary" data-new-cot>+ Nova liberação</button></div>
+        <div class="kpis cot-kpis" id="cot-kpis"></div>
+        <div class="toolbar"><select id="cot-faz" aria-label="Fazenda"></select><span class="count" id="cot-c"></span></div>
+        <div class="table-wrap"><table><thead><tr><th>Data</th><th>Talhão</th><th>Fazenda</th><th class="r">Área (ha)</th><th class="r">Copos</th><th class="r">Vespas/ha</th><th class="r">Broca antes</th><th class="r">Broca depois</th><th class="r">Variação</th></tr></thead><tbody id="cot-tb"></tbody></table></div>
+        <p class="muted" style="font-size:12.5px">Antes: levantamento mais recente até 45 dias antes da liberação. Depois: primeiro levantamento entre 15 e 90 dias depois. Valores em lagartas ≥ 1,5 cm por ha (média das amostras da visita).</p></div>`;
+      $('#cot-faz', root).addEventListener('change', () => VIEWS.cotesia());
+      $('#cot-tb', root).addEventListener('click', e => { const tr = e.target.closest('tr[data-row]'); if (tr) openForm('controles', get('controles', tr.dataset.row)); });
+      root.addEventListener('click', e => { if (e.target.closest('[data-new-cot]')) openForm('controles', null, { tipo: COT, data: today() }); });
+    }
+    const sel = $('#cot-faz', root), fv = sel.value;
+    const rels = S.data.controles.filter(c => c.tipo === COT);
+    const fzs = [...new Set(rels.map(r => key((get('talhoes', r.talhao_id) || {}).fazenda_id)))].map(id => get('fazendas', id)).filter(Boolean).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    sel.innerHTML = '<option value="">Todas as fazendas</option>' + fzs.map(f => `<option value="${esc(f.id)}" ${key(f.id) === fv ? 'selected' : ''}>${esc(f.nome)}</option>`).join('');
+    const lst = rels.filter(r => !fv || key((get('talhoes', r.talhao_id) || {}).fazenda_id) === fv).sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')));
+    const C = window.CANA, f0 = v => v == null ? '—' : fmtInt(Math.round(v));
+    let area = 0, copos = 0; const reds = [];
+    $('#cot-tb', root).innerHTML = lst.map(r => {
+      const t = get('talhoes', r.talhao_id), e = C ? C.eficiencia(r, S.data.monitoramentos) : {};
+      area += num(r.area_ha); copos += num(r.copos); if (e.red != null) reds.push(e.red);
+      const vh = C ? C.vespasHa(r) : null;
+      const varTxt = e.red == null ? '<span class="muted">sem dados</span>' : `<span class="pill ${e.red > 0 ? 'ok' : e.red < 0 ? 'bad' : ''}">${e.red > 0 ? '−' : e.red < 0 ? '+' : ''}${fmtInt(Math.abs(Math.round(e.red)))}%</span>`;
+      return `<tr data-row="${esc(r.id)}"><td>${fmtDate(r.data)}</td><td>${esc(t ? t.nome : '—')}</td><td>${t ? fazNome(t.fazenda_id) : ''}</td><td class="r">${fmtHa(r.area_ha)}</td><td class="r">${r.copos == null ? '—' : fmtInt(r.copos)}</td><td class="r">${f0(vh)}</td><td class="r">${e.antes ? f0(e.antes.valor) + `<br><small class="muted">${fmtDate(e.antes.data)}</small>` : '—'}</td><td class="r">${e.depois ? f0(e.depois.valor) + `<br><small class="muted">${fmtDate(e.depois.data)}</small>` : '—'}</td><td class="r">${varTxt}</td></tr>`;
+    }).join('') || '<tr><td colspan="9" class="muted">Nenhuma liberação registrada. Use "+ Nova liberação" aqui ou "Liberação de Cotesia" no app do celular.</td></tr>';
+    $('#cot-c', root).textContent = fmtInt(lst.length) + (lst.length === 1 ? ' liberação' : ' liberações');
+    const med = reds.length ? reds.reduce((a, b) => a + b, 0) / reds.length : null;
+    $('#cot-kpis', root).innerHTML = [[fmtInt(lst.length), 'Liberações'], [fmtHa(area), 'Hectares liberados'], [fmtInt(copos), 'Copos'], [med == null ? '—' : (med > 0 ? '−' : '+') + fmtInt(Math.abs(Math.round(med))) + '%', 'Variação média da broca']].map(([n, l]) => `<div class="kpi"><b>${n}</b><span>${l}</span></div>`).join('');
+  }
+
   function avisoBanco() {
     return `<div class="note"><b>Esta tela precisa de uma atualização do banco de dados.</b> Faça uma vez só:
       <ol><li>Clique em <b>Copiar comando</b>.</li><li>Abra o <a href="https://supabase.com/dashboard/project/xiffptiwszrtdfekqaxd/sql/new" target="_blank" rel="noopener">editor SQL do Supabase</a>.</li><li>Cole (Ctrl+V) e clique em <b>Run</b>.</li><li>Volte aqui e recarregue a página (F5).</li></ol>
@@ -3295,10 +3377,10 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
     const isNew = !rec;
     if (isNew && !podeEditar()) { toast('Seu acesso é só de consulta.'); return; }
     rec = Object.assign({}, defaults || {}, rec || {});
-    const fields = (ov && ov.fields) || FIELDS[kind];
+    const fields = (ov && ov.fields) || (kind === 'controles' && rec.tipo === COT ? COT_FIELDS : FIELDS[kind]);
     const bg = document.createElement('div');
     bg.className = 'modal-bg';
-    bg.innerHTML = `<div class="modal ${(kind === 'monitoramentos' && rec.pontos) || kind === 'controles' || kind === 'ordens' || kind === 'silobolsas' ? 'wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mtitle"><header><h2 id="mtitle">${isNew ? (NOVA[kind] ? 'Nova ' : 'Novo ') : podeEditar() ? 'Editar ' : ''}${esc(NOME[kind])}</h2><button class="x" data-close aria-label="Fechar">×</button></header>
+    bg.innerHTML = `<div class="modal ${(kind === 'monitoramentos' && rec.pontos) || kind === 'controles' || kind === 'ordens' || kind === 'silobolsas' ? 'wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mtitle"><header><h2 id="mtitle">${kind === 'controles' && rec.tipo === COT ? (isNew ? 'Nova liberação de Cotesia' : 'Liberação de Cotesia') : `${isNew ? (NOVA[kind] ? 'Nova ' : 'Novo ') : podeEditar() ? 'Editar ' : ''}${esc(NOME[kind])}`}</h2><button class="x" data-close aria-label="Fechar">×</button></header>
       <form novalidate>${fields.map(f => fieldHtml(f, f.t === 'talhoes' ? talChecks(rec.fazenda_id, rec.talhao_ids) : rec[f.k])).join('')}</form>
       ${detalhes(kind, rec)}
       <footer>${isNew ? '' : '<button class="btn danger" data-del>Excluir</button>'}${kind === 'ordens' && !isNew ? `<button class="btn" data-receita>${icon('pdf')} Receita PDF</button>` : ''}${kind === 'ordens' ? `<button class="btn" data-wa-ordem>${icon('whats')} WhatsApp</button>` : ''}${kind === 'monitoramentos' && !isNew ? `<button class="btn" data-visita-pdf>${icon('pdf')} Relatório PDF</button><button class="btn" data-wa-visita>${icon('whats')} WhatsApp</button>${podeEditar() ? `<button class="btn" data-mon-ordem>${icon('sugestao')} Criar ordem</button>` : ''}` : ''}<div class="right"><button class="btn" data-close>${podeEditar() ? 'Cancelar' : 'Fechar'}</button><button class="btn primary" data-save>Salvar</button></div></footer></div>`;
@@ -3345,6 +3427,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
           out[f.k] = v;
         }
         if (missing) { toast('Preencha: ' + missing.l); form.elements[missing.k].focus(); return; }
+        if (kind === 'controles' && out.tipo === COT && window.CANA) { const vh = window.CANA.vespasHa(out); out.valor = vh; out.unidade = vh == null ? null : 'vespas/ha'; }
         try { await Store.save(kind, out); toast(isNew ? 'Cadastrado.' : 'Alterações salvas.'); close(); } catch (e) { }
       }
     });
@@ -4932,7 +5015,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
     document.dispatchEvent(new Event('inova:pronto'));
   }
   // Ponte para o modo campo (src/campo.js)
-  window.INOVA = { S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
+  window.INOVA = { COT, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
 })();
 
 /* INOVAAGRO — Levantamento de pragas, doenças e plantas daninhas da cana-de-açúcar.
@@ -5035,7 +5118,33 @@ window.CANA = (function () {
   porNome.set(norm('Broca-da-cana (lagartas)'), porId.get('broca_lag')); // nome antigo
   porNome.set(norm('Podridão-vermelha'), porId.get('podridao_vermelha')); porNome.set(norm('Estria-vermelha'), porId.get('estria_vermelha'));
   porNome.set(norm('Cigarrinha-das-raízes'), porId.get('cigarrinha')); porNome.set(norm('Bicudo-da-cana (Sphenophorus)'), porId.get('sphenophorus'));
+  // ---------- Liberação de Cotesia: população de broca antes e depois ----------
+  const COT = 'Liberação de Cotesia';
+  const DIA = 864e5, dt = d => new Date(String(d).slice(0, 10) + 'T12:00:00').getTime();
+  const numv = v => { if (v === '' || v == null) return null; const n = Number(String(v).replace(',', '.')); return isFinite(n) ? n : null; };
+  // média de lagartas/ha numa visita (ids do catálogo: broca >= 1,5 cm por padrão)
+  function popVisita(m, ids) {
+    const vs = [];
+    for (const a of m.amostras_detalhe || []) { const it = porId.get(a.praga_id) || porNome.get(norm(a.alvo)); const v = numv(a.valor); if (it && ids.includes(it.id) && v != null) vs.push(v); }
+    return vs.length ? vs.reduce((x, y) => x + y, 0) / vs.length : null;
+  }
+  // levantamento mais recente até 45 dias antes da soltura e o primeiro entre 15 e 90 dias depois
+  function eficiencia(rel, mons, ids) {
+    ids = ids || ['broca_lag'];
+    const d = dt(rel.data); let antes = null, depois = null;
+    for (const m of mons || []) {
+      if (String(m.talhao_id) !== String(rel.talhao_id) || !m.data) continue;
+      const v = popVisita(m, ids); if (v == null) continue;
+      const x = dt(m.data), dd = (x - d) / DIA;
+      if (dd <= 0 && dd >= -45 && (!antes || m.data > antes.data)) antes = { data: m.data, valor: v, id: m.id };
+      if (dd >= 15 && dd <= 90 && (!depois || m.data < depois.data)) depois = { data: m.data, valor: v, id: m.id };
+    }
+    const red = antes && depois && antes.valor > 0 ? (antes.valor - depois.valor) / antes.valor * 100 : null;
+    return { antes, depois, red };
+  }
+  const vespasHa = r => { const c = numv(r.copos), v = numv(r.vespas_copo), a = numv(r.area_ha); return c != null && v != null && a ? Math.round(c * v / a) : null; };
   return {
+    COT, eficiencia, popVisita, vespasHa,
     itens: C, GRUPOS, TIPO_MON, ESTADIOS, CORTES, NIVEL, SEMAF,
     get: id => porId.get(id) || null,
     // acha o item do catálogo de uma amostra (pelo id ou pelo nome digitado)
@@ -5070,11 +5179,11 @@ window.Campo = (function () {
   const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
   const LIMA = '#b1d243', AZUL = '#3b8ee8';
 
-  let pref = { faz: null, base: 'sat', nomes: true, pontos: true, pluv: true, calor: null, calorDias: 90, recentes: [] };
+  let pref = { faz: null, base: 'sat', nomes: true, pontos: true, pluv: true, calor: null, calorDias: 90, recentes: [], rotaDias: 15, rotaNunca: false };
   try { Object.assign(pref, JSON.parse(localStorage.getItem(LS) || '{}')); } catch (e) { }
   const salvarPref = () => { try { localStorage.setItem(LS, JSON.stringify(pref)); } catch (e) { } };
 
-  let root = null, map = null, bases = {}, baseAtual = null, lyTal, lyLbl, lyPts, lyPluv, lyGps, lyCalor;
+  let root = null, map = null, bases = {}, baseAtual = null, lyTal, lyLbl, lyPts, lyPluv, lyGps, lyCalor, lyRota;
   let selTal = null, pane = 'inicio', fila = new Set(), nMidia = 0, faixaFechada = -1;
   const gps = { pos: null, watch: null, seguir: false };
   const movidas = new Map(); // seções do site exibidas dentro do modo campo
@@ -5083,6 +5192,8 @@ window.Campo = (function () {
   // ---------- Ícones (traço simples, 24x24) ----------
   const P = {
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    rota: '<circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><path d="M8.2 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.8"/>',
+    cotesia: '<ellipse cx="12" cy="14.5" rx="3" ry="5"/><circle cx="12" cy="7" r="2"/><path d="M9.5 11.5 4 8.5M14.5 11.5l5.5-3M9 15H5M15 15h4M12 19.5V22"/>',
     semaforo: '<rect x="8" y="2.5" width="8" height="19" rx="3"/><circle cx="12" cy="7" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="17" r="1.6"/>',
     gps: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/>',
     camadas: '<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
@@ -5133,6 +5244,7 @@ window.Campo = (function () {
     ['Trabalho', [['Ordem de trabalho', 'trator', t => ordem(t, 'Tratos culturais')], ['Preparo de solo', 'solo', t => ordem(t, 'Preparo de solo')]]],
     ['Colheita', [['Ordem de colheita', 'colheita', t => ordem(t, 'Colheita')], ['Controle das perdas na colheita', 'perdas', t => controle(t, 'Perda na colheita')], ['Avanço da colheita', 'avanco', t => avanco(t, 'Colheita')]]],
     ['Fertilização', [['Ordem de fertilização', 'adubo', t => ordem(t, 'Fertilização')]]],
+    ['Controle biológico', [['Liberação de Cotesia', 'cotesia', t => cotesiaNova(t)]]],
     ['Clima', [['Registrar chuva', 'pluv', () => chuva()]]],
   ];
 
@@ -5175,6 +5287,7 @@ window.Campo = (function () {
         <div class="cp-tools">
           <button class="cp-round" data-cp="gps" aria-label="Minha localização" title="Minha localização">${ic('gps')}</button>
           <button class="cp-round" data-cp="camadas" aria-label="Camadas do mapa" title="Camadas">${ic('camadas')}</button>
+          <button class="cp-round" data-cp="rota" aria-label="Rota de visitas do dia" title="Rota do dia">${ic('rota')}</button>
           <button class="cp-round" data-cp="navegar" aria-label="Navegar até o talhão" title="Navegar até o talhão">${ic('navegar')}</button>
           <button class="cp-round" data-cp="chuva" aria-label="Registrar chuva no pluviômetro" title="Pluviômetro">${ic('pluv')}</button>
         </div>
@@ -5215,6 +5328,7 @@ window.Campo = (function () {
     lyPts = L.layerGroup();
     lyPluv = L.layerGroup();
     lyGps = L.layerGroup().addTo(map);
+    lyRota = L.layerGroup().addTo(map);
     setBase(pref.base);
     map.on('zoomend moveend', rotulos);
     map.on('click', e => { const t = talhaoEm(e.latlng); if (t) selecionar(t, false); else { selTal = null; desenharCard(); estilos(); } });
@@ -5250,7 +5364,7 @@ window.Campo = (function () {
   function rotulos() {
     if (!map || !map._loaded) return;
     lyLbl.clearLayers();
-    if (!pref.nomes || map.getZoom() < 14) return;
+    if (!pref.nomes || map.getZoom() < 14 || rotaAtual && lyRota.getLayers().length) return;
     const b = map.getBounds(); let n = 0;
     for (const t of I().S.data.talhoes) {
       const l = camadaTal.get(String(t.id)); if (!l) continue;
@@ -5403,6 +5517,8 @@ window.Campo = (function () {
         <p class="cp-mut2">O app envia sozinho quando a internet volta.</p></section>
       <nav class="cp-mlinks">
         <button data-cp="opcoes">${ic('opcoes')}Opções</button>
+        <button data-cp="rota">${ic('rota')}Rota de visitas do dia</button>
+        <button data-cp="cot-lista">${ic('cotesia')}Liberações de Cotesia</button>
         <button data-cp="niveis">${ic('semaforo')}Níveis de controle da cana</button>
         <button data-cp="tab" data-p="clima">${ic('clima')}Clima</button>
         <button data-cp="suporte">${ic('suporte')}Centro de suporte</button>
@@ -5518,6 +5634,95 @@ window.Campo = (function () {
     I().openForm('chuvas', null, { data: I().today(), pluviometro_id: p.id, criado_por: email(), criado_em: new Date().toISOString() });
   }
   const dist = (ll, p) => p.lat == null ? 1e12 : ll.distanceTo([p.lat, p.lng]);
+
+  // ---------- Liberação de Cotesia ----------
+  function cotesiaNova(t) {
+    I().openForm('controles', null, { tipo: I().COT, data: I().today(), talhao_id: t.id, area_ha: t.area_ha != null ? +(+t.area_ha).toFixed(2) : undefined, responsavel: email(), criado_por: email(), criado_em: new Date().toISOString() });
+  }
+  function cotesiaLista() {
+    fecharSheet(); fecharMenu();
+    const C = CN(), f0 = v => v == null ? '—' : I().fmtInt(Math.round(v));
+    const rels = I().S.data.controles.filter(c => c.tipo === I().COT && (!pref.faz || String((tal(c.talhao_id) || {}).fazenda_id) === String(pref.faz)))
+      .sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')));
+    tela(`<header class="cp-bar"><button class="cp-ib" data-cp="voltar" aria-label="Voltar">${ic('voltar')}</button><h1>Cotesia</h1><span></span></header>
+      <div class="cp-ctx">${pref.faz ? `<b>${esc(fazAtual()?.nome || '')}</b> · ` : ''}Broca ≥ 1,5 cm (lagartas/ha) no levantamento antes e depois de cada liberação.</div>
+      <div class="cp-lst">${rels.map(r => {
+        const t = tal(r.talhao_id), e = C ? C.eficiencia(r, I().S.data.monitoramentos) : {}, vh = C ? C.vespasHa(r) : null;
+        const cl = e.red == null ? '' : e.red > 0 ? 'c0' : e.red < 0 ? 'c2' : 'c1';
+        return `<button class="cp-cot" data-cp="abrir-reg" data-k="controles" data-id="${esc(r.id)}"><span><b>${esc(t ? t.nome : 'Talhão')}</b><small>${esc(I().fmtDate(r.data))} · ${I().fmtHa(r.area_ha)} ha · ${r.copos == null ? '—' : I().fmtInt(r.copos)} copos${vh ? ' · ' + f0(vh) + ' vespas/ha' : ''}</small>
+          <small>Antes: <b>${e.antes ? f0(e.antes.valor) : '—'}</b> · Depois: <b>${e.depois ? f0(e.depois.valor) : '—'}</b></small></span>
+          ${e.red == null ? '<em class="cp-cl">Sem levantamento</em>' : `<em class="cp-cl ${cl}">${e.red > 0 ? 'Caiu' : e.red < 0 ? 'Subiu' : 'Igual'} ${I().fmtInt(Math.abs(Math.round(e.red)))}%</em>`}</button>`;
+      }).join('') || '<p class="cp-mut cp-pad">Nenhuma liberação registrada. Use Atividade, "Liberação de Cotesia".</p>'}</div>
+      ${I().podeEditar() ? `<button class="cp-btn pri cp-concluir" data-cp="cot-nova">${ic('mais')}Nova liberação</button>` : ''}`, { cls: 'cp-cotl' });
+  }
+
+  // ---------- Rota de visitas do dia ----------
+  let rotaAtual = null;
+  const diasDesde = d => Math.floor((Date.now() - new Date(String(d).slice(0, 10) + 'T12:00:00').getTime()) / 864e5);
+  function rotaCalcular() {
+    const S = I().S, dias = pref.rotaDias || 15, hoje = I().today();
+    const ts = (pref.faz ? (S.talPorFaz.get(String(pref.faz)) || []) : S.data.talhoes).filter(t => t.geometry);
+    const cand = [];
+    for (const t of ts) {
+      const v = ultimaVisita(t), c = centroTal(t); if (!c) continue;
+      let m = null;
+      if (v && v.data === hoje) continue; // já visitado hoje
+      if (v && v.semaforo === 'Vermelho') m = { p: 0, txt: 'Vermelho', cl: 'c2' };
+      else if (v && v.semaforo === 'Amarelo') m = { p: 1, txt: 'Amarelo', cl: 'c1' };
+      else if (v && v.data && diasDesde(v.data) > dias) m = { p: 2, txt: `Sem visita há ${diasDesde(v.data)} dias`, cl: '' };
+      else if (!v && pref.rotaNunca) m = { p: 3, txt: 'Nunca visitado', cl: '' };
+      if (m) cand.push({ t, c, v, m });
+    }
+    // urgentes primeiro; dentro de cada grupo, sempre o talhão mais perto do anterior
+    let pos = gps.pos ? L.latLng(gps.pos.lat, gps.pos.lng) : (fazAtual() && centroFaz(fazAtual())) || (cand[0] && cand[0].c);
+    const ini = pos, out = [];
+    for (const p of [0, 1, 2, 3]) {
+      const g = cand.filter(x => x.m.p === p);
+      while (g.length && out.length < 25) {
+        let bi = 0; for (let i = 1; i < g.length; i++) if (pos.distanceTo(g[i].c) < pos.distanceTo(g[bi].c)) bi = i;
+        const [x] = g.splice(bi, 1); x.km = pos.distanceTo(x.c) / 1000; out.push(x); pos = x.c;
+      }
+    }
+    return { ini, paradas: out, total: cand.length, gps: !!gps.pos };
+  }
+  function rota() {
+    fecharSheet(); fecharMenu(); ligarGps(false);
+    const R = rotaAtual = rotaCalcular(), km = R.paradas.reduce((a, x) => a + x.km, 0);
+    const el = tela(`<header class="cp-bar"><button class="cp-ib" data-cp="voltar" aria-label="Voltar">${ic('voltar')}</button><h1>Rota do dia</h1><span></span></header>
+      <div class="cp-ctx">${pref.faz ? `<b>${esc(fazAtual()?.nome || '')}</b>` : '<b>Todas as fazendas</b> · escolha uma fazenda no mapa para uma rota menor'}<br>Talhões em vermelho primeiro, depois amarelo e depois os sem visita recente, sempre indo para o mais perto.</div>
+      <div class="cp-rf">
+        <label class="cp-f"><span>Sem visita há mais de</span><select data-cp-rota="dias">${[7, 15, 30, 60].map(d => `<option value="${d}" ${pref.rotaDias === d ? 'selected' : ''}>${d} dias</option>`).join('')}</select></label>
+        <label class="cp-rtg"><input type="checkbox" data-cp-rota="nunca" ${pref.rotaNunca ? 'checked' : ''}><span>Incluir talhões nunca visitados</span></label>
+      </div>
+      <div class="cp-rsum"><b>${R.paradas.length} ${R.paradas.length === 1 ? 'parada' : 'paradas'}</b><span>cerca de ${km.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km em linha reta${R.gps ? ' a partir de você' : ''}${R.total > R.paradas.length ? ` · mostrando 25 de ${R.total}` : ''}</span></div>
+      ${R.paradas.length ? `<div class="cp-racts"><button class="cp-btn" data-cp="rota-mapa">${ic('camadas')}Ver no mapa</button><button class="cp-btn pri" data-cp="rota-gmaps">${ic('navegar')}Abrir no Google Maps</button></div>` : ''}
+      <ol class="cp-rl">${R.paradas.map((x, i) => `<li><i class="cp-rn ${x.m.cl}">${i + 1}</i><span><b>${esc(x.t.nome)}</b><small>${esc(faz(x.t.fazenda_id)?.nome || '')} · ${I().fmtHa(x.t.area_ha)} ha · ${x.km.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km</small><em class="cp-cl ${x.m.cl}">${esc(x.m.txt)}</em>${x.v ? `<small>Última visita: ${esc(I().fmtDate(x.v.data))}${x.v.alvo ? ' · ' + esc(x.v.alvo) : ''}</small>` : ''}</span>
+        <span class="cp-rb"><button class="cp-ib" data-cp="rota-ir" data-id="${esc(x.t.id)}" aria-label="Navegar até ${esc(x.t.nome)}">${ic('navegar')}</button><button class="cp-ib" data-cp="rota-visita" data-id="${esc(x.t.id)}" aria-label="Nova visita em ${esc(x.t.nome)}">${ic('lupa')}</button></span></li>`).join('')}</ol>
+      ${R.paradas.length ? '' : '<p class="cp-mut cp-pad">Nenhum talhão precisa de visita com esses filtros. Aumente o prazo ou inclua os talhões nunca visitados.</p>'}`, { cls: 'cp-rota' });
+    return el;
+  }
+  function rotaMapa() {
+    const R = rotaAtual; if (!R) return;
+    fecharTelas(); lyRota.clearLayers();
+    const pts = [R.ini, ...R.paradas.map(x => x.c)].filter(Boolean);
+    L.polyline(pts, { color: '#ffffff', weight: 3, dashArray: '6 8', opacity: 0.9, interactive: false }).addTo(lyRota);
+    R.paradas.forEach((x, i) => L.marker(x.c, { icon: L.divIcon({ className: 'cp-rmk ' + x.m.cl, html: `<span>${i + 1}</span>`, iconSize: [28, 28] }) }).on('click', () => selecionar(x.t, false)).addTo(lyRota));
+    rotulos();
+    if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [70, 70], maxZoom: 16 });
+    let bar = $('#cp-rbar'); if (!bar) { bar = document.createElement('div'); bar.id = 'cp-rbar'; bar.className = 'cp-rbar'; $('#cp-map').after(bar); }
+    bar.hidden = false;
+    bar.innerHTML = `<span>${ic('rota')}<b>Rota</b> · ${R.paradas.length} ${R.paradas.length === 1 ? 'parada' : 'paradas'}</span><button class="cp-lnk" data-cp="rota">Lista</button><button class="cp-ib" data-cp="rota-limpar" aria-label="Tirar a rota do mapa">${ic('fechar')}</button>`;
+  }
+  function rotaGmaps() {
+    const R = rotaAtual; if (!R || !R.paradas.length) return;
+    const f = c => c.lat.toFixed(6) + ',' + c.lng.toFixed(6), p = R.paradas.slice(0, 10);
+    const dest = p[p.length - 1], way = p.slice(0, -1);
+    let u = `https://www.google.com/maps/dir/?api=1&destination=${f(dest.c)}&travelmode=driving`;
+    if (R.gps && R.ini) u += `&origin=${f(R.ini)}`;
+    if (way.length) u += `&waypoints=${encodeURIComponent(way.map(x => f(x.c)).join('|'))}`;
+    if (R.paradas.length > 10) I().toast('O Google Maps aceita até 10 paradas. Abrindo as 10 primeiras.');
+    window.open(u, '_blank', 'noopener');
+  }
 
   // ---------- Levantamento da cana: médias, níveis e semáforo ----------
   const CN = () => window.CANA;
@@ -6021,6 +6226,14 @@ window.Campo = (function () {
       case 'baixar-mapa': baixarMapa(); break;
       // visita
       case 'v-amostra': amostraForm(); break;
+      case 'rota': if (telas.length && telas[telas.length - 1].el.classList.contains('cp-rota')) voltarTela(); else { fecharTelas(); rota(); } break;
+      case 'rota-mapa': rotaMapa(); break;
+      case 'rota-gmaps': rotaGmaps(); break;
+      case 'rota-limpar': lyRota.clearLayers(); rotaAtual = null; { const bb = $('#cp-rbar'); if (bb) bb.hidden = true; } rotulos(); break;
+      case 'rota-ir': navegar(tal(b.dataset.id)); break;
+      case 'rota-visita': { const t = tal(b.dataset.id); if (t) novaVisita(t); break; }
+      case 'cot-lista': cotesiaLista(); break;
+      case 'cot-nova': comTalhao(cotesiaNova, 'Talhão da liberação'); break;
       case 'am-item': amostraItem(b.dataset.id); break;
       case 'am-livre': amostraLivre(); break;
       case 'niveis': if (CN()) niveisTela(); break;
@@ -6039,6 +6252,8 @@ window.Campo = (function () {
     }
   }
   document.addEventListener('change', e => {
+    const ro = e.target.closest('[data-cp-rota]');
+    if (ro) { if (ro.dataset.cpRota === 'dias') pref.rotaDias = Number(ro.value); else pref.rotaNunca = ro.checked; salvarPref(); voltarTela(); rota(); return; }
     const c = e.target.closest('[data-cp-calor]');
     if (c) { if (c.dataset.cpCalor === 'dias') pref.calorDias = Number(c.value); else pref.calor = c.value || null; salvarPref(); calcCalor(); estilos(); return; }
     const f = e.target.closest('[data-cp-f]'); if (!f || !V) return;
@@ -6063,6 +6278,8 @@ window.Campo = (function () {
     if (!root) return;
     desenhar();
     if (pane === 'historico' && !telas.length) historico();
+    const top = telas[telas.length - 1];
+    if (top && top.el.classList.contains('cp-cotl')) { voltarTela(); cotesiaLista(); }
   });
   document.addEventListener('inova:sync', () => { if (root) { atualizarFila(); if (root.classList.contains('cp-menu-on')) menu(); } });
   window.addEventListener('online', () => { Midia.enviar(); });

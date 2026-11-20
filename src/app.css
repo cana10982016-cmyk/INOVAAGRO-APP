@@ -785,3 +785,7 @@ td small, td .muted { color: var(--muted); font-size: 12px; }
 .sync[data-mode="offline"] i { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 30%, transparent); }
 .sync[data-mode="offline"] span { color: var(--warn); font-weight: 600; }
 @media (max-width: 760px) { .sync[data-mode="offline"] span { display: inline; } }
+
+/* Liberação de Cotesia */
+.cot-kpis { margin: 0 0 14px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+@media (max-width: 640px) { .cot-kpis { grid-template-columns: repeat(2, 1fr); row-gap: 12px; } }
