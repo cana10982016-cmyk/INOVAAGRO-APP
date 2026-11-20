@@ -11,11 +11,11 @@ window.Campo = (function () {
   const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
   const LIMA = '#b1d243', AZUL = '#3b8ee8';
 
-  let pref = { faz: null, base: 'sat', nomes: true, pontos: true, pluv: true };
+  let pref = { faz: null, base: 'sat', nomes: true, pontos: true, pluv: true, calor: null, calorDias: 90, recentes: [] };
   try { Object.assign(pref, JSON.parse(localStorage.getItem(LS) || '{}')); } catch (e) { }
   const salvarPref = () => { try { localStorage.setItem(LS, JSON.stringify(pref)); } catch (e) { } };
 
-  let root = null, map = null, bases = {}, baseAtual = null, lyTal, lyLbl, lyPts, lyPluv, lyGps;
+  let root = null, map = null, bases = {}, baseAtual = null, lyTal, lyLbl, lyPts, lyPluv, lyGps, lyCalor;
   let selTal = null, pane = 'inicio', fila = new Set(), nMidia = 0, faixaFechada = -1;
   const gps = { pos: null, watch: null, seguir: false };
   const movidas = new Map(); // seções do site exibidas dentro do modo campo
@@ -24,6 +24,7 @@ window.Campo = (function () {
   // ---------- Ícones (traço simples, 24x24) ----------
   const P = {
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    semaforo: '<rect x="8" y="2.5" width="8" height="19" rx="3"/><circle cx="12" cy="7" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="17" r="1.6"/>',
     gps: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/>',
     camadas: '<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
     navegar: '<path d="M12 3 5 21l7-4 7 4z"/>',
@@ -150,6 +151,7 @@ window.Campo = (function () {
     const ruas = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' });
     bases = { sat: [img], hib: [img, nomes], ruas: [ruas] };
     lyTal = L.featureGroup().addTo(map);
+    lyCalor = L.layerGroup().addTo(map);
     lyLbl = L.layerGroup().addTo(map);
     lyPts = L.layerGroup();
     lyPluv = L.layerGroup();
@@ -170,10 +172,13 @@ window.Campo = (function () {
   function estilo(t) {
     const sel = selTal && String(selTal) === String(t.id);
     const daFaz = pref.faz && String(t.fazenda_id) === String(pref.faz);
-    return { color: sel ? LIMA : '#ffffff', weight: sel ? 3.5 : daFaz ? 2 : 1.2, opacity: daFaz || !pref.faz || sel ? 1 : 0.55, fillColor: sel ? LIMA : '#ffffff', fillOpacity: sel ? 0.18 : 0.04 };
+    const c = pref.calor ? calor.get(String(t.id)) : undefined;
+    if (c != null) return { color: sel ? LIMA : '#ffffff', weight: sel ? 3.5 : daFaz ? 2 : 1.2, opacity: daFaz || !pref.faz || sel ? 1 : 0.55, fillColor: COR_CL[c], fillOpacity: sel ? 0.6 : 0.5 };
+    return { color: sel ? LIMA : '#ffffff', weight: sel ? 3.5 : daFaz ? 2 : 1.2, opacity: daFaz || !pref.faz || sel ? 1 : 0.55, fillColor: sel ? LIMA : '#ffffff', fillOpacity: sel ? 0.18 : pref.calor ? 0 : 0.04 };
   }
   const camadaTal = new Map();
   function desenhar() {
+    calcCalor();
     lyTal.clearLayers(); camadaTal.clear();
     for (const t of I().S.data.talhoes) {
       if (!t.geometry) continue;
@@ -195,6 +200,43 @@ window.Campo = (function () {
       L.marker(c, { interactive: false, icon: L.divIcon({ className: 'cp-lbl', html: `<span>${esc(t.nome)}</span>`, iconSize: null }) }).addTo(lyLbl);
     }
   }
+  // ---------- Mapa de calor da cana ----------
+  let calor = new Map(); // id do talhão -> 0 verde, 1 amarelo, 2 vermelho (visita mais recente do período)
+  const clSem = s => s === 'Vermelho' ? 2 : s === 'Amarelo' ? 1 : s === 'Verde' ? 0 : null;
+  function calcCalor() {
+    calor = new Map(); if (lyCalor) lyCalor.clearLayers();
+    const id = pref.calor;
+    if (!id || !CN()) { legenda(); return; }
+    const lim = new Date(Date.now() - pref.calorDias * 864e5).toISOString().slice(0, 10);
+    const aj = ajustes(), ult = new Map(), f = pref.faz;
+    for (const m of I().S.data.monitoramentos) {
+      if (!m.data || m.data < lim) continue;
+      let cl = null;
+      if (id === 'todas') { cl = clSem(m.semaforo); if (cl == null) { const p = pior(m); cl = p ? p.cl : null; } }
+      else { const x = medias(m).find(x => x.item && x.item.id === id); cl = x ? x.cl : null; }
+      if (cl == null) continue;
+      const k = String(m.talhao_id), d = m.data + (m.hora || ''), u = ult.get(k);
+      if (!u || d > u.d) ult.set(k, { d, cl });
+      const t = tal(m.talhao_id); if (f && (!t || String(t.fazenda_id) !== String(f))) continue;
+      for (const a of m.amostras_detalhe || []) {
+        if (a.lat == null || a.lng == null) continue;
+        const it = CN().daAmostra(a); if (!it || (id !== 'todas' && it.id !== id)) continue;
+        const c = CN().classe(it, num(a.valor), aj); if (c == null) continue;
+        L.circle([a.lat, a.lng], { radius: 25, stroke: false, fillColor: COR_CL[c], fillOpacity: 0.55, interactive: false }).addTo(lyCalor);
+      }
+    }
+    for (const [k, u] of ult) calor.set(k, u.cl);
+    legenda();
+  }
+  function legenda() {
+    let el = $('#cp-leg');
+    if (!el) { el = document.createElement('button'); el.id = 'cp-leg'; el.className = 'cp-leg'; el.dataset.cp = 'camadas'; const m = $('#cp-map'); if (!m) return; m.after(el); }
+    if (!pref.calor) { el.hidden = true; return; }
+    const it = pref.calor === 'todas' ? null : CN() && CN().get(pref.calor);
+    el.hidden = false;
+    el.innerHTML = `<b>${esc(it ? it.nome : 'Semáforo das visitas')}</b><small>últimos ${pref.calorDias} dias</small><span>${['Abaixo', 'Atenção', 'Controle'].map((l, i) => `<i style="background:${COR_CL[i]}"></i>${l}`).join('')}</span>`;
+  }
+
   function desenharPontos() {
     lyPts.clearLayers();
     const f = pref.faz;
@@ -302,6 +344,7 @@ window.Campo = (function () {
         <p class="cp-mut2">O app envia sozinho quando a internet volta.</p></section>
       <nav class="cp-mlinks">
         <button data-cp="opcoes">${ic('opcoes')}Opções</button>
+        <button data-cp="niveis">${ic('semaforo')}Níveis de controle da cana</button>
         <button data-cp="tab" data-p="clima">${ic('clima')}Clima</button>
         <button data-cp="suporte">${ic('suporte')}Centro de suporte</button>
         <button data-cp="completo">${ic('tela')}Versão completa do sistema</button>
@@ -355,7 +398,13 @@ window.Campo = (function () {
     sheet(`<header class="cp-sh-h"><h2>Camadas</h2><button class="cp-ib" data-cp="fechar-sheet" aria-label="Fechar">${ic('fechar')}</button></header>
       <div class="cp-bases">${[['sat', 'Satélite'], ['hib', 'Satélite + nomes'], ['ruas', 'Mapa']].map(([k, l]) => `<button data-cp="base" data-b="${k}" aria-pressed="${pref.base === k}"><i class="cp-bthumb cp-b-${k}"></i>${l}</button>`).join('')}</div>
       <div class="cp-tg">${[['nomes', 'Nomes dos talhões'], ['pontos', 'Pontos das visitas'], ['pluv', 'Pluviômetros']].map(([k, l]) => `<label><span>${l}</span><input type="checkbox" role="switch" data-cp="tg" data-k="${k}" ${pref[k] ? 'checked' : ''}></label>`).join('')}</div>
-      <button class="cp-btn" data-cp="baixar-mapa">${ic('download')}Salvar o mapa desta área para usar sem internet</button>`);
+      <h3 class="cp-h3 cp-h3s">Mapa de calor da cana</h3>
+      <div class="cp-fs">
+        <label class="cp-f cp-full"><span>Mostrar no mapa</span><select data-cp-calor="praga"><option value="">Desligado</option><option value="todas" ${pref.calor === 'todas' ? 'selected' : ''}>Semáforo das visitas (todas as pragas)</option>${CN() ? CN().GRUPOS.map(g => `<optgroup label="${g}">${CN().itens.filter(x => x.g === g).map(x => `<option value="${x.id}" ${pref.calor === x.id ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</optgroup>`).join('') : ''}</select></label>
+        <label class="cp-f cp-full"><span>Período</span><select data-cp-calor="dias">${[30, 60, 90, 180, 365].map(d => `<option value="${d}" ${pref.calorDias === d ? 'selected' : ''}>Últimos ${d} dias</option>`).join('')}</select></label>
+      </div>
+      <p class="cp-mut">Cada talhão fica com a cor da visita mais recente do período. As bolinhas mostram cada amostra no ponto do GPS.</p>
+      <button class="cp-btn" data-cp="baixar-mapa">${ic('download')}Salvar o mapa desta área para usar sem internet</button>`, 'alto');
   }
 
   // ---------- Telas (pilha) ----------
@@ -411,6 +460,46 @@ window.Campo = (function () {
   }
   const dist = (ll, p) => p.lat == null ? 1e12 : ll.distanceTo([p.lat, p.lng]);
 
+  // ---------- Levantamento da cana: médias, níveis e semáforo ----------
+  const CN = () => window.CANA;
+  const COR_CL = ['#22c55e', '#f59e0b', '#ef4444'];
+  const ROT_CL = ['Abaixo do nível', 'Atenção', 'Nível de controle'];
+  const ajustes = () => ((I().get('config', 'niveis_cana') || {}).itens) || {};
+  const num = v => { if (v === '' || v == null) return null; const n = Number(String(v).replace(',', '.')); return isFinite(n) ? n : null; };
+  const fmtN = v => v == null ? '—' : Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+  const fmtV = (it, v) => it && it.lt === 'pres' ? (v > 0 ? 'Sim' : 'Não') : fmtN(v);
+  const chipCl = cl => cl == null ? '<em class="cp-cl">Sem nível definido</em>' : `<em class="cp-cl c${cl}">${ROT_CL[cl]}</em>`;
+  function textoNiveis(it, aj) {
+    const n = CN().niveis(it, aj || ajustes());
+    if (it.lt === 'pres') return 'Presença confirmada = nível de controle';
+    if (n.am == null && n.vm == null) return 'Sem nível de controle definido';
+    return [n.am != null ? `atenção a partir de ${fmtN(n.am)}` : '', n.vm != null ? `controle a partir de ${fmtN(n.vm)}` : ''].filter(Boolean).join(' · ');
+  }
+  // médias da visita: por item do catálogo (ou por alvo + medida quando digitado)
+  function medias(m) {
+    const g = new Map();
+    for (const a of m.amostras_detalhe || []) {
+      const v = num(a.valor); if (v == null) continue;
+      const it = CN() ? CN().daAmostra(a) : null;
+      const k = it ? it.id : (a.alvo || '—') + '|' + (a.medida || '');
+      if (!g.has(k)) g.set(k, { item: it, alvo: it ? it.nome : (a.alvo || '—'), medida: it ? it.un : (a.medida || ''), vals: [] });
+      g.get(k).vals.push(v);
+    }
+    const aj = ajustes();
+    return [...g.values()].map(x => {
+      x.media = x.item && x.item.lt === 'pres' ? Math.max(...x.vals) : x.vals.reduce((s, y) => s + y, 0) / x.vals.length;
+      x.cl = x.item ? CN().classe(x.item, x.media, aj) : null;
+      return x;
+    });
+  }
+  function pior(m) { let p = null; for (const x of medias(m)) if (x.cl != null && (!p || x.cl > p.cl)) p = x; return p; }
+  // semáforo automático: a pior média em relação ao nível de controle (a não ser que o usuário tenha escolhido)
+  function semAuto(m) {
+    if (m.semaforo_manual || !CN()) return;
+    const p = pior(m); if (!p) return;
+    m.semaforo = CN().SEMAF[p.cl]; m.nivel = CN().NIVEL[p.cl]; m.alvo = p.item.nome; m.praga_id = p.item.id; m.tipo = CN().TIPO_MON[p.item.g];
+  }
+
   // ---------- Visita ----------
   let V = null; // visita aberta: { m, salva, el, map, ly }
   function novaVisita(t) {
@@ -463,21 +552,22 @@ window.Campo = (function () {
     const m = V.m;
     const am = m.amostras_detalhe;
     $('#cp-vam').innerHTML = `<div class="cp-row"><b>Amostras registradas</b><span class="cp-num">${am.length}</span></div>
-      ${am.length ? `<details><summary>Lista de amostras ${ic('seta')}</summary><ul class="cp-mini">${am.map((a, i) => `<li><span><b>#${esc(a.amostra || i + 1)}</b> ${esc(a.alvo || '')} · ${esc(a.medida || '')}: <b>${esc(String(a.valor ?? '—').replace('.', ','))}</b>${a.nivel ? ` <em class="cp-niv ${a.nivel}">${esc(a.nivel)}</em>` : ''}${a.obs ? `<br><small>${esc(a.obs)}</small>` : ''}</span><button class="cp-ib" data-cp="v-del-am" data-i="${i}" aria-label="Apagar amostra">${ic('lixo')}</button></li>`).join('')}</ul></details>` : ''}`;
-    // Médias da visita: por alvo + medida
-    const g = new Map();
-    for (const a of am) { const v = Number(String(a.valor ?? '').replace(',', '.')); if (!isFinite(v) || a.valor === '' || a.valor == null) continue; const k = (a.alvo || '—') + '|' + (a.medida || ''); if (!g.has(k)) g.set(k, []); g.get(k).push(v); }
-    $('#cp-vmed').innerHTML = `<div class="cp-row"><b>Médias da visita</b></div>${g.size ? `<table class="cp-tab"><thead><tr><th>Alvo</th><th>Medida</th><th class="r">Média</th><th class="r">Amostras</th></tr></thead><tbody>${[...g].map(([k, vs]) => { const [a, md] = k.split('|'); const mdv = vs.reduce((s, x) => s + x, 0) / vs.length; return `<tr><td>${esc(a)}</td><td>${esc(md)}</td><td class="r"><b>${mdv.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</b></td><td class="r">${vs.length}</td></tr>`; }).join('')}</tbody></table>` : '<p class="cp-mut">Registre amostras com valor para ver as médias.</p>'}`;
+      ${am.length ? `<details><summary>Lista de amostras ${ic('seta')}</summary><ul class="cp-mini">${am.map((a, i) => `<li><span><b>#${esc(a.amostra || i + 1)}</b> ${esc(a.alvo || '')} · ${esc(a.medida || '')}: <b>${esc(a.valor == null ? '—' : fmtV(CN() && CN().daAmostra(a), num(a.valor)))}</b>${a.nivel ? ` <em class="cp-niv ${a.nivel}">${esc(a.nivel)}</em>` : ''}${a.obs ? `<br><small>${esc(a.obs)}</small>` : ''}</span><button class="cp-ib" data-cp="v-del-am" data-i="${i}" aria-label="Apagar amostra">${ic('lixo')}</button></li>`).join('')}</ul></details>` : ''}`;
+    // Médias da visita, comparadas com os níveis de controle da cana
+    const md = medias(m);
+    $('#cp-vmed').innerHTML = `<div class="cp-row"><b>Médias da visita</b></div>${md.length ? `<ul class="cp-meds">${md.map(x => `<li class="c${x.cl ?? 'n'}"><span><b>${esc(x.alvo)}</b><small>${esc(x.medida)} · ${x.vals.length} amostra${x.vals.length > 1 ? 's' : ''}${x.item ? ' · ' + esc(textoNiveis(x.item)) : ''}</small></span><span class="cp-medv"><b>${esc(fmtV(x.item, x.media))}</b>${chipCl(x.cl)}</span></li>`).join('')}</ul>` : '<p class="cp-mut">Registre amostras com valor para ver as médias.</p>'}`;
     $('#cp-vpts').innerHTML = `<div class="cp-row"><b>Pontos da visita</b><span class="cp-num">${m.pontos.length}</span></div>${m.pontos.length ? `<ul class="cp-pts">${m.pontos.map((p, i) => `<li>${miniatura(p)}<span><b>${i + 1}. ${esc(ROT[p.tipo] || 'Ponto')}</b>${p.obs ? ' · ' + esc(p.obs) : ''}<small>${esc(fmtDH(p.data))}${p.lat != null ? ` · ${(+p.lat).toFixed(5)}, ${(+p.lng).toFixed(5)}` : ' · sem GPS'}${p.midia_id && !p.foto && !(p.midia && p.midia.url) ? ' · <em class="cp-pend">arquivo a enviar</em>' : ''}</small></span><button class="cp-ib" data-cp="v-del-pt" data-i="${i}" aria-label="Apagar ponto">${ic('lixo')}</button></li>`).join('')}</ul>` : '<p class="cp-mut">Use os botões acima para marcar fotos, áudios, vídeos, anexos e anotações no local onde você está.</p>'}`;
     $$('img[data-mid]', $('#cp-vpts')).forEach(async img => { const u = await urlLocal(img.dataset.mid); if (u) img.src = u; });
-    const sel = (k, l, opts) => `<label class="cp-f"><span>${l}</span><select data-cp-f="${k}"><option value=""></option>${opts.map(o => `<option ${m[k] === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></label>`;
+    const sel = (k, l, opts) => { if (m[k] && !opts.includes(m[k])) opts = [m[k], ...opts]; return `<label class="cp-f"><span>${l}</span><select data-cp-f="${k}"><option value=""></option>${opts.map(o => `<option ${m[k] === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></label>`; };
+    const p = pior(m);
     $('#cp-vdet').innerHTML = `<div class="cp-row"><b>Resultado da visita</b></div>
       <div class="cp-sem" role="radiogroup" aria-label="Semáforo da visita">${['Verde', 'Amarelo', 'Vermelho'].map(s => `<button data-cp="v-sem" data-s="${s}" aria-pressed="${m.semaforo === s}"><i style="background:${SEM[s]}"></i>${s}</button>`).join('')}</div>
+      <p class="cp-semnota">${m.semaforo_manual ? `Semáforo escolhido por você. <button class="cp-lnk" data-cp="v-sem-auto">Usar o automático</button>` : p ? `Automático: <b>${esc(p.item.nome)}</b> está em ${ROT_CL[p.cl].toLowerCase()}. Toque numa cor para mudar.` : 'O semáforo fica automático quando você registra amostras de pragas, doenças ou daninhas da cana.'}</p>
       <div class="cp-fs">
+        ${sel('estadio', 'Estádio da cana', CN() ? CN().ESTADIOS.slice() : [])}
+        ${sel('corte', 'Corte / ciclo', CN() ? CN().CORTES.slice() : [])}
         ${sel('tipo', 'Tipo', ['Praga', 'Doença', 'Planta daninha', 'Estádio fenológico', 'Falha de estande', 'Outro'])}
-        <label class="cp-f"><span>Praga / doença / alvo</span><input data-cp-f="alvo" value="${esc(m.alvo || '')}" list="cp-alvos"></label>
-        ${sel('nivel', 'Nível', ['Baixo', 'Médio', 'Alto'])}
-        <label class="cp-f"><span>Estádio da cultura</span><input data-cp-f="estadio" value="${esc(m.estadio || '')}"></label>
+        <label class="cp-f"><span>Principal problema</span><input data-cp-f="alvo" value="${esc(m.alvo || '')}" list="cp-alvos"></label>
         ${sel('estado_talhao', 'Condição do talhão', ['Excelente', 'Muito bom', 'Bom', 'Regular', 'Ruim'])}
         ${sel('estado_hidrico', 'Estado hídrico', ['Muito seco', 'Seco', 'Adequado', 'Úmido', 'Muito úmido'])}
         <label class="cp-f cp-full"><span>Observações</span><textarea rows="3" data-cp-f="obs">${esc(m.obs || '')}</textarea></label>
@@ -515,11 +605,71 @@ window.Campo = (function () {
     el.dataset.ok = dentroT ? '1' : '0';
     el.textContent = `GPS ${gps.pos.lat.toFixed(5)}, ${gps.pos.lng.toFixed(5)} · precisão ${Math.round(gps.pos.acc)} m${t ? dentroT ? ' · dentro do talhão' : ' · fora do talhão' : ''}`;
   }
+  // Amostra guiada: 1) escolher a praga, doença ou daninha da cana; 2) anotar o valor no padrão do protocolo
   function amostraForm() {
     if (!exigeEditar()) return;
+    if (!CN()) return amostraLivre();
+    const m = V.m, n = m.amostras_detalhe.length + 1;
+    const usados = [...new Set([...m.amostras_detalhe.slice().reverse().map(a => (CN().daAmostra(a) || {}).id), ...(pref.recentes || [])].filter(Boolean))].slice(0, 6).map(CN().get).filter(Boolean);
+    sheet(`<header class="cp-sh-h"><h2>Amostra ${n}: o que vai avaliar?</h2><button class="cp-ib" data-cp="fechar-sheet" aria-label="Fechar">${ic('fechar')}</button></header>
+      <input type="search" class="cp-busca" id="cp-cq" placeholder="Buscar praga, doença ou planta daninha" aria-label="Buscar">
+      <div id="cp-clist" class="cp-cat"></div>`, 'alto');
+    const lista = () => {
+      const q = norm($('#cp-cq').value);
+      const b = it => `<button data-cp="am-item" data-id="${it.id}"><b>${esc(it.nome)}</b><small><i>${esc(it.sci)}</i> · ${esc(it.un)}</small></button>`;
+      let h = '';
+      if (!q && usados.length) h += `<h4>Usados por último</h4><div class="cp-catl">${usados.map(b).join('')}</div>`;
+      for (const g of CN().GRUPOS) {
+        const l = CN().itens.filter(it => it.g === g && (!q || norm(it.nome + ' ' + it.sci + ' ' + (it.apel || '')).includes(q)));
+        if (l.length) h += `<h4>${g}</h4><div class="cp-catl">${l.map(b).join('')}</div>`;
+      }
+      $('#cp-clist').innerHTML = (h || '<p class="cp-mut">Nada encontrado com esse nome.</p>') + `<button class="cp-btn cp-outro" data-cp="am-livre">Outro alvo (digitar o nome)</button>`;
+    };
+    $('#cp-cq').addEventListener('input', lista); lista();
+  }
+  function amostraItem(id) {
+    const it = CN().get(id); if (!it || !V) return;
+    const m = V.m, n = m.amostras_detalhe.length + 1, aj = ajustes();
+    const campo = it.lt === 'pres'
+      ? `<div class="cp-sem cp-sem2">${[['0', 'Não'], ['1', 'Sim']].map(([v, l]) => `<label><input type="radio" name="valor" value="${v}" required><b>${l}</b></label>`).join('')}</div>`
+      : it.lt === 'cont'
+        ? `<div class="cp-cnt"><button type="button" class="cp-round" data-d="-${it.passo || 1}" aria-label="Menos">−</button><input name="valor" type="number" min="0" step="any" inputmode="decimal" value="0" aria-label="Valor"><button type="button" class="cp-round" data-d="${it.passo || 1}" aria-label="Mais">+</button></div>${it.passo ? `<small class="cp-mut">Os botões mudam de ${it.passo} em ${it.passo}. Você também pode digitar o número.</small>` : ''}`
+        : `<div class="cp-pct"><input name="valor" type="number" min="0" max="100" step="any" inputmode="decimal" required placeholder="0" aria-label="Valor em %"><b>%</b></div><input type="range" min="0" max="${Math.max(20, (CN().niveis(it, aj).vm || 10) * 3)}" step="0.5" value="0" class="cp-rng" aria-label="Arrastar valor">`;
+    sheet(`<header class="cp-sh-h"><button class="cp-ib" data-cp="v-amostra" aria-label="Trocar">${ic('voltar')}</button><h2>Amostra ${n}</h2><button class="cp-ib" data-cp="fechar-sheet" aria-label="Fechar">${ic('fechar')}</button></header>
+      <div class="cp-cath"><b>${esc(it.nome)}</b><small><i>${esc(it.sci)}</i> · ${esc(it.g.replace(/s$/, '').replace('Plantas daninha', 'Planta daninha'))}</small></div>
+      <details class="cp-prot"><summary>Como amostrar ${ic('seta')}</summary><p>${esc(it.prot)}</p></details>
+      <form class="cp-fs" id="cp-amf">
+        <div class="cp-f cp-full"><span>${esc(it.un.charAt(0).toUpperCase() + it.un.slice(1))}</span>${campo}</div>
+        <div class="cp-full cp-amcl" id="cp-amcl"></div>
+        <p class="cp-mut cp-full cp-nivtxt">Níveis: ${esc(textoNiveis(it, aj))}${I().podeEditar() ? ' · <button type="button" class="cp-lnk" data-cp="niveis">ajustar</button>' : ''}</p>
+        <label class="cp-f cp-full"><span>Observação</span><input name="obs"></label>
+        <p class="cp-mut cp-full">${gps.pos ? 'A amostra fica marcada na sua posição atual.' : 'Sem GPS no momento: a amostra fica sem posição.'}</p>
+        <div class="cp-full cp-acts"><button type="submit" class="cp-btn pri" data-mais="1">Salvar e próxima</button><button type="submit" class="cp-btn">Salvar</button></div>
+      </form>`);
+    const f = $('#cp-amf'), rng = $('.cp-rng', f), inp = () => f.querySelector('input[name=valor]:not([type=radio])');
+    const valor = () => it.lt === 'pres' ? num((f.querySelector('input[name=valor]:checked') || {}).value) : num(inp().value);
+    const atual = () => { const v = valor(); $('#cp-amcl').innerHTML = v == null ? '' : chipCl(CN().classe(it, v, aj)); };
+    f.addEventListener('click', e => { const d = e.target.closest('[data-d]'); if (!d) return; const i = inp(); i.value = Math.max(0, (num(i.value) || 0) + Number(d.dataset.d)); atual(); });
+    f.addEventListener('input', e => { if (e.target === rng) inp().value = rng.value; else if (rng && e.target === inp()) rng.value = inp().value || 0; atual(); });
+    f.addEventListener('change', atual);
+    atual();
+    f.addEventListener('submit', e => {
+      e.preventDefault();
+      const v = valor(); if (v == null) { I().toast('Informe o valor.'); return; }
+      const cl = CN().classe(it, v, aj);
+      const a = { amostra: n, praga_id: it.id, alvo: it.nome, grupo: it.g, medida: it.un, valor: v, nivel: cl == null ? '' : CN().NIVEL[cl], obs: new FormData(f).get('obs').trim(), data: agoraISO() };
+      if (gps.pos) { a.lat = +gps.pos.lat.toFixed(7); a.lng = +gps.pos.lng.toFixed(7); }
+      m.amostras_detalhe.push(a);
+      pref.recentes = [it.id, ...(pref.recentes || []).filter(x => x !== it.id)].slice(0, 6); salvarPref();
+      semAuto(m); vSalvar(); vRender(); fecharSheet();
+      if (e.submitter && e.submitter.dataset.mais) amostraItem(it.id); else I().toast('Amostra registrada.');
+    });
+  }
+  // Alvo digitado à mão (fora do catálogo da cana)
+  function amostraLivre() {
     const m = V.m, n = m.amostras_detalhe.length + 1;
     const ult = m.amostras_detalhe[m.amostras_detalhe.length - 1] || {};
-    sheet(`<header class="cp-sh-h"><h2>Amostra ${n}</h2><button class="cp-ib" data-cp="fechar-sheet" aria-label="Fechar">${ic('fechar')}</button></header>
+    sheet(`<header class="cp-sh-h"><h2>Amostra ${n}: outro alvo</h2><button class="cp-ib" data-cp="fechar-sheet" aria-label="Fechar">${ic('fechar')}</button></header>
       <form class="cp-fs" id="cp-amf">
         <label class="cp-f cp-full"><span>Praga / doença / alvo</span><input name="alvo" list="cp-alvos" value="${esc(ult.alvo || m.alvo || '')}" required></label>
         <label class="cp-f"><span>Medida</span><input name="medida" list="cp-medidas" value="${esc(ult.medida || '')}" placeholder="Ex.: Incidência (%)"></label>
@@ -536,9 +686,35 @@ window.Campo = (function () {
       if (gps.pos) { a.lat = +gps.pos.lat.toFixed(7); a.lng = +gps.pos.lng.toFixed(7); }
       m.amostras_detalhe.push(a);
       if (!m.alvo && a.alvo) m.alvo = a.alvo;
-      vSalvar(); vRender(); fecharSheet();
-      if (e.submitter && e.submitter.dataset.mais) amostraForm(); else I().toast('Amostra registrada.');
+      semAuto(m); vSalvar(); vRender(); fecharSheet();
+      if (e.submitter && e.submitter.dataset.mais) amostraLivre(); else I().toast('Amostra registrada.');
     });
+  }
+
+  // ---------- Níveis de controle da cana (editáveis) ----------
+  function niveisTela() {
+    fecharSheet(); fecharMenu();
+    const aj = ajustes(), ed = I().podeEditar();
+    const el = tela(`<header class="cp-bar"><button class="cp-ib" data-cp="voltar" aria-label="Voltar">${ic('voltar')}</button><h1>Níveis de controle</h1><span></span></header>
+      <div class="cp-ctx">Cana-de-açúcar. <b style="color:${COR_CL[1]}">Atenção</b> deixa o semáforo amarelo; <b style="color:${COR_CL[2]}">Controle</b> deixa vermelho. São valores de referência: ajuste com o seu agrônomo.</div>
+      <form class="cp-niv-l" id="cp-nivf">${CN().GRUPOS.map(g => `<h3 class="cp-h3">${g}</h3><ul>${CN().itens.filter(x => x.g === g).map(it => { const n = CN().niveis(it, aj), mud = aj[it.id] ? ' cp-mud' : ''; return `<li class="${mud}"><span><b>${esc(it.nome)}</b><small>${esc(it.un)}</small></span>${it.lt === 'pres' ? '<em class="cp-mut">Presença = controle</em>' : `<label><small>Atenção</small><input type="number" step="any" min="0" inputmode="decimal" name="${it.id}.am" value="${n.am ?? ''}" ${ed ? '' : 'disabled'}></label><label><small>Controle</small><input type="number" step="any" min="0" inputmode="decimal" name="${it.id}.vm" value="${n.vm ?? ''}" ${ed ? '' : 'disabled'}></label>`}</li>`; }).join('')}</ul>`).join('')}
+        ${ed ? `<div class="cp-acts cp-niv-a"><button type="button" class="cp-btn" data-cp="niv-padrao">Restaurar padrão</button><button type="submit" class="cp-btn pri">Salvar níveis</button></div>` : '<p class="cp-mut">Seu acesso é só de consulta.</p>'}
+      </form>`, { cls: 'cp-niveis' });
+    $('#cp-nivf', el).addEventListener('submit', async e => {
+      e.preventDefault();
+      const fd = new FormData(e.target), itens = {};
+      for (const it of CN().itens) {
+        if (it.lt === 'pres') continue;
+        const am = num(fd.get(it.id + '.am')), vm = num(fd.get(it.id + '.vm'));
+        if (am != null && vm != null && am > vm) { I().toast(`${it.nome}: o nível de atenção não pode ser maior que o de controle.`); return; }
+        if (am !== it.am || vm !== it.vm) itens[it.id] = { am, vm };
+      }
+      await salvarNiveis(itens, 'Níveis salvos.');
+    });
+  }
+  async function salvarNiveis(itens, msg) {
+    const atual = I().get('config', 'niveis_cana') || {};
+    try { await I().Store.save('config', Object.assign({}, atual, { id: 'niveis_cana', itens, atualizado_em: new Date().toISOString(), atualizado_por: email() })); I().toast(msg); voltarTela(); if (V) vRender(); calcCalor(); estilos(); } catch (e) { }
   }
 
   // ---------- Pontos com mídia ----------
@@ -730,6 +906,7 @@ window.Campo = (function () {
     fecharMenu();
     sheet(`<header class="cp-sh-h"><h2>Opções</h2><button class="cp-ib" data-cp="fechar-sheet" aria-label="Fechar">${ic('fechar')}</button></header>
       <div class="cp-mlinks">
+        <button data-cp="niveis">${ic('semaforo')}Níveis de controle da cana</button>
         <button data-act="instalar">${ic('download')}Instalar o app no celular</button>
         <button data-cp="baixar-mapa">${ic('camadas')}Salvar o mapa da área na tela para usar sem internet</button>
         <button data-cp="completo">${ic('tela')}Abrir a versão completa do sistema</button>
@@ -785,10 +962,15 @@ window.Campo = (function () {
       case 'baixar-mapa': baixarMapa(); break;
       // visita
       case 'v-amostra': amostraForm(); break;
+      case 'am-item': amostraItem(b.dataset.id); break;
+      case 'am-livre': amostraLivre(); break;
+      case 'niveis': if (CN()) niveisTela(); break;
+      case 'niv-padrao': if (confirm('Voltar todos os níveis para os valores de referência?')) salvarNiveis({}, 'Níveis de referência restaurados.'); break;
+      case 'v-sem-auto': V.m.semaforo_manual = false; semAuto(V.m); vSalvar(); vRender(); break;
       case 'wp': ponto(b.dataset.t); break;
       case 'rec': Rec.parar(false); break;
-      case 'v-sem': V.m.semaforo = V.m.semaforo === b.dataset.s ? '' : b.dataset.s; vSalvar(); vRender(); break;
-      case 'v-del-am': if (confirm('Apagar esta amostra?')) { V.m.amostras_detalhe.splice(+b.dataset.i, 1); V.m.amostras_detalhe.forEach((x, i) => x.amostra = i + 1); vSalvar(); vRender(); } break;
+      case 'v-sem': if (V.m.semaforo === b.dataset.s) { V.m.semaforo = ''; V.m.semaforo_manual = false; semAuto(V.m); } else { V.m.semaforo = b.dataset.s; V.m.semaforo_manual = true; } vSalvar(); vRender(); break;
+      case 'v-del-am': if (confirm('Apagar esta amostra?')) { V.m.amostras_detalhe.splice(+b.dataset.i, 1); V.m.amostras_detalhe.forEach((x, i) => x.amostra = i + 1); semAuto(V.m); vSalvar(); vRender(); } break;
       case 'v-del-pt': if (confirm('Apagar este ponto?')) { const [p] = V.m.pontos.splice(+b.dataset.i, 1); if (p && p.midia_id) I().Off.tirarMidia(p.midia_id).then(() => Midia.contar()); vSalvar(); vRender(); } break;
       case 'v-gps': ligarGps(false); if (gps.pos && V.map) V.map.setView([gps.pos.lat, gps.pos.lng], Math.max(V.map.getZoom(), 17)); break;
       case 'v-ir': navegar(tal(V.m.talhao_id)); break;
@@ -798,6 +980,8 @@ window.Campo = (function () {
     }
   }
   document.addEventListener('change', e => {
+    const c = e.target.closest('[data-cp-calor]');
+    if (c) { if (c.dataset.cpCalor === 'dias') pref.calorDias = Number(c.value); else pref.calor = c.value || null; salvarPref(); calcCalor(); estilos(); return; }
     const f = e.target.closest('[data-cp-f]'); if (!f || !V) return;
     V.m[f.dataset.cpF] = f.value; vSalvar();
   });
