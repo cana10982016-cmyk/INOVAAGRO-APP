@@ -32,7 +32,7 @@ do $$
 declare t text;
 begin
   foreach t in array array['produtores','fazendas','talhoes','safras','monitoramentos','ordens',
-                           'insumos','maquinas','aplicadores','depositos','silobolsas','avancos','controles','armadilhas','pluviometros','chuvas'] loop
+                           'insumos','maquinas','aplicadores','depositos','silobolsas','avancos','controles','armadilhas','pluviometros','chuvas','etiquetas'] loop
     execute format('create table if not exists %I (id text primary key, dados jsonb not null, atualizado_em timestamptz not null default now(), atualizado_por uuid default auth.uid())', t);
     execute format('alter table %I enable row level security', t);
     execute format('grant select, insert, update, delete on %I to authenticated', t);
