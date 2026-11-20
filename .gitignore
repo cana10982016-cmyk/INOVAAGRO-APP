@@ -1,0 +1,5 @@
+# Dados reais das fazendas NÃO vão para o GitHub (repositório público).
+# Eles ficam no banco de dados (Supabase), protegido por login.
+data/*.json
+artifact.html
+node_modules/

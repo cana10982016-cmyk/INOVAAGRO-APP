@@ -1,0 +1,22 @@
+# INOVAAGRO — gestão agrícola
+
+(Nome de trabalho do protótipo: Gleba.)
+
+Aplicativo próprio com mapa de fazendas e talhões, produtores, safras, monitoramentos e ordens de trabalho.
+Os dados vieram da exportação do SIMA (`/mnt/project-files/migracao-sima/`).
+
+## Estrutura
+- `src/` código-fonte (HTML, CSS, JavaScript puro + Leaflet). Sem etapa de compilação além de `tools/build.py`.
+- `data/*.json` dados importados do SIMA (ids do SIMA preservados). **Não vão para o GitHub**: ficam no banco de dados, protegidos por login.
+- `tools/importar_sima.py` converte a exportação do SIMA em `data/*.json` (rode de novo para reimportar).
+- `tools/build.py` gera `index.html` (página completa, para hospedar ou abrir num servidor) e `artifact.html` (versão publicada no Claude).
+- `tools/teste_tela.js` capturas de tela com Playwright.
+
+## Onde ficam as alterações
+Os dados importados são a base (somente leitura). O que for criado, editado ou excluído no app fica salvo por cima:
+na versão publicada no Claude, num banco na nuvem; rodando localmente, no navegador. "Exportar dados" baixa tudo em JSON.
+
+## Próximos passos
+- Hospedagem própria + banco (ex.: Supabase/Postgres com PostGIS) e login de usuários.
+- App móvel: o mesmo código empacotado com Capacitor (Android/iOS), com modo offline para monitoramento no campo.
+- Desenhar/editar contornos de talhões no mapa; fotos dos monitoramentos (precisam ser baixadas do SIMA).

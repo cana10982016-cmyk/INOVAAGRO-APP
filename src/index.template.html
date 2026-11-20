@@ -1,0 +1,46 @@
+<title>Gleba</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&display=swap">
+<style>
+/*LEAFLET_CSS*/
+/*APP_CSS*/
+</style>
+<header class="topbar">
+  <div class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" rx="7" fill="var(--accent)"/><path d="M7 22c4-1 7-4 9-9m-9 4c3-.6 5-2.6 6.4-5.6M11 25c5-1.5 9-5.5 11.5-12M17 25.5c3-2 5.5-5.2 7-9.5" fill="none" stroke="var(--accent-fg)" stroke-width="1.8" stroke-linecap="round"/></svg><b>Gleba</b></div>
+  <nav class="tabs" aria-label="Seções">
+    <a href="#mapa">Mapa</a><a href="#produtores">Produtores</a><a href="#fazendas">Fazendas</a><a href="#talhoes">Talhões</a><a href="#safras">Safras</a><a href="#monitoramentos">Monitoramentos</a><a href="#ordens">Ordens de trabalho</a>
+  </nav>
+  <div class="sync" id="sync" data-mode="local"><i></i><span>Carregando…</span></div>
+</header>
+<main>
+  <section class="view" id="v-mapa">
+    <div class="map-layout">
+      <aside class="side">
+        <div class="side-head">
+          <div class="kpis" id="kpis"></div>
+          <input type="search" id="q-mapa" placeholder="Buscar produtor, fazenda ou talhão" aria-label="Buscar no mapa">
+        </div>
+        <div class="tree" id="tree"></div>
+      </aside>
+      <div class="map-wrap">
+        <div id="map" role="application" aria-label="Mapa dos talhões"></div>
+        <div class="legend" id="legend"></div>
+        <div class="map-tools"><button class="btn small" data-act="fit-all">Ver tudo</button><button class="btn small" data-act="color">Colorir por cultura</button><button class="btn small" data-act="export">Exportar dados</button></div>
+        <div class="map-note" id="mapnote" hidden>A imagem de satélite não carrega nesta visualização. Os contornos dos talhões estão corretos; no aplicativo publicado o fundo de satélite aparece.</div>
+        <div class="sheet" id="sheet" hidden></div>
+      </div>
+    </div>
+  </section>
+  <section class="view" id="v-produtores" hidden></section>
+  <section class="view" id="v-fazendas" hidden></section>
+  <section class="view" id="v-talhoes" hidden></section>
+  <section class="view" id="v-safras" hidden></section>
+  <section class="view" id="v-monitoramentos" hidden></section>
+  <section class="view" id="v-ordens" hidden></section>
+  <div id="loading" style="position:absolute;inset:0;display:grid;place-items:center;background:var(--bg);z-index:1500"><p class="muted">Carregando fazendas e talhões…</p></div>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+/*APP_JS*/
+</script>
