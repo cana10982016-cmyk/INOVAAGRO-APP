@@ -1,4 +1,5 @@
--- INOVAAGRO: equipe e permissões (rodar UMA vez no editor SQL do Supabase; pode rodar de novo sem problema)
+-- INOVAAGRO: atualização do banco (rodar no editor SQL do Supabase; pode rodar de novo sem problema)
+-- 1) equipe e permissões  2) tabelas dos módulos novos (insumos, máquinas, chuvas, silobolsas etc.)
 -- Papéis: admin (tudo + equipe), editor (cadastra e edita), leitura (só consulta).
 
 alter table membros add column if not exists nome text;
@@ -30,7 +31,11 @@ grant execute on function meu_papel(), sou_membro(), posso_editar(), sou_admin()
 do $$
 declare t text;
 begin
-  foreach t in array array['produtores','fazendas','talhoes','safras','monitoramentos','ordens'] loop
+  foreach t in array array['produtores','fazendas','talhoes','safras','monitoramentos','ordens',
+                           'insumos','maquinas','aplicadores','depositos','silobolsas','avancos','controles','armadilhas','pluviometros','chuvas'] loop
+    execute format('create table if not exists %I (id text primary key, dados jsonb not null, atualizado_em timestamptz not null default now(), atualizado_por uuid default auth.uid())', t);
+    execute format('alter table %I enable row level security', t);
+    execute format('grant select, insert, update, delete on %I to authenticated', t);
     execute format('drop policy if exists membros_tudo on %I', t);
     execute format('drop policy if exists equipe_ler on %I', t);
     execute format('drop policy if exists equipe_incluir on %I', t);

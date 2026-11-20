@@ -7,7 +7,7 @@ ASSETS = {'{{LOGO}}': 'assets/logo.png', '{{LOGO_ESCURO}}': 'assets/logo-escuro.
 html = (rd('src/index.template.html')
         .replace('/*LEAFLET_CSS*/', rd('src/leaflet.css'))
         .replace('/*APP_CSS*/', rd('src/app.css'))
-        .replace('/*APP_JS*/', rd('src/app.js').replace("/*SQL_EQUIPE*/''", json.dumps(rd('supabase/02_equipe.sql'), ensure_ascii=False))))
+        .replace('/*APP_JS*/', rd('src/app.js').replace("/*SQL_EQUIPE*/''", json.dumps(rd('supabase/02_atualizacao.sql'), ensure_ascii=False))))
 HOSTED = '<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>\n<script src="config.js"></script>'
 # artifact.html: fragmento para publicar como Artifact (o host adiciona <html>/<head>); imagens embutidas
 art = html.replace('<!--HOSTED_SCRIPTS-->', '')

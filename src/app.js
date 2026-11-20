@@ -8,8 +8,13 @@
   const STATUS = ['Planejada', 'Em andamento', 'Concluída', 'Cancelada'];
   const STATUS_CLS = { 'Planejada': 'info', 'Em andamento': 'warn', 'Concluída': 'ok', 'Cancelada': '' };
   const NIVEL_CLS = { 'Baixo': 'ok', 'Médio': 'warn', 'Alto': 'bad' };
-  const KINDS = ['produtores', 'fazendas', 'talhoes', 'safras', 'monitoramentos', 'ordens'];
-  const NOME = { produtores: 'produtor', fazendas: 'fazenda', talhoes: 'talhão', safras: 'plantio', monitoramentos: 'monitoramento', ordens: 'ordem de trabalho' };
+  const KINDS_BASE = ['produtores', 'fazendas', 'talhoes', 'safras', 'monitoramentos', 'ordens'];
+  const KINDS_NOVOS = ['insumos', 'maquinas', 'aplicadores', 'depositos', 'silobolsas', 'avancos', 'controles', 'armadilhas', 'pluviometros', 'chuvas'];
+  const KINDS = [...KINDS_BASE, ...KINDS_NOVOS];
+  const NOME = { produtores: 'produtor', fazendas: 'fazenda', talhoes: 'talhão', safras: 'plantio', monitoramentos: 'monitoramento', ordens: 'ordem de trabalho',
+    insumos: 'insumo', maquinas: 'máquina', aplicadores: 'aplicador', depositos: 'depósito', silobolsas: 'silobolsa', avancos: 'avanço', controles: 'controle', armadilhas: 'armadilha', pluviometros: 'pluviômetro', chuvas: 'registro de chuva' };
+  const NOVA = { maquinas: 1, silobolsas: 1, armadilhas: 1 }; // substantivos femininos: "Nova máquina"
+  const SIMNAO = ['Sim', 'Não'];
   const PAPEIS = {
     admin: { l: 'Administrador', d: 'Vê e edita tudo, cadastra e remove pessoas da equipe.' },
     editor: { l: 'Técnico', d: 'Vê tudo e pode cadastrar e editar fazendas, talhões, safras, monitoramentos e ordens.' },
@@ -47,6 +52,10 @@
       { k: 'data_plantio', l: 'Plantio', t: 'date' },
       { k: 'data_colheita', l: 'Colheita', t: 'date' },
       { k: 'produtividade', l: 'Produtividade (sc/ha ou t/ha)', t: 'number' },
+      { k: 'data_plantio_programada', l: 'Plantio programado', t: 'date' },
+      { k: 'espacamento_cm', l: 'Espaçamento (cm)', t: 'number' },
+      { k: 'produtividade_objetivo', l: 'Produtividade objetivo (t/ha)', t: 'number' },
+      { k: 'area_ha', l: 'Área plantada (ha)', t: 'number' },
       { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
     ],
     monitoramentos: [
@@ -58,6 +67,8 @@
       { k: 'nivel', l: 'Nível', t: 'select', opts: ['Baixo', 'Médio', 'Alto'] },
       { k: 'estadio', l: 'Estádio da cultura', ph: 'Ex.: Perfilhamento' },
       { k: 'estado_talhao', l: 'Condição do talhão', t: 'select', opts: ['Excelente', 'Muito bom', 'Bom', 'Regular', 'Ruim'] },
+      { k: 'estado_hidrico', l: 'Estado hídrico', t: 'select', opts: ['Muito seco', 'Seco', 'Adequado', 'Úmido', 'Muito úmido'] },
+      { k: 'produtividade_estimada', l: 'Produtividade estimada', t: 'number' },
       { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
     ],
     ordens: [
@@ -68,8 +79,103 @@
       { k: 'talhao_ids', l: 'Talhões', t: 'talhoes', full: 1 },
       { k: 'data_prevista', l: 'Data prevista', t: 'date' },
       { k: 'data_conclusao', l: 'Data de conclusão', t: 'date' },
-      { k: 'responsavel', l: 'Responsável / operador', full: 1 },
+      { k: 'responsavel', l: 'Responsável / operador' },
+      { k: 'aplicador_id', l: 'Aplicador', t: 'ref', kind: 'aplicadores' },
+      { k: 'maquina_id', l: 'Máquina', t: 'ref', kind: 'maquinas' },
+      { k: 'vazao_l_ha', l: 'Vazão (L/ha)', t: 'number' },
+      { k: 'temperatura_c', l: 'Temperatura (°C)', t: 'number' },
+      { k: 'umidade_pct', l: 'Umidade (%)', t: 'number' },
+      { k: 'vento_kmh', l: 'Vento (km/h)', t: 'number' },
       { k: 'insumos', l: 'Insumos e doses (um por linha)', t: 'textarea', full: 1, ph: 'Produto - dose/ha' },
+      { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
+    ],
+    insumos: [
+      { k: 'nome', l: 'Nome comercial', req: 1, full: 1 },
+      { k: 'classe', l: 'Classe', t: 'select', opts: ['Herbicida', 'Inseticida', 'Fungicida', 'Acaricida', 'Fertilizante', 'Adjuvante', 'Regulador fisiológico', 'Maturador', 'Biológico', 'Variedade/híbrido (semente)', 'Outro'] },
+      { k: 'unidade', l: 'Unidade', t: 'select', opts: ['Lt/ha', 'Kg/ha', 'Ml/ha', 'Gr/ha', 't/ha'] },
+      { k: 'fabricante', l: 'Fabricante' },
+      { k: 'codigo', l: 'Código' },
+      { k: 'principio_ativo', l: 'Princípio ativo', full: 1 },
+      { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
+    ],
+    maquinas: [
+      { k: 'nome', l: 'Nome / identificação', req: 1, full: 1, ph: 'Ex.: Uniporte 01' },
+      { k: 'tipo', l: 'Tipo', t: 'select', opts: ['Pulverizador', 'Trator', 'Colhedora', 'Plantadora', 'Caminhão', 'Avião', 'Drone', 'Implemento', 'Outro'], req: 1 },
+      { k: 'propriedade', l: 'Propriedade', t: 'select', opts: ['Própria', 'Terceiro'] },
+      { k: 'marca', l: 'Marca' }, { k: 'modelo', l: 'Modelo' },
+      { k: 'ano', l: 'Ano', t: 'number' }, { k: 'placa', l: 'Placa / chassi' },
+      { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
+    ],
+    aplicadores: [
+      { k: 'nome', l: 'Nome', req: 1, full: 1 },
+      { k: 'documento', l: 'CPF / CNPJ' }, { k: 'telefone', l: 'Telefone' },
+      { k: 'empresa', l: 'Empresa' }, { k: 'registro', l: 'Registro / habilitação' },
+      { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
+    ],
+    depositos: [
+      { k: 'nome', l: 'Nome', req: 1, full: 1 },
+      { k: 'fazenda_id', l: 'Fazenda', t: 'fazenda', full: 1 },
+      { k: 'tipo', l: 'Tipo', t: 'select', opts: ['Insumos', 'Grãos', 'Combustível', 'Peças', 'Outro'] },
+      { k: 'capacidade', l: 'Capacidade' },
+      { k: 'endereco', l: 'Endereço / localização', full: 1 },
+      { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
+    ],
+    silobolsas: [
+      { k: 'codigo', l: 'Código', req: 1 },
+      { k: 'situacao', l: 'Situação', t: 'select', opts: ['Cheia', 'Em extração', 'Extraída', 'Rebolsada'], req: 1 },
+      { k: 'fazenda_id', l: 'Fazenda', t: 'fazenda', full: 1 },
+      { k: 'produto', l: 'Produto', t: 'select', opts: CULTURAS },
+      { k: 'safra', l: 'Safra', ph: '2025/26' },
+      { k: 'toneladas', l: 'Toneladas', t: 'number' },
+      { k: 'comprimento_m', l: 'Comprimento (m)', t: 'number' },
+      { k: 'data_enchimento', l: 'Enchimento', t: 'date' },
+      { k: 'data_extracao', l: 'Extração', t: 'date' },
+      { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
+    ],
+    avancos: [
+      { k: 'tipo', l: 'Tipo', t: 'select', opts: ['Plantio', 'Colheita'], req: 1 },
+      { k: 'data', l: 'Data', t: 'date', req: 1 },
+      { k: 'talhao_id', l: 'Talhão', t: 'talhao', req: 1, full: 1 },
+      { k: 'safra', l: 'Safra', ph: '2025/26' },
+      { k: 'area_ha', l: 'Área realizada (ha)', t: 'number' },
+      { k: 'produtividade', l: 'Produtividade (t/ha)', t: 'number' },
+      { k: 'finalizado', l: 'Talhão finalizado?', t: 'select', opts: SIMNAO },
+      { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
+    ],
+    controles: [
+      { k: 'tipo', l: 'Tipo de controle', t: 'select', opts: ['Perda na colheita', 'Estande de plantas', 'Qualidade de plantio', 'Adubação', 'Outro'], req: 1 },
+      { k: 'data', l: 'Data', t: 'date', req: 1 },
+      { k: 'talhao_id', l: 'Talhão', t: 'talhao', req: 1, full: 1 },
+      { k: 'valor', l: 'Resultado', t: 'number' },
+      { k: 'unidade', l: 'Unidade', ph: 'Ex.: t/ha, gemas/m, %' },
+      { k: 'responsavel', l: 'Responsável' },
+      { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
+    ],
+    armadilhas: [
+      { k: 'nome', l: 'Nome / código', req: 1 },
+      { k: 'tipo', l: 'Tipo', t: 'select', opts: ['Feromônio', 'Luminosa', 'Adesiva', 'Outra'] },
+      { k: 'fazenda_id', l: 'Fazenda', t: 'fazenda', full: 1 },
+      { k: 'praga_alvo', l: 'Praga alvo', ph: 'Ex.: broca-da-cana' },
+      { k: 'ultima_contagem', l: 'Última contagem', t: 'number' },
+      { k: 'data_contagem', l: 'Data da contagem', t: 'date' },
+      { k: 'lat', l: 'Latitude', t: 'number' }, { k: 'lng', l: 'Longitude', t: 'number' },
+      { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
+    ],
+    pluviometros: [
+      { k: 'nome', l: 'Nome', req: 1 },
+      { k: 'automatico', l: 'Automático?', t: 'select', opts: SIMNAO },
+      { k: 'fazenda_id', l: 'Fazenda', t: 'fazenda', full: 1 },
+      { k: 'lat', l: 'Latitude', t: 'number' }, { k: 'lng', l: 'Longitude', t: 'number' },
+      { k: 'raio_ha', l: 'Área de cobertura (ha)', t: 'number' },
+      { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
+    ],
+    chuvas: [
+      { k: 'data', l: 'Data', t: 'date', req: 1 },
+      { k: 'pluviometro_id', l: 'Pluviômetro', t: 'ref', kind: 'pluviometros', req: 1 },
+      { k: 'mm', l: 'Chuva (mm)', t: 'number', req: 1 },
+      { k: 'granizo', l: 'Granizo', t: 'select', opts: SIMNAO },
+      { k: 'geada', l: 'Geada', t: 'select', opts: SIMNAO },
+      { k: 'vento_forte', l: 'Dano por vento', t: 'select', opts: SIMNAO },
       { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
     ],
   };
@@ -234,7 +340,9 @@
         const rows = []; let from = 0;
         for (;;) {
           const { data, error } = await this.cli.from(k).select('id,dados').range(from, from + 999);
+          if (error && KINDS_NOVOS.includes(k)) { S.faltaTabela = true; break; } // banco ainda sem a atualização
           if (error) throw error;
+          if (!data) break;
           rows.push(...data.map(r => Object.assign({}, r.dados, { id: r.dados && r.dados.id != null ? r.dados.id : r.id })));
           if (data.length < 1000) break; from += 1000;
         }
@@ -277,7 +385,7 @@
     if (!kinds.length) { toast('Este arquivo não tem dados do aplicativo.'); return; }
     try {
       let n = 0;
-      for (const k of kinds) { toast('Importando ' + k + '…'); await SB.upsert(k, json[k].map(r => { const c = Object.assign({}, r); delete c._prod; return c; })); n += json[k].length; }
+      for (const k of kinds) { toast('Importando ' + k + '…'); await SB.upsert(k, json[k].map(r => { const atual = S.idx[k] && S.idx[k].get(key(r.id)); const c = Object.assign({}, r, atual || {}); delete c._prod; return c; })); n += json[k].length; } // o que já foi editado no site prevalece
       toast(fmtInt(n) + ' registros importados.'); setTimeout(() => location.reload(), 1200);
     } catch (e) { toast('Falhou ao importar: ' + (e.message || e)); }
   }
@@ -304,6 +412,16 @@
     ordens: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/>',
     relatorios: '<path d="M6 3h9l4 4v14H6z"/><path d="M10 17v-3M13 17v-6M16 17v-4"/>',
     equipe: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.6c3 0 5.5 1.6 5.5 4.9"/>',
+    insumos: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3"/><path d="M7.5 14h9"/>',
+    maquinas: '<circle cx="7" cy="17" r="3"/><circle cx="18" cy="18" r="2"/><path d="M4 14V8h7l2 6M13 14h7v4M9 8V5h3"/>',
+    aplicadores: '<circle cx="10" cy="7" r="3.5"/><path d="M3.5 20c0-3.5 3-5.5 6.5-5.5 1.5 0 2.8.3 3.9.9"/><path d="m16 18 2 2 4-4"/>',
+    avancos: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+    controles: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="m8.5 12 2.5 2.5 5-5"/>',
+    armadilhas: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".5"/>',
+    clima: '<path d="M7 15a4 4 0 1 1 1.6-7.7A5 5 0 0 1 18 9a3 3 0 0 1 0 6z"/><path d="M8 19l-1 2M12 19l-1 2M16 19l-1 2"/>',
+    pluviometros: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
+    depositos: '<path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-8h10v8M7 17h10"/>',
+    silobolsas: '<rect x="2" y="8" width="20" height="8" rx="4"/><path d="M7 8v8M12 8v8M17 8v8"/>',
     pdf: '<path d="M6 3h9l4 4v14H6z"/><path d="M12 10v7M9 14l3 3 3-3"/>',
     xls: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M4 15h16M10 4v16"/>',
     print: '<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>',
@@ -311,8 +429,10 @@
   const icon = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
   const NAV = [
     ['painel', 'Painel'], ['mapa', 'Mapa'],
-    'Cadastros', ['produtores', 'Produtores'], ['fazendas', 'Fazendas'], ['talhoes', 'Talhões'], ['safras', 'Safras'],
-    'Campo', ['monitoramentos', 'Monitoramentos'], ['ordens', 'Ordens de trabalho'],
+    'Cadastros', ['produtores', 'Produtores'], ['fazendas', 'Fazendas'], ['talhoes', 'Talhões'], ['safras', 'Safras'], ['insumos', 'Insumos'], ['maquinas', 'Máquinas'], ['aplicadores', 'Aplicadores'],
+    'Campo', ['monitoramentos', 'Monitoramentos'], ['ordens', 'Ordens de trabalho'], ['avancos', 'Avanços de plantio e colheita'], ['controles', 'Controles'], ['armadilhas', 'Armadilhas'],
+    'Clima', ['clima', 'Chuvas e previsão'], ['pluviometros', 'Pluviômetros'],
+    'Armazenagem', ['depositos', 'Depósitos'], ['silobolsas', 'Silobolsas'],
     'Gestão', ['relatorios', 'Relatórios'], ['equipe', 'Equipe e permissões'],
   ];
   const TITULO = Object.fromEntries(NAV.filter(Array.isArray));
@@ -331,7 +451,8 @@
     const n = S.data.ordens.filter(atrasada).length;
     b.hidden = !n; b.textContent = n; b.title = n + ' ordens atrasadas';
   }
-  const VIEWS = { painel: viewPainel, mapa: viewMapa, produtores: viewProdutores, fazendas: viewFazendas, talhoes: viewTalhoes, safras: viewSafras, monitoramentos: viewMonitoramentos, ordens: viewOrdens, relatorios: viewRelatorios, equipe: viewEquipe };
+  const VIEWS = { painel: viewPainel, mapa: viewMapa, produtores: viewProdutores, fazendas: viewFazendas, talhoes: viewTalhoes, safras: viewSafras, monitoramentos: viewMonitoramentos, ordens: viewOrdens, relatorios: viewRelatorios, equipe: viewEquipe, clima: viewClima };
+  for (const k of KINDS_NOVOS) if (k !== 'chuvas') VIEWS[k] = () => viewModulo(k);
   let current = null;
   function route() {
     const v = (location.hash || '#painel').slice(1);
@@ -392,6 +513,7 @@
       ['Safra ' + (safra || '—'), fmtHa0(areaSafra) + ' ha', fmtInt(safT.length) + ' talhões plantados'],
       ['Ordens pendentes', fmtInt(pend.length), atr.length ? fmtInt(atr.length) + ' atrasadas' : 'Nenhuma atrasada', atr.length],
       ['Monitoramentos', fmtInt(mon30.length), 'nos últimos 30 dias · ' + fmtInt(mons.length) + ' no total'],
+      ['Chuva registrada', fmtHa0(S.data.chuvas.filter(c => diasDesde(c.data) <= 30).reduce((a, c) => a + num(c.mm), 0)) + ' mm', 'últimos 30 dias · ' + fmtInt(S.data.chuvas.length) + ' registros'],
     ].map(([l, v, s, alert]) => `<div class="tile ${alert ? 'alert' : ''}"><span class="lbl">${esc(l)}</span><span class="val">${v}</span><span class="sub">${esc(s)}</span></div>`).join('');
 
     // variedades da safra
@@ -427,6 +549,7 @@
   }
 
   // ---------- Mapa ----------
+  let layerPts, layerPluv;
   let map, layerTal, layerFaz, layerLbl, layersById = new Map(), mapReady = false, baseLayers = {};
   const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
   function initMap() {
@@ -446,10 +569,13 @@
     layerTal = L.featureGroup().addTo(map);
     layerFaz = L.featureGroup().addTo(map);
     layerLbl = L.layerGroup().addTo(map);
+    layerPts = L.layerGroup();
+    layerPluv = L.layerGroup().addTo(map);
     map.on('zoomend', syncFazMarkers);
     map.on('moveend', syncLabels);
     map.on('click', () => { if (S.sel.talhao) { S.sel.talhao = null; drawSheet(); styleAll(); renderTree(); } });
     $('#color-by').value = S.colorBy;
+    $('#tg-pontos').addEventListener('change', e => { if (e.target.checked) layerPts.addTo(map); else map.removeLayer(layerPts); });
   }
   function setBase(b) {
     S.base_map = b;
@@ -480,7 +606,25 @@
         .on('click', () => selectFazenda(f.id, true)).addTo(layerFaz);
     }
     syncFazMarkers(); syncLabels();
+    drawPontos();
     drawLegend();
+  }
+  const ICO_FOTO = L => L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [11, 11], html: '<div class="pin-foto" aria-hidden="true"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg></div>' });
+  function drawPontos() {
+    if (!layerPts) return;
+    layerPts.clearLayers(); layerPluv.clearLayers();
+    const ico = ICO_FOTO(L);
+    for (const m of S.data.monitoramentos) for (const p of m.pontos || []) {
+      if (p.lat == null) continue;
+      const t = get('talhoes', m.talhao_id);
+      L.marker([p.lat, p.lng], { icon: ico, keyboard: false }).bindPopup(`<div class="pop"><b>${esc(fmtDate(m.data))} · ${esc(nomeTal(t))}</b>${p.foto ? `<a href="${esc(p.foto)}" target="_blank" rel="noopener"><img loading="lazy" src="${esc(p.foto)}" alt=""></a>` : ''}${p.obs ? `<p>${esc(p.obs)}</p>` : ''}<button class="btn small" data-edit="monitoramentos:${esc(m.id)}">Abrir monitoramento</button></div>`, { maxWidth: 260 }).addTo(layerPts);
+    }
+    for (const pv of S.data.pluviometros) {
+      if (pv.lat == null) continue;
+      const ch = S.data.chuvas.filter(c => key(c.pluviometro_id) === key(pv.id)).sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+      L.circleMarker([pv.lat, pv.lng], { radius: 8, color: '#fff', weight: 2, fillColor: '#2a78d6', fillOpacity: 1 }).bindTooltip(`Pluviômetro ${esc(pv.nome)}${ch[0] ? ` · última chuva ${fmtDate(ch[0].data)}: ${esc(ch[0].mm)} mm` : ''}`, { className: 'lbl' }).addTo(layerPluv);
+    }
+    const n = layerPts.getLayers().length; const b = $('#tg-pontos'); if (b) b.closest('label').hidden = !n;
   }
   function fazCenter(f) {
     const b = boundsOf(S.talPorFaz.get(key(f.id)) || []);
@@ -618,7 +762,8 @@
     const root = $('#v-' + id);
     if (!root.dataset.ready) {
       root.dataset.ready = 1;
-      root.innerHTML = `<div class="page"><div class="page-head"><div><h2>${opts.title}</h2><p>${opts.sub}</p></div><button class="btn primary" data-new="${opts.kind}">+ Novo ${esc(NOME[opts.kind])}</button></div>
+      root.innerHTML = `<div class="page"><div class="page-head"><div><h2>${opts.title}</h2><p>${opts.sub}</p></div><button class="btn primary" data-new="${opts.kind}">+ ${NOVA[opts.kind] ? 'Nova' : 'Novo'} ${esc(NOME[opts.kind])}</button></div>
+        ${KINDS_NOVOS.includes(opts.kind) && S.faltaTabela ? avisoBanco() : ''}
         <div class="toolbar"><input type="search" id="q-${id}" placeholder="Buscar…" aria-label="Buscar">${opts.filter ? `<select id="f-${id}" aria-label="Filtrar">${opts.filter()}</select>` : ''}<span class="count" id="c-${id}"></span></div>
         <div class="table-wrap"><table><thead><tr>${opts.cols.map(c => `<th class="${c.r ? 'r' : ''}">${c.l}</th>`).join('')}</tr></thead><tbody id="tb-${id}"></tbody></table></div></div>`;
       $('#q-' + id, root).addEventListener('input', () => fill());
@@ -758,6 +903,105 @@
         return `<div class="card ${atrasada(o) ? 'late' : ''}" data-edit="ordens:${esc(o.id)}"><b>${esc(o.titulo)}</b><small>${esc(o.tipo || '')} · ${atrasada(o) ? '<b style="color:var(--bad)">atrasada</b> · ' : ''}${fmtDate(o.data_prevista)}</small><small>${esc(f?.nome || '—')}${ts.length ? ' · ' + ts.length + (ts.length === 1 ? ' talhão' : ' talhões') + ' · ' + fmtHa(o.area_ha || areaTal(ts)) + ' ha' : ''}</small></div>`;
       }).join('') || '<p class="empty">Nenhuma.</p>'}</div>`;
     }).join('');
+  }
+
+  // ---------- Módulos (cadastros do SIMA) ----------
+  const nomeRef = (k, id) => { const r = get(k, id); return r ? (r.nome || r.codigo || r.titulo || key(r.id)) : '—'; };
+  const fazNome = id => esc(get('fazendas', id)?.nome || '—');
+  const talNome = id => { const t = get('talhoes', id); return t ? esc(nomeTal(t)) + ' <span class="muted">· ' + fazNome(t.fazenda_id) + '</span>' : '—'; };
+  const MOD = {
+    insumos: { t: 'Insumos', s: 'Catálogo de produtos usados nas ordens: herbicidas, inseticidas, fertilizantes, variedades.', sort: 'nome',
+      cols: [['nome', 'Produto'], ['classe', 'Classe'], ['fabricante', 'Fabricante'], ['unidade', 'Unidade'], ['principio_ativo', 'Princípio ativo'], [r => fmtInt(S.data.ordens.filter(o => (o.produtos || []).some(p => p.produto === r.nome)).length), 'Usado em ordens', 1]], filtro: 'classe' },
+    maquinas: { t: 'Máquinas', s: 'Pulverizadores, tratores, colhedoras e demais equipamentos, próprios ou de terceiros.', sort: 'nome',
+      cols: [['nome', 'Máquina'], ['tipo', 'Tipo'], ['marca', 'Marca'], ['modelo', 'Modelo'], ['ano', 'Ano', 1], ['propriedade', 'Propriedade']], filtro: 'tipo' },
+    aplicadores: { t: 'Aplicadores', s: 'Operadores e empresas que executam as aplicações.', sort: 'nome',
+      cols: [['nome', 'Nome'], ['empresa', 'Empresa'], ['telefone', 'Telefone'], ['registro', 'Registro']] },
+    depositos: { t: 'Depósitos', s: 'Armazéns de insumos, grãos e combustível.', sort: 'nome',
+      cols: [['nome', 'Depósito'], ['tipo', 'Tipo'], [r => fazNome(r.fazenda_id), 'Fazenda'], ['capacidade', 'Capacidade']] },
+    silobolsas: { t: 'Silobolsas', s: 'Grãos armazenados em silobolsa: enchimento, extração e situação.', sort: 'codigo',
+      cols: [['codigo', 'Código'], [r => r.situacao ? `<span class="pill ${{ Cheia: 'info', 'Em extração': 'warn', Extraída: 'ok' }[r.situacao] || ''}">${esc(r.situacao)}</span>` : '—', 'Situação'], ['produto', 'Produto'], ['safra', 'Safra'], [r => fazNome(r.fazenda_id), 'Fazenda'], [r => fmtHa(r.toneladas), 't', 1], ['data_enchimento', 'Enchimento', 0, 'd'], ['data_extracao', 'Extração', 0, 'd']], filtro: 'situacao' },
+    avancos: { t: 'Avanços de plantio e colheita', s: 'Área plantada e colhida por talhão, com produtividade.', sort: '-data',
+      cols: [['data', 'Data', 0, 'd'], [r => `<span class="pill ${r.tipo === 'Colheita' ? 'warn' : 'ok'}">${esc(r.tipo || '')}</span>`, 'Tipo'], [r => talNome(r.talhao_id), 'Talhão'], ['safra', 'Safra'], [r => fmtHa(r.area_ha), 'Área (ha)', 1], [r => r.produtividade == null ? '—' : fmtHa(r.produtividade), 't/ha', 1], ['finalizado', 'Finalizado']], filtro: 'tipo' },
+    controles: { t: 'Controles', s: 'Perdas na colheita, estande, qualidade de plantio e adubação.', sort: '-data',
+      cols: [['data', 'Data', 0, 'd'], ['tipo', 'Tipo'], [r => talNome(r.talhao_id), 'Talhão'], [r => r.valor == null ? '—' : esc(String(r.valor).replace('.', ',')) + ' ' + esc(r.unidade || ''), 'Resultado', 1], ['responsavel', 'Responsável']], filtro: 'tipo' },
+    armadilhas: { t: 'Armadilhas', s: 'Armadilhas de pragas e a última contagem.', sort: 'nome',
+      cols: [['nome', 'Armadilha'], ['tipo', 'Tipo'], ['praga_alvo', 'Praga alvo'], [r => fazNome(r.fazenda_id), 'Fazenda'], ['ultima_contagem', 'Última contagem', 1], ['data_contagem', 'Data', 0, 'd']] },
+    pluviometros: { t: 'Pluviômetros', s: 'Pontos de medição de chuva. Os registros ficam em Chuvas e previsão.', sort: 'nome',
+      cols: [['nome', 'Pluviômetro'], [r => fazNome(r.fazenda_id), 'Fazenda'], [r => r.raio_ha ? fmtHa0(r.raio_ha) + ' ha' : '—', 'Cobertura'], [r => { const c = S.data.chuvas.filter(x => key(x.pluviometro_id) === key(r.id)); return fmtInt(c.length) + ' registros · ' + fmtHa0(c.reduce((a, x) => a + num(x.mm), 0)) + ' mm'; }, 'Chuvas'], ['automatico', 'Automático']] },
+  };
+  function viewModulo(k) {
+    const m = MOD[k];
+    const cell = c => r => typeof c[0] === 'function' ? c[0](r) : c[3] === 'd' ? fmtDate(r[c[0]]) : esc(r[c[0]] ?? '—');
+    tablePage(k, {
+      kind: k, title: m.t, sub: m.s,
+      rows: () => S.data[k].slice().sort((a, b) => m.sort[0] === '-' ? String(b[m.sort.slice(1)] || '').localeCompare(String(a[m.sort.slice(1)] || '')) : String(a[m.sort] || '').localeCompare(String(b[m.sort] || ''), 'pt-BR', { numeric: true })),
+      text: r => Object.values(r).filter(v => typeof v === 'string' || typeof v === 'number').join(' '),
+      filter: m.filtro ? () => `<option value="">${esc((FIELDS[k].find(f => f.k === m.filtro) || {}).l || 'Todos')}: todos</option>` + [...new Set(S.data[k].map(r => r[m.filtro]).filter(Boolean))].sort().map(v => `<option>${esc(v)}</option>`).join('') : null,
+      match: (r, v) => r[m.filtro] === v,
+      cols: m.cols.map(c => ({ l: c[1], r: c[2], v: cell(c) })),
+      click: id => openForm(k, get(k, id)),
+    });
+  }
+  function avisoBanco() {
+    return `<div class="note"><b>Esta tela precisa de uma atualização do banco de dados.</b> Faça uma vez só:
+      <ol><li>Clique em <b>Copiar comando</b>.</li><li>Abra o <a href="https://supabase.com/dashboard/project/xiffptiwszrtdfekqaxd/sql/new" target="_blank" rel="noopener">editor SQL do Supabase</a>.</li><li>Cole (Ctrl+V) e clique em <b>Run</b>.</li><li>Volte aqui e recarregue a página (F5).</li></ol>
+      <p style="margin:8px 0 0"><button class="btn primary" data-act="copiar-sql">Copiar comando</button></p></div>`;
+  }
+
+  // ---------- Clima: chuvas registradas + previsão e histórico (Open-Meteo, sem chave) ----------
+  const CL = { faz: '', cache: {} };
+  function centroFaz(f) {
+    let n = 0, la = 0, lo = 0;
+    for (const t of S.talPorFaz.get(key(f.id)) || []) {
+      const g = t.geometry; if (!g) continue;
+      const ring = g.type === 'Polygon' ? g.coordinates[0] : g.type === 'MultiPolygon' ? g.coordinates[0][0] : null; if (!ring) continue;
+      for (const c of ring) { lo += c[0]; la += c[1]; n++; }
+    }
+    if (n) return [la / n, lo / n];
+    return f.lat != null && f.lng != null ? [num(f.lat), num(f.lng)] : null;
+  }
+  async function previsao(f) {
+    const c = centroFaz(f); if (!c) return null;
+    const k = c.map(x => x.toFixed(3)).join(',');
+    if (CL.cache[k]) return CL.cache[k];
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${c[0].toFixed(4)}&longitude=${c[1].toFixed(4)}&daily=precipitation_sum,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,precipitation_probability_max&past_days=30&forecast_days=7&timezone=America%2FSao_Paulo`;
+    const r = await fetch(u); if (!r.ok) throw new Error('clima ' + r.status);
+    return CL.cache[k] = await r.json();
+  }
+  function viewClima() {
+    const root = $('#v-clima');
+    if (!root.dataset.ready) {
+      root.dataset.ready = 1;
+      root.innerHTML = `<div class="page"><div class="page-head"><div><h2>Chuvas e previsão</h2><p>Chuva medida nos pluviômetros e previsão do tempo por fazenda.</p></div><button class="btn primary" data-new="chuvas">+ Registrar chuva</button></div>
+        <div id="cl-aviso"></div>
+        <section class="card-box"><h3>Previsão e últimos 30 dias <small>fonte: Open-Meteo</small></h3>
+          <div class="toolbar"><select id="cl-faz" aria-label="Fazenda"></select></div><div id="cl-prev"><p class="muted">Escolha uma fazenda.</p></div></section>
+        <section class="card-box"><h3>Chuvas registradas <small id="cl-tot"></small></h3><div class="table-wrap"><table><thead><tr><th>Data</th><th>Pluviômetro</th><th class="r">mm</th><th>Granizo</th><th>Geada</th><th>Vento</th><th>Observações</th></tr></thead><tbody id="cl-tb"></tbody></table></div></section></div>`;
+      $('#cl-faz').addEventListener('change', e => { CL.faz = e.target.value; desenharPrev(); });
+      $('#cl-tb').addEventListener('click', e => { const tr = e.target.closest('tr[data-row]'); if (tr) openForm('chuvas', get('chuvas', tr.dataset.row)); });
+    }
+    $('#cl-aviso').innerHTML = S.faltaTabela ? avisoBanco() : '';
+    const fz = S.data.fazendas.slice().sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    if (!CL.faz && fz[0]) CL.faz = key((S.sel.fazenda && get('fazendas', S.sel.fazenda)) ? S.sel.fazenda : fz[0].id);
+    $('#cl-faz').innerHTML = fz.map(f => `<option value="${esc(f.id)}">${esc(f.nome)}</option>`).join(''); $('#cl-faz').value = CL.faz;
+    const ch = S.data.chuvas.slice().sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+    $('#cl-tot').textContent = fmtInt(ch.length) + ' registros · ' + fmtHa0(ch.reduce((a, x) => a + num(x.mm), 0)) + ' mm no total';
+    const sn = v => v === 'Sim' ? '<span class="pill warn">Sim</span>' : '<span class="muted">Não</span>';
+    $('#cl-tb').innerHTML = ch.map(c => `<tr data-row="${esc(c.id)}"><td>${fmtDate(c.data)}</td><td>${esc(nomeRef('pluviometros', c.pluviometro_id))}</td><td class="r">${esc(String(c.mm ?? '—').replace('.', ','))}</td><td>${sn(c.granizo)}</td><td>${sn(c.geada)}</td><td>${sn(c.vento_forte)}</td><td class="wrap">${esc(c.obs || '')}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Nenhum registro de chuva.</td></tr>';
+    desenharPrev();
+  }
+  async function desenharPrev() {
+    const el = $('#cl-prev'), f = get('fazendas', CL.faz); if (!el || !f) return;
+    el.innerHTML = '<p class="muted">Carregando previsão…</p>';
+    let d; try { d = await previsao(f); } catch (e) { el.innerHTML = '<p class="muted">Não foi possível carregar a previsão agora. Verifique a internet.</p>'; return; }
+    if (!d || !d.daily) { el.innerHTML = '<p class="muted">Esta fazenda não tem localização (contorno de talhão ou coordenada).</p>'; return; }
+    const D = d.daily, hoje = today(), dias = D.time.map((t, i) => ({ t, mm: D.precipitation_sum[i], max: D.temperature_2m_max[i], min: D.temperature_2m_min[i], vento: D.wind_speed_10m_max[i], prob: D.precipitation_probability_max?.[i] }));
+    const fut = dias.filter(x => x.t >= hoje), pas = dias.filter(x => x.t < hoje);
+    const tot30 = pas.reduce((a, x) => a + num(x.mm), 0), max = Math.max(1, ...pas.map(x => num(x.mm)));
+    const dsem = t => new Date(t + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    el.innerHTML = `<div class="prev">${fut.map(x => `<div class="dia"><b>${esc(dsem(x.t))}</b><span class="mm">${num(x.mm).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mm</span><span class="muted">${x.prob != null ? x.prob + '% chance' : ''}</span><span>${Math.round(x.min)}° / ${Math.round(x.max)}°</span><span class="muted">vento ${Math.round(x.vento)} km/h</span></div>`).join('')}</div>
+      <h4 style="margin:6px 0 0;font-size:13px">Chuva nos últimos 30 dias: <span class="num">${tot30.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mm</span> <span class="muted" style="font-weight:400">(estimativa por satélite/modelo)</span></h4>
+      <div class="hist" role="img" aria-label="Chuva diária nos últimos 30 dias">${pas.map(x => `<span title="${fmtDate(x.t)}: ${num(x.mm).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mm" style="height:${Math.max(2, num(x.mm) / max * 100)}%"></span>`).join('')}</div>`;
   }
 
   // ---------- Relatórios ----------
@@ -1024,6 +1268,7 @@
       case 'produtor': input = `<select id="${id}" name="${f.k}"${req}><option value="">Selecione…</option>${S.data.produtores.map(p => `<option value="${esc(p.id)}" ${key(p.id) === key(v) ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}</select>`; break;
       case 'fazenda': input = `<select id="${id}" name="${f.k}"${req}>${fazOptions(v)}</select>`; break;
       case 'talhao': input = `<select id="${id}" name="${f.k}"${req}>${talOptions(v)}</select>`; break;
+      case 'ref': input = `<select id="${id}" name="${f.k}"${req}><option value="">Selecione…</option>${(S.data[f.kind] || []).slice().sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR')).map(r => `<option value="${esc(r.id)}" ${key(r.id) === key(v) ? 'selected' : ''}>${esc(r.nome || r.codigo || r.id)}</option>`).join('')}</select>`; break;
       case 'talhoes': return `<div class="field full" style="display:grid;gap:4px"><span style="font-size:13px;font-weight:500;color:var(--muted)">${f.l}</span><div class="checks" id="${id}">${v}</div></div>`;
       default: input = `<input type="text" id="${id}" name="${f.k}" value="${esc(v)}"${ph}${req}>`;
     }
@@ -1036,15 +1281,25 @@
       if (r.produtividade_estimada) rows.push(['Produtividade estimada', esc(r.produtividade_estimada.toLocaleString('pt-BR'))]);
       if (r.amostras) rows.push(['Amostras', esc(r.amostras)]);
       if (r.pontos_gps) rows.push(['Pontos GPS / fotos', esc(r.pontos_gps) + ' / ' + esc(r.fotos || 0)]);
-      if (r.resultados) rows.push(['Resultados', r.resultados.map(x => `${esc(x.alvo)}: <b class="num">${esc(String(x.valor ?? '—').replace('.', ','))}</b> <span class="muted">${esc(x.medida || '')}</span>${x.nivel ? ` <span class="pill ${NIVEL_CLS[x.nivel] || ''}">${esc(x.nivel)}</span>` : ''}`).join('<br>')]);
+      if (r.resultados) rows.push(['Resultados', r.resultados.map(x => `${esc(x.alvo)}${x.cientifico ? ` <i class="muted">(${esc(x.cientifico)})</i>` : ''}: <b class="num">${esc(String(x.valor ?? '—').replace('.', ','))}</b> <span class="muted">${esc(x.medida || '')}</span>${x.nivel ? ` <span class="pill ${NIVEL_CLS[x.nivel] || ''}">${esc(x.nivel)}</span>` : ''}`).join('<br>')]);
     }
     if (kind === 'ordens' && r.produtos) {
       if (r.area_ha) rows.push(['Área da ordem', fmtHa(r.area_ha) + ' ha']);
       rows.push(['Produtos', '<div style="overflow-x:auto"><table style="font-size:12px"><thead><tr><th>Produto</th><th>Classe</th><th class="r">Dose</th><th class="r">Total</th><th class="r">Aplicado</th></tr></thead><tbody>' + r.produtos.map(p => `<tr><td>${esc(p.produto)}</td><td>${esc(p.classe || '')}</td><td class="r">${esc(String(p.dose ?? '—').replace('.', ','))} ${esc(p.unidade || '')}</td><td class="r">${esc(String(p.total ?? '—').replace('.', ','))} ${esc(p.unidade_total || '')}</td><td class="r">${p.aplicado_total != null ? esc(String(p.aplicado_total).replace('.', ',')) + ' ' + esc(p.unidade_total || '') : '—'}</td></tr>`).join('') + '</tbody></table></div>']);
     }
-    if (!rows.length) return '';
-    return `<div style="padding:12px 18px 0;display:grid;gap:8px"><div class="sec-title">Detalhes importados do SIMA</div><dl class="facts" style="font-size:13px">${rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl></div>`;
+    if (kind === 'monitoramentos' && r.amostras_detalhe) rows.push(['Amostras', tabela(['Amostra', 'Alvo', 'Medida', 'Valor', 'Nível'], r.amostras_detalhe.map(a => [a.amostra, esc(a.alvo || ''), esc(a.medida || ''), esc(String(a.valor ?? '—').replace('.', ',')), a.nivel ? `<span class="pill ${NIVEL_CLS[a.nivel] || ''}">${esc(a.nivel)}</span>` : '']))]);
+    if (kind === 'ordens') {
+      const cond = [['Vazão', r.vazao_l_ha, ' L/ha'], ['Temperatura', r.temperatura_c, ' °C'], ['Umidade', r.umidade_pct, '%'], ['Vento', r.vento_kmh, ' km/h']].filter(x => x[1] != null);
+      if (r.data_confirmacao) rows.push(['Confirmada em', fmtDate(r.data_confirmacao)]);
+      if (r.talhoes_detalhe) rows.push(['Área por talhão', tabela(['Talhão', 'Planejada (ha)', 'Aplicada (ha)'], r.talhoes_detalhe.map(x => [esc(nomeTal(get('talhoes', x.talhao_id))), fmtHa(x.area_planejada), x.area_aplicada != null ? fmtHa(x.area_aplicada) : '—']))]);
+      if (r.aplicacoes) rows.push(['Aplicado no campo', tabela(['Data', 'Talhão', 'Produto', 'Dose', 'Área (ha)', 'Total'], r.aplicacoes.map(a => [fmtDate(a.data), esc(nomeTal(get('talhoes', a.talhao_id))), esc(a.produto || ''), esc(String(a.dose ?? '—').replace('.', ',')) + ' ' + esc(a.unidade || ''), fmtHa(a.area), esc(String(a.total ?? '—').replace('.', ',')) + ' ' + esc(a.unidade_total || '')]))]);
+    }
+    let fotos = '';
+    if (kind === 'monitoramentos' && r.pontos) fotos = `<div style="padding:12px 18px 0;display:grid;gap:8px"><div class="sec-title">Pontos e fotos do campo (${r.pontos.length})${r.pontos.some(p => p.lat) ? `<button class="btn small" data-mapa-mon="${esc(r.id)}">Ver no mapa</button>` : ''}</div><div class="fotos">${r.pontos.map(p => `<figure>${p.foto ? `<a href="${esc(p.foto)}" target="_blank" rel="noopener"><img loading="lazy" src="${esc(p.foto)}" alt="Foto do monitoramento ${esc(fmtDate(p.data))}"></a>` : '<div class="semfoto">Ponto GPS sem foto</div>'}<figcaption>${p.obs ? esc(p.obs) + '<br>' : ''}<span class="muted">${p.data ? esc(fmtDate(p.data) + ' ' + p.data.slice(11, 16)) : ''}${p.lat ? ` · ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}` : ''}</span></figcaption></figure>`).join('')}</div></div>`;
+    if (!rows.length) return fotos;
+    return fotos + `<div style="padding:12px 18px 0;display:grid;gap:8px"><div class="sec-title">Detalhes importados do SIMA</div><dl class="facts" style="font-size:13px">${rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl></div>`;
   }
+  const tabela = (h, rows) => `<div style="overflow-x:auto"><table style="font-size:12px"><thead><tr>${h.map(x => `<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c ?? ''}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   function openForm(kind, rec, defaults) {
     const isNew = !rec;
     if (isNew && !podeEditar()) { toast('Seu acesso é só de consulta.'); return; }
@@ -1052,7 +1307,7 @@
     const fields = FIELDS[kind];
     const bg = document.createElement('div');
     bg.className = 'modal-bg';
-    bg.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="mtitle"><header><h2 id="mtitle">${isNew ? 'Novo ' : podeEditar() ? 'Editar ' : ''}${esc(NOME[kind])}</h2><button class="x" data-close aria-label="Fechar">×</button></header>
+    bg.innerHTML = `<div class="modal ${kind === 'monitoramentos' && rec.pontos ? 'wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mtitle"><header><h2 id="mtitle">${isNew ? 'Novo ' : podeEditar() ? 'Editar ' : ''}${esc(NOME[kind])}</h2><button class="x" data-close aria-label="Fechar">×</button></header>
       <form novalidate>${fields.map(f => fieldHtml(f, f.t === 'talhoes' ? talChecks(rec.fazenda_id, rec.talhao_ids) : rec[f.k])).join('')}</form>
       ${detalhes(kind, rec)}
       <footer>${isNew ? '' : '<button class="btn danger" data-del>Excluir</button>'}<div class="right"><button class="btn" data-close>${podeEditar() ? 'Cancelar' : 'Fechar'}</button><button class="btn primary" data-save>Salvar</button></div></footer></div>`;
@@ -1079,7 +1334,7 @@
           let v = form.elements[f.k].value.trim();
           if (f.req && !v) { missing = missing || f; continue; }
           if (f.t === 'number') v = v === '' ? null : Number(v);
-          else if (['produtor', 'fazenda', 'talhao'].includes(f.t)) { const k2 = { produtor: 'produtores', fazenda: 'fazendas', talhao: 'talhoes' }[f.t]; const r = get(k2, v); v = r ? r.id : (v || null); }
+          else if (['produtor', 'fazenda', 'talhao', 'ref'].includes(f.t)) { const k2 = f.t === 'ref' ? f.kind : { produtor: 'produtores', fazenda: 'fazendas', talhao: 'talhoes' }[f.t]; const r = get(k2, v); v = r ? r.id : (v || null); }
           else v = v || null;
           out[f.k] = v;
         }
@@ -1113,6 +1368,7 @@
     const mf = e.target.closest('[data-map-faz]'); if (mf) { e.stopPropagation(); location.hash = 'mapa'; setTimeout(() => selectFazenda(mf.dataset.mapFaz, true), 60); return; }
     const rf = e.target.closest('[data-rep-faz]'); if (rf) { const f = get('fazendas', rf.dataset.repFaz); R.prod = key(f?.produtor_id || ''); R.faz = rf.dataset.repFaz; location.hash = 'relatorios'; return; }
     const bs = e.target.closest('[data-base]'); if (bs) { setBase(bs.dataset.base); return; }
+    const mm = e.target.closest('[data-mapa-mon]'); if (mm) { const m = get('monitoramentos', mm.dataset.mapaMon); document.querySelectorAll('.modal-bg').forEach(x => x.remove()); location.hash = 'mapa'; setTimeout(() => { $('#tg-pontos').checked = true; layerPts.addTo(map); const pts = (m.pontos || []).filter(p => p.lat != null); if (pts.length) map.fitBounds(L.latLngBounds(pts.map(p => [p.lat, p.lng])).pad(0.6), { maxZoom: 17 }); if (m.talhao_id) { S.sel = { produtor: get('talhoes', m.talhao_id)?._prod, fazenda: get('talhoes', m.talhao_id)?.fazenda_id, talhao: m.talhao_id }; styleAll(); drawSheet(); renderTree(); } }, 150); return; }
     if (e.target.closest('#v-equipe')) acaoEquipe(e);
     if (e.target.closest('#nav-links a')) document.body.classList.remove('nav-open');
     const act = e.target.closest('[data-act]');
@@ -1163,6 +1419,7 @@
       if (!S.base.produtores.length) setTimeout(() => toast('Banco vazio. Use "Importar dados" para carregar o arquivo exportado.'), 800);
     }
     await loadBase();
+    for (const k of Object.keys(VIEWS)) if (!document.getElementById('v-' + k)) { const sec = document.createElement('section'); sec.className = 'view'; sec.id = 'v-' + k; sec.hidden = true; $('main').appendChild(sec); }
     S.version = 0;
     rebuild();
     renderNav();
