@@ -1,10 +1,11 @@
 /* INOVAAGRO: service worker. Guarda o app no celular para abrir sem internet.
    Dados do banco NÃO passam por aqui (ficam no IndexedDB, ver src/offline.js). */
-const VERSAO = 'inovaagro-app-v1';
+const VERSAO = 'inovaagro-app-v2';
 const MAPA = 'inovaagro-mapa';
 const ESSENCIAIS = [
   './', './index.html', './config.js', './manifest.webmanifest',
-  './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png', './icons/logo-inovaagro.png',
+  './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png',
+  './assets/logo.png', './assets/logo-escuro.png', './assets/favicon.png',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js',
 ];
@@ -51,7 +52,7 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const u = new URL(req.url);
   if (u.hostname.endsWith('supabase.co')) return; // banco e login: sempre direto
-  if (u.hostname === 'server.arcgisonline.com') return e.respondWith(cacheMapa(req));
+  if (u.hostname === 'server.arcgisonline.com' || u.hostname === 'tile.openstreetmap.org') return e.respondWith(cacheMapa(req));
   if (u.origin === self.location.origin) return e.respondWith(redePrimeiro(req));
   if (/cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(u.hostname)) return e.respondWith(cacheDepoisRede(req));
 });
