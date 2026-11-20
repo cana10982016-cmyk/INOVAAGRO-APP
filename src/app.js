@@ -91,7 +91,8 @@
       { k: 'temperatura_c', l: 'Temperatura (°C)', t: 'number' },
       { k: 'umidade_pct', l: 'Umidade (%)', t: 'number' },
       { k: 'vento_kmh', l: 'Vento (km/h)', t: 'number' },
-      { k: 'insumos', l: 'Insumos e doses (um por linha)', t: 'textarea', full: 1, ph: 'Produto - dose/ha' },
+      { k: 'produtos', l: 'Produtos', t: 'produtos', full: 1 },
+      { k: 'insumos', l: 'Outras anotações de insumos', t: 'textarea', full: 1, ph: 'Produto - dose/ha' },
       { k: 'etiquetas', l: 'Etiquetas', t: 'tags', full: 1 },
       { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
     ],
@@ -446,6 +447,8 @@
     aplicacao: '<path d="M4 6h10l3 3v3H4z"/><path d="M6 15v1M10 15v2M14 15v1M8 18v1M12 18v2"/>',
     colheita: '<path d="M12 21V8"/><path d="M12 8c-3 0-5-2-5-5 3 0 5 2 5 5zM12 8c3 0 5-2 5-5-3 0-5 2-5 5zM12 13c-3 0-5-2-5-5M12 13c3 0 5-2 5-5"/>',
     tratos: '<path d="M4 20l7-7M14 4l6 6-5 5-6-6z"/>',
+    analise: '<path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/>',
+    relsis: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
     print: '<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>',
   };
   const icon = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n] || IC[ORD_ICON[n]] || IC.ordens}</svg>`;
@@ -454,7 +457,7 @@
     ['painel', 'Início'], ['feed', 'Feed'], ['notificacoes', 'Notificações'], ['mapa', 'Mapa'],
     'Administração', ['produtores', 'Produtores'], ['fazendas', 'Fazendas'], ['talhoes', 'Talhões'], ['planejamento', 'Planejamento da cultura'], ['safras', 'Safras'], ['etiquetas', 'Etiquetas'], ['aplicadores', 'Empreiteiros'], ['maquinas', 'Máquinas'], ['insumos', 'Insumos'], ['equipe', 'Usuários e permissões'], ['importar', 'Importar / Exportar'],
     'Atividades', ['monitoramentos', 'Visitas'], ['ord-aplicacoes', 'Aplicações'], ['ord-plantio', 'Plantio'], ['ord-colheita', 'Colheita'], ['ord-fertilizacao', 'Fertilização'], ['ord-tratos', 'Tratos culturais'], ['ord-outros', 'Outros'], ['ordens', 'Todas as ordens'], ['avancos', 'Avanços de plantio e colheita'], ['controles', 'Controles de campo'], ['armadilhas', 'Armadilhas'],
-    'Análise', ['relatorios', 'Relatórios'],
+    'Análise', ['analise', 'Painéis de análise'], ['relsis', 'Relatórios do sistema'], ['relatorios', 'Relatório por fazenda (PDF)'],
     'Clima', ['clima', 'Chuvas e previsão'], ['pluviometros', 'Pluviômetros'],
     'Silo bag', ['silobolsas', 'Silobolsas'], ['depositos', 'Depósitos'],
   ];
@@ -477,7 +480,7 @@
     const nn = notificacoes().filter(x => !NOT.lidas.has(x.id)).length;
     for (const el of document.querySelectorAll('#badge-not, #badge-bell')) { el.hidden = !nn; el.textContent = nn > 99 ? '99+' : nn; }
   }
-  const VIEWS = { painel: viewPainel, mapa: viewMapa, produtores: viewProdutores, fazendas: viewFazendas, talhoes: viewTalhoes, safras: viewSafras, monitoramentos: viewMonitoramentos, ordens: viewOrdens, relatorios: viewRelatorios, equipe: viewEquipe, clima: viewClima, feed: viewFeed, notificacoes: viewNotificacoes, planejamento: viewPlanejamento, importar: viewImportar };
+  const VIEWS = { painel: viewPainel, mapa: viewMapa, produtores: viewProdutores, fazendas: viewFazendas, talhoes: viewTalhoes, safras: viewSafras, monitoramentos: viewMonitoramentos, ordens: viewOrdens, relatorios: viewRelatorios, equipe: viewEquipe, clima: viewClima, feed: viewFeed, notificacoes: viewNotificacoes, planejamento: viewPlanejamento, importar: viewImportar, analise: viewAnalise, relsis: viewRelSis };
   for (const k of KINDS_NOVOS) if (k !== 'chuvas') VIEWS[k] = () => viewModulo(k);
   let current = null;
   function route() {
@@ -1247,6 +1250,7 @@
       case 'talhao': input = `<select id="${id}" name="${f.k}"${req}>${talOptions(v)}</select>`; break;
       case 'ref': input = `<select id="${id}" name="${f.k}"${req}><option value="">Selecione…</option>${(S.data[f.kind] || []).slice().sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR')).map(r => `<option value="${esc(r.id)}" ${key(r.id) === key(v) ? 'selected' : ''}>${esc(r.nome || r.codigo || r.id)}</option>`).join('')}</select>`; break;
       case 'tags': { const sel = new Set(v || []); const tg = S.data.etiquetas.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR')); return `<div class="field full" style="display:grid;gap:4px"><span style="font-size:13px;font-weight:500;color:var(--muted)">${f.l}</span><div class="tagpick">${tg.map(t => `<label class="tag" style="--tag:${TAG_COR[t.cor] || OUTROS}"><input type="checkbox" name="${f.k}" value="${esc(t.nome)}" ${sel.has(t.nome) ? 'checked' : ''}> ${esc(t.nome)}</label>`).join('') || '<span class="muted" style="font-size:13px">Nenhuma etiqueta cadastrada. Crie em Administração → Etiquetas.</span>'}</div></div>`; }
+      case 'produtos': return produtosHtml(v);
       case 'talhoes': return `<div class="field full" style="display:grid;gap:4px"><span style="font-size:13px;font-weight:500;color:var(--muted)">${f.l}</span><div class="checks" id="${id}">${v}</div></div>`;
       default: input = `<input type="text" id="${id}" name="${f.k}" value="${esc(v)}"${ph}${req}>`;
     }
@@ -1263,7 +1267,7 @@
     }
     if (kind === 'ordens' && r.produtos) {
       if (r.area_ha) rows.push(['Área da ordem', fmtHa(r.area_ha) + ' ha']);
-      rows.push(['Produtos', '<div style="overflow-x:auto"><table style="font-size:12px"><thead><tr><th>Produto</th><th>Classe</th><th class="r">Dose</th><th class="r">Total</th><th class="r">Aplicado</th></tr></thead><tbody>' + r.produtos.map(p => `<tr><td>${esc(p.produto)}</td><td>${esc(p.classe || '')}</td><td class="r">${esc(String(p.dose ?? '—').replace('.', ','))} ${esc(p.unidade || '')}</td><td class="r">${esc(String(p.total ?? '—').replace('.', ','))} ${esc(p.unidade_total || '')}</td><td class="r">${p.aplicado_total != null ? esc(String(p.aplicado_total).replace('.', ',')) + ' ' + esc(p.unidade_total || '') : '—'}</td></tr>`).join('') + '</tbody></table></div>']);
+      if (r.produtos.some(p => p.total != null || p.aplicado_total != null)) rows.push(['Produtos', '<div style="overflow-x:auto"><table style="font-size:12px"><thead><tr><th>Produto</th><th>Classe</th><th class="r">Dose</th><th class="r">Total</th><th class="r">Aplicado</th></tr></thead><tbody>' + r.produtos.map(p => `<tr><td>${esc(p.produto)}</td><td>${esc(p.classe || '')}</td><td class="r">${esc(String(p.dose ?? '—').replace('.', ','))} ${esc(p.unidade || '')}</td><td class="r">${esc(String(p.total ?? '—').replace('.', ','))} ${esc(p.unidade_total || '')}</td><td class="r">${p.aplicado_total != null ? esc(String(p.aplicado_total).replace('.', ',')) + ' ' + esc(p.unidade_total || '') : '—'}</td></tr>`).join('') + '</tbody></table></div>']);
     }
     if (kind === 'monitoramentos' && r.amostras_detalhe) rows.push(['Amostras', tabela(['Amostra', 'Alvo', 'Medida', 'Valor', 'Nível'], r.amostras_detalhe.map(a => [a.amostra, esc(a.alvo || ''), esc(a.medida || ''), esc(String(a.valor ?? '—').replace('.', ',')), a.nivel ? `<span class="pill ${NIVEL_CLS[a.nivel] || ''}">${esc(a.nivel)}</span>` : '']))]);
     if (kind === 'ordens') {
@@ -1288,14 +1292,16 @@
     bg.innerHTML = `<div class="modal ${kind === 'monitoramentos' && rec.pontos ? 'wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mtitle"><header><h2 id="mtitle">${isNew ? 'Novo ' : podeEditar() ? 'Editar ' : ''}${esc(NOME[kind])}</h2><button class="x" data-close aria-label="Fechar">×</button></header>
       <form novalidate>${fields.map(f => fieldHtml(f, f.t === 'talhoes' ? talChecks(rec.fazenda_id, rec.talhao_ids) : rec[f.k])).join('')}</form>
       ${detalhes(kind, rec)}
-      <footer>${isNew ? '' : '<button class="btn danger" data-del>Excluir</button>'}<div class="right"><button class="btn" data-close>${podeEditar() ? 'Cancelar' : 'Fechar'}</button><button class="btn primary" data-save>Salvar</button></div></footer></div>`;
+      <footer>${isNew ? '' : '<button class="btn danger" data-del>Excluir</button>'}${kind === 'ordens' && !isNew ? `<button class="btn" data-receita>${icon('pdf')} Receita PDF</button>` : ''}<div class="right"><button class="btn" data-close>${podeEditar() ? 'Cancelar' : 'Fechar'}</button><button class="btn primary" data-save>Salvar</button></div></footer></div>`;
     document.body.appendChild(bg);
     const form = $('form', bg);
     const fz = $('#fld-fazenda_id', bg), chk = $('#fld-talhao_ids', bg);
     if (fz && chk) fz.addEventListener('change', () => { chk.innerHTML = talChecks(fz.value, []); });
     const close = () => bg.remove();
+    if (kind === 'ordens') prodEditor(bg, rec);
     bg.addEventListener('click', async e => {
       if (e.target === bg || e.target.closest('[data-close]')) return close();
+      if (e.target.closest('[data-receita]')) { const o = Object.assign({}, rec); if (podeEditar()) o.produtos = lerProdutos(bg, rec.produtos); receitaPDF(o); return; }
       if (e.target.closest('[data-del]')) {
         const b = e.target.closest('[data-del]');
         if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'Confirmar exclusão'; return; }
@@ -1308,6 +1314,7 @@
         if (!isNew) { Object.assign(out, get(kind, rec.id) || {}); delete out._prod; }
         let missing = null;
         for (const f of fields) {
+          if (f.t === 'produtos') { out[f.k] = lerProdutos(bg, rec.produtos); continue; }
           if (f.t === 'tags') { out[f.k] = [...form.querySelectorAll(`input[name="${f.k}"]:checked`)].map(i => i.value); continue; }
           if (f.t === 'talhoes') { out[f.k] = [...form.querySelectorAll('input[name="talhao_ids"]:checked')].map(i => { const t = get('talhoes', i.value); return t ? t.id : i.value; }); continue; }
           let v = form.elements[f.k].value.trim();
@@ -1770,6 +1777,239 @@
       } catch (err) { toast('Não foi possível gerar a planilha. Verifique a internet.'); }
     });
   }
+
+  // ---------- Análise (painéis) ----------
+  const AN = { aba: 'estrutura', prod: '', safra: '' };
+  function colunas(items, unid) {
+    // gráfico de colunas simples em SVG (uma série), escala única
+    if (!items.length || !items.some(i => i.v)) return '<p class="empty">Nenhum registro neste período.</p>';
+    const W = Math.max(320, items.length * 46), H = 180, pad = 26, max = Math.max(...items.map(i => i.v), 0) || 1, bw = Math.min(30, (W - pad) / items.length - 8);
+    const step = (W - pad) / items.length;
+    return `<div class="svg-wrap"><svg viewBox="0 0 ${W} ${H + 34}" width="100%" style="min-width:${Math.min(W, 420)}px;height:auto" role="img" aria-label="Gráfico de colunas">
+      <line x1="${pad}" y1="${H}" x2="${W}" y2="${H}" stroke="var(--line)"/>
+      ${items.map((it, i) => { const h = it.v / max * (H - 20), x = pad + i * step + (step - bw) / 2; return `<g><title>${esc(it.n)}: ${esc(it.lbl || fmtHa0(it.v))} ${unid || ''}</title><path d="M${x},${H} v${-Math.max(h, 1) + 4} a4,4 0 0 1 4,-4 h${bw - 8} a4,4 0 0 1 4,4 v${Math.max(h, 1) - 4} z" fill="${it.c || 'var(--brand)'}"/>${it.v ? `<text x="${x + bw / 2}" y="${H - h - 5}" text-anchor="middle" font-size="10" fill="var(--muted)">${esc(it.lbl || fmtHa0(it.v))}</text>` : ''}<text x="${x + bw / 2}" y="${H + 14}" text-anchor="middle" font-size="10" fill="var(--muted)">${esc(it.n)}</text></g>`; }).join('')}
+    </svg></div>`;
+  }
+  const mesLbl = ym => { const [y, m] = ym.split('-'); return ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][Number(m) - 1] + '/' + y.slice(2); };
+  function ultimosMeses(n, datas) {
+    // termina no mês atual; se não houver registro no período, termina no mês do último registro
+    const out = [], hoje = new Date(); let d = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    const ult = (datas || []).filter(Boolean).sort().pop(); if (ult) { const u = new Date(ult.slice(0, 7) + '-01T12:00'); const lim = new Date(d.getFullYear(), d.getMonth() - n + 1, 1); if (u < lim) d = new Date(u.getFullYear(), u.getMonth(), 1); } for (let i = n - 1; i >= 0; i--) { const x = new Date(d.getFullYear(), d.getMonth() - i, 1); out.push(x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0')); } return out; }
+  function viewAnalise() {
+    const root = $('#v-analise');
+    if (!root.dataset.ready) {
+      root.dataset.ready = 1;
+      root.innerHTML = `<div class="page"><div class="page-head"><div><h2>Análise</h2><p>Painéis de estrutura de plantio, visitas, aplicações e chuvas.</p></div><div class="toolbar"><select id="an-prod" aria-label="Produtor"></select><select id="an-safra" aria-label="Safra"></select></div></div>
+        <div class="tabs" role="tablist"><button role="tab" data-an="estrutura">Estrutura de plantio</button><button role="tab" data-an="visitas">Visitas</button><button role="tab" data-an="aplicacoes">Aplicações</button><button role="tab" data-an="chuvas">Chuvas</button></div>
+        <div id="an-body" class="an-body"></div></div>`;
+      root.addEventListener('click', e => { const t = e.target.closest('[data-an]'); if (t) { AN.aba = t.dataset.an; viewAnalise(); } });
+      root.addEventListener('change', e => { if (e.target.id === 'an-prod') AN.prod = e.target.value; if (e.target.id === 'an-safra') AN.safra = e.target.value; viewAnalise(); });
+    }
+    root.querySelectorAll('[data-an]').forEach(b => b.setAttribute('aria-selected', b.dataset.an === AN.aba));
+    $('#an-prod').innerHTML = prodOpts(); $('#an-prod').value = AN.prod;
+    const sl = safrasLista(); if (!sl.includes(AN.safra)) AN.safra = sl[0] || '';
+    $('#an-safra').innerHTML = sl.map(s => `<option>${esc(s)}</option>`).join(''); $('#an-safra').value = AN.safra;
+    const fazs = AN.prod ? (S.fazPorProd.get(AN.prod) || []) : S.data.fazendas, fset = new Set(fazs.map(f => key(f.id)));
+    const tals = S.data.talhoes.filter(t => fset.has(key(t.fazenda_id))), tset = new Set(tals.map(t => key(t.id)));
+    const aS = s => num(s.area_ha) || num(get('talhoes', s.talhao_id)?.area_ha);
+    const box = (t, sub, html, cls = '') => `<section class="card-box ${cls}"><h3>${t}${sub ? ` <small>${sub}</small>` : ''}</h3>${html}</section>`;
+    let html = '';
+    if (AN.aba === 'estrutura') {
+      const saf = S.data.safras.filter(s => s.safra === AN.safra && tset.has(key(s.talhao_id)));
+      const plan = saf.reduce((a, s) => a + aS(s), 0), plant = saf.filter(s => s.data_plantio).reduce((a, s) => a + aS(s), 0), colh = saf.filter(s => s.data_colheita).reduce((a, s) => a + aS(s), 0);
+      const semSafra = tals.filter(t => !saf.some(s => key(s.talhao_id) === key(t.id)));
+      const by = f => { const m = new Map(); for (const s of saf) { const k = f(s) || 'Não informado'; m.set(k, (m.get(k) || 0) + aS(s)); } return [...m.entries()].sort((a, b) => b[1] - a[1]); };
+      const cult = by(s => s.cultura).map(([n, v]) => ({ n, v, c: CULT_COLOR[n] || OUTROS, lbl: fmtHa0(v) + ' ha' }));
+      const vari = by(s => s.variedade).slice(0, 12).map(([n, v]) => ({ n, v, lbl: fmtHa0(v) + ' ha' }));
+      const epo = by(s => s.epoca).map(([n, v]) => ({ n, v, lbl: fmtHa0(v) + ' ha' }));
+      const porFaz = fazs.map(f => { const ts = new Set((S.talPorFaz.get(key(f.id)) || []).map(t => key(t.id))); const ss = saf.filter(s => ts.has(key(s.talhao_id))); return [f, ss.reduce((a, s) => a + aS(s), 0), ss.filter(s => s.data_plantio).reduce((a, s) => a + aS(s), 0), ss.filter(s => s.data_colheita).reduce((a, s) => a + aS(s), 0)]; }).filter(x => x[1]).sort((a, b) => b[1] - a[1]);
+      html = `<div class="tiles">${[['Área planejada', fmtHa0(plan) + ' ha', fmtInt(saf.length) + ' talhões'], ['Plantada', fmtHa0(plant) + ' ha', plan ? Math.round(plant / plan * 100) + '% do planejado' : '—'], ['Colhida', fmtHa0(colh) + ' ha', plan ? Math.round(colh / plan * 100) + '% do planejado' : '—'], ['Sem safra ' + AN.safra, fmtInt(semSafra.length) + ' talhões', fmtHa0(areaTal(semSafra)) + ' ha', semSafra.length]].map(([l, v, s, al]) => `<div class="tile ${al ? 'alert' : ''}"><span class="lbl">${l}</span><span class="val">${v}</span><span class="sub">${s}</span></div>`).join('')}</div>
+        <div class="grid2">${box('Área por cultura', AN.safra, barras(cult, { colorFill: 1 }))}${box('Área por variedade', 'maiores 12', barras(vari))}${box('Área por época de plantio', '', barras(epo))}
+        ${box('Planejado, plantado e colhido por fazenda', 'hectares', tabela(['Fazenda', 'Planejado', 'Plantado', 'Colhido', '% plantado'], porFaz.map(([f, a, p, c]) => [esc(f.nome), fmtHa(a), fmtHa(p), fmtHa(c), a ? Math.round(p / a * 100) + '%' : '—'])), 'span2')}</div>`;
+    } else if (AN.aba === 'visitas') {
+      const mons = S.data.monitoramentos.filter(m => tset.has(key(m.talhao_id)));
+      const ult = new Map(); for (const m of mons) { const k = key(m.talhao_id); if (!ult.has(k) || (m.data || '') > ult.get(k)) ult.set(k, m.data || ''); }
+      const faixas = [['Até 7 dias', 0, 7, '#0ca30c'], ['8 a 15 dias', 8, 15, '#6cc04a'], ['16 a 30 dias', 16, 30, '#eda100'], ['31 a 60 dias', 31, 60, '#ec835a'], ['Mais de 60 dias', 61, 1e8, '#d03b3b']];
+      const fx = faixas.map(([n, a, b, c]) => { const ts = tals.filter(t => ult.has(key(t.id)) && diasDesde(ult.get(key(t.id))) >= a && diasDesde(ult.get(key(t.id))) <= b); return { n, c, v: areaTal(ts), lbl: fmtInt(ts.length) + ' talhões · ' + fmtHa0(areaTal(ts)) + ' ha' }; });
+      const nunca = tals.filter(t => !ult.has(key(t.id))); fx.push({ n: 'Nunca visitados', c: OUTROS, v: areaTal(nunca), lbl: fmtInt(nunca.length) + ' talhões · ' + fmtHa0(areaTal(nunca)) + ' ha' });
+      const a30 = areaTal(tals.filter(t => ult.has(key(t.id)) && diasDesde(ult.get(key(t.id))) <= 30)), area = areaTal(tals);
+      const meses = ultimosMeses(12, mons.map(m => m.data)), pm = meses.map(ym => ({ n: mesLbl(ym), v: mons.filter(m => (m.data || '').startsWith(ym)).length })); pm.forEach(x => x.lbl = fmtInt(x.v));
+      const adv = new Map(); for (const m of mons) for (const r of m.resultados || [{ alvo: m.alvo, nivel: m.nivel }]) { if (!r.alvo) continue; const x = adv.get(r.alvo) || { n: 0, alto: 0 }; x.n++; if (r.nivel === 'Alto' || r.nivel === 'Médio') x.alto++; adv.set(r.alvo, x); }
+      const advI = [...adv.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 10).map(([n, x]) => ({ n, v: x.n, lbl: fmtInt(x.n) + ' registros' + (x.alto ? ' · ' + x.alto + ' em alerta' : '') }));
+      const resp = new Map(); for (const m of mons) { const k = m.responsavel || 'Sem responsável'; resp.set(k, (resp.get(k) || 0) + 1); }
+      html = `<div class="tiles">${[['Área visitada em 30 dias', area ? Math.round(a30 / area * 100) + '%' : '—', fmtHa0(a30) + ' de ' + fmtHa0(area) + ' ha'], ['Visitas', fmtInt(mons.length), fmtInt(mons.filter(m => diasDesde(m.data) <= 30).length) + ' nos últimos 30 dias'], ['Talhões nunca visitados', fmtInt(nunca.length), fmtHa0(areaTal(nunca)) + ' ha', nunca.length]].map(([l, v, s, al]) => `<div class="tile ${al ? 'alert' : ''}"><span class="lbl">${l}</span><span class="val">${v}</span><span class="sub">${s}</span></div>`).join('')}</div>
+        <div class="grid2">${box('Área por dias desde a última visita', 'hectares', barras(fx, { colorFill: 1 }))}${box('Visitas por mês', '12 meses até ' + mesLbl(meses[11]), colunas(pm, 'visitas'))}${box('Adversidades mais registradas', '', barras(advI))}${box('Visitas por responsável', '', barras([...resp.entries()].sort((a, b) => b[1] - a[1]).map(([n, v]) => ({ n, v, lbl: fmtInt(v) }))))}</div>`;
+    } else if (AN.aba === 'aplicacoes') {
+      const ords = S.data.ordens.filter(o => fset.has(key(o.fazenda_id)) && (!AN.safra || (o.talhao_ids || []).some(t => (S.safPorTal.get(key(t)) || []).some(s => s.safra === AN.safra))));
+      const areaO = o => num(o.area_ha) || areaTal((o.talhao_ids || []).map(t => get('talhoes', t)).filter(Boolean));
+      const tp = new Map(); for (const o of ords) { const k = o.tipo || 'Outro'; const x = tp.get(k) || { n: 0, a: 0 }; x.n++; x.a += areaO(o); tp.set(k, x); }
+      const st = STATUS.map(s => { const os = ords.filter(o => (o.status || 'Planejada') === s); return { n: s, v: os.length, c: { Planejada: '#7a4fd0', 'Em andamento': '#eda100', Concluída: '#2a78d6', Cancelada: OUTROS }[s], lbl: fmtInt(os.length) + ' · ' + fmtHa0(os.reduce((a, o) => a + areaO(o), 0)) + ' ha' }; });
+      const pr = new Map(); for (const o of ords) for (const p of o.produtos || []) { const x = pr.get(p.produto) || { n: 0, tot: 0, u: p.unidade_total || '', cl: p.classe || '' }; x.n++; x.tot += num(p.aplicado_total ?? p.total); pr.set(p.produto, x); }
+      const cls = new Map(); for (const [, x] of pr) cls.set(x.cl || 'Outros', (cls.get(x.cl || 'Outros') || 0) + x.n);
+      const meses = ultimosMeses(12, ords.filter(o => o.status === 'Concluída').map(o => o.data_conclusao)), am = meses.map(ym => { const v = ords.filter(o => o.status === 'Concluída' && (o.data_conclusao || '').startsWith(ym)).reduce((a, o) => a + areaO(o), 0); return { n: mesLbl(ym), v, lbl: fmtHa0(v) }; });
+      html = `<div class="grid2">${box('Ordens por situação', '', barras(st, { colorFill: 1 }))}${box('Ordens por tipo', '', barras([...tp.entries()].sort((a, b) => b[1].a - a[1].a).map(([n, x]) => ({ n, v: x.a, lbl: fmtInt(x.n) + ' ordens · ' + fmtHa0(x.a) + ' ha' }))))}
+        ${box('Área executada por mês', 'hectares, 12 meses até ' + mesLbl(meses[11]), colunas(am, 'ha'))}${box('Produtos por classe', 'vezes usados', barras([...cls.entries()].sort((a, b) => b[1] - a[1]).map(([n, v]) => ({ n, v, lbl: fmtInt(v) }))))}
+        ${box('Produtos mais usados', '', tabela(['Produto', 'Classe', 'Ordens', 'Total aplicado'], [...pr.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 25).map(([n, x]) => [esc(n), esc(x.cl), fmtInt(x.n), x.tot.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' ' + esc(x.u)])), 'span2')}</div>`;
+    } else {
+      const meses = ultimosMeses(12, S.data.chuvas.map(c => c.data)), pvs = S.data.pluviometros;
+      const cm = meses.map(ym => { const v = S.data.chuvas.filter(c => (c.data || '').startsWith(ym)).reduce((a, c) => a + num(c.mm), 0); return { n: mesLbl(ym), v, c: '#2a78d6', lbl: fmtHa0(v) }; });
+      html = `<div class="grid2">${box('Chuva registrada por mês', 'mm, todos os pluviômetros', colunas(cm, 'mm'))}${box('Acumulado por pluviômetro', '', tabela(['Pluviômetro', 'Fazenda', 'Registros', 'Últimos 30 dias', 'Total'], pvs.map(p => { const c = S.data.chuvas.filter(x => key(x.pluviometro_id) === key(p.id)); return [esc(p.nome), fazNome(p.fazenda_id), fmtInt(c.length), fmtHa0(c.filter(x => diasDesde(x.data) <= 30).reduce((a, x) => a + num(x.mm), 0)) + ' mm', fmtHa0(c.reduce((a, x) => a + num(x.mm), 0)) + ' mm']; })))}</div>
+        <p class="muted">Para a previsão do tempo e a chuva estimada por satélite de cada fazenda, abra <a href="#clima">Chuvas e previsão</a>.</p>`;
+    }
+    $('#an-body').innerHTML = html;
+  }
+
+  // ---------- Relatórios do sistema (planilhas) ----------
+  const RS = { rel: 'freq_talhao', prod: '', safra: '', de: '', ate: '', ocultas: {} };
+  const centroTal = t => { const g = t.geometry; const ring = g && (g.type === 'Polygon' ? g.coordinates[0] : g.type === 'MultiPolygon' ? g.coordinates[0][0] : null); if (!ring) return null; let a = 0, b = 0; for (const c of ring) { a += c[1]; b += c[0]; } return [a / ring.length, b / ring.length]; };
+  const RELS = {
+    freq_talhao: { t: 'Frequência de visitas por talhão', d: 'Talhões sem visita recente, frequência média e responsáveis.', run(F) {
+      return F.tals.map(t => { const ms = (S.monPorTal.get(key(t.id)) || []).filter(m => F.periodo(m.data)).sort((a, b) => (a.data || '').localeCompare(b.data || '')); const gaps = ms.slice(1).map((m, i) => diasDesde(ms[i].data) - diasDesde(m.data)); const c = culturaAtual(t);
+        return { Fazenda: get('fazendas', t.fazenda_id)?.nome, Talhão: nomeTal(t), 'Área (ha)': num(t.area_ha), Safra: c?.safra || '', Cultura: c?.cultura || '', Visitas: ms.length, 'Frequência média (dias)': gaps.length ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : null, 'Última visita': ms.length ? fmtDate(ms[ms.length - 1].data) : 'Nunca', 'Dias desde a última': ms.length ? diasDesde(ms[ms.length - 1].data) : null, Responsáveis: [...new Set(ms.map(m => m.responsavel).filter(Boolean))].join(', ') }; })
+        .sort((a, b) => (b['Dias desde a última'] ?? 1e9) - (a['Dias desde a última'] ?? 1e9)); } },
+    freq_usuario: { t: 'Frequência de visitas por usuário', d: 'Regularidade de cada técnico: visitas, talhões e dias entre visitas.', run(F) {
+      const by = new Map(); for (const m of S.data.monitoramentos) { if (!F.tset.has(key(m.talhao_id)) || !F.periodo(m.data)) continue; const k = m.responsavel || m.criado_por || 'Sem responsável'; if (!by.has(k)) by.set(k, []); by.get(k).push(m); }
+      return [...by.entries()].map(([u, ms]) => { const pt = new Map(); for (const m of ms) { const k = key(m.talhao_id); if (!pt.has(k)) pt.set(k, []); pt.get(k).push(m.data); } const gaps = []; for (const ds of pt.values()) { ds.sort(); for (let i = 1; i < ds.length; i++) gaps.push(diasDesde(ds[i - 1]) - diasDesde(ds[i])); }
+        return { Usuário: u, Visitas: ms.length, 'Talhões visitados': pt.size, 'Frequência mínima (dias)': gaps.length ? Math.min(...gaps) : null, 'Frequência máxima (dias)': gaps.length ? Math.max(...gaps) : null, 'Frequência média (dias)': gaps.length ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : null, 'Última visita': fmtDate(ms.map(m => m.data).sort().pop()) }; }).sort((a, b) => b.Visitas - a.Visitas); } },
+    ordens_abertas: { t: 'Ordens abertas e dias desde a emissão', d: 'Ordens emitidas que ainda não foram confirmadas.', run(F) {
+      return F.ords.filter(pendente).map(o => { const d = o.data_emissao || o.data_prevista; return { Ordem: o.titulo, Tipo: o.tipo, Situação: o.status || 'Planejada', Fazenda: get('fazendas', o.fazenda_id)?.nome, Talhões: (o.talhao_ids || []).length, 'Área sem confirmação (ha)': num(o.area_ha) || areaTal((o.talhao_ids || []).map(t => get('talhoes', t)).filter(Boolean)), 'Emitida em': fmtDate(d), 'Dias desde a emissão': diasDesde(d), 'Data prevista': fmtDate(o.data_prevista), Atrasada: atrasada(o) ? 'Sim' : 'Não', Responsável: o.responsavel || '' }; }).sort((a, b) => b['Dias desde a emissão'] - a['Dias desde a emissão']); } },
+    safra: { t: 'Relatório de safra', d: 'Datas planejadas e reais, produtividade objetivo e final, dias desde o plantio e chuva acumulada.', run(F) {
+      return S.data.safras.filter(s => F.tset.has(key(s.talhao_id)) && (!F.safra || s.safra === F.safra)).map(s => { const t = get('talhoes', s.talhao_id), f = get('fazendas', t?.fazenda_id); const pv = S.data.pluviometros.filter(p => key(p.fazenda_id) === key(f?.id)).map(p => key(p.id));
+        const chuva = s.data_plantio ? S.data.chuvas.filter(c => pv.includes(key(c.pluviometro_id)) && c.data >= s.data_plantio && (!s.data_colheita || c.data <= s.data_colheita)).reduce((a, c) => a + num(c.mm), 0) : null;
+        return { Fazenda: f?.nome, Talhão: nomeTal(t), Safra: s.safra, Cultura: s.cultura, Época: s.epoca || '', Variedade: s.variedade || '', 'Área (ha)': num(s.area_ha) || num(t?.area_ha), 'Plantio programado': fmtDate(s.data_plantio_programada), Plantio: fmtDate(s.data_plantio), Colheita: fmtDate(s.data_colheita), 'Dias desde o plantio': s.data_plantio && !s.data_colheita ? diasDesde(s.data_plantio) : null, 'Produtividade objetivo': s.produtividade_objetivo ?? null, 'Produtividade final': s.produtividade ?? null, 'Chuva acumulada (mm)': chuva }; }); } },
+    insumos_talhao: { t: 'Ordens com insumos por talhão', d: 'Cada insumo de cada ordem: dose recomendada e executada, áreas e datas.', run(F) {
+      const out = [];
+      for (const o of F.ords) { const ts = (o.talhao_ids || []).map(t => get('talhoes', t)).filter(Boolean);
+        for (const t of ts) for (const p of o.produtos || []) { const ap = (o.aplicacoes || []).find(a => key(a.talhao_id) === key(t.id) && a.produto === p.produto);
+          out.push({ Ordem: o.titulo, Tipo: o.tipo, Situação: o.status, Fazenda: get('fazendas', o.fazenda_id)?.nome, Talhão: nomeTal(t), 'Área do talhão (ha)': num(t.area_ha), Insumo: p.produto, Classe: p.classe || '', 'Dose recomendada': p.dose ?? null, 'Dose executada': ap ? ap.dose ?? null : p.dose_exec ?? null, Unidade: p.unidade || '', 'Área aplicada (ha)': ap ? ap.area ?? null : null, 'Emitida em': fmtDate(o.data_emissao || o.data_prevista), 'Executada em': fmtDate(ap?.data || o.data_conclusao), Responsável: o.responsavel || '' }); } }
+      return out; } },
+    ordens_talhao: { t: 'Ordens por talhão (sem insumos)', d: 'Quais operações foram feitas em cada talhão.', run(F) {
+      const out = []; for (const o of F.ords) for (const t of (o.talhao_ids || []).map(t => get('talhoes', t)).filter(Boolean)) out.push({ Ordem: o.titulo, Tipo: o.tipo, Situação: o.status, Fazenda: get('fazendas', o.fazenda_id)?.nome, Talhão: nomeTal(t), 'Área (ha)': num(t.area_ha), Prevista: fmtDate(o.data_prevista), Concluída: fmtDate(o.data_conclusao), Responsável: o.responsavel || '', Empreiteiro: nomeRef('aplicadores', o.aplicador_id) === '—' ? '' : nomeRef('aplicadores', o.aplicador_id), Máquina: nomeRef('maquinas', o.maquina_id) === '—' ? '' : nomeRef('maquinas', o.maquina_id) });
+      return out; } },
+    area_empreiteiro: { t: 'Área trabalhada por empreiteiro', d: 'Área recomendada e executada por empreiteiro e máquina, para pagamentos.', run(F) {
+      const m = new Map(); for (const o of F.ords) { const k = [nomeRef('aplicadores', o.aplicador_id), nomeRef('maquinas', o.maquina_id)].join('|'); const x = m.get(k) || { rec: 0, exe: 0, n: 0 }; const a = num(o.area_ha) || areaTal((o.talhao_ids || []).map(t => get('talhoes', t)).filter(Boolean)); x.n++; x.rec += a; if (o.status === 'Concluída') x.exe += (o.talhoes_detalhe ? o.talhoes_detalhe.reduce((s, d) => s + num(d.area_aplicada ?? d.area_planejada), 0) : a); m.set(k, x); }
+      return [...m.entries()].map(([k, x]) => { const [e, mq] = k.split('|'); return { Empreiteiro: e === '—' ? 'Não informado' : e, Máquina: mq === '—' ? 'Não informada' : mq, Ordens: x.n, 'Área recomendada (ha)': Math.round(x.rec * 100) / 100, 'Área executada (ha)': Math.round(x.exe * 100) / 100 }; }); } },
+    avanco_plantio: { t: 'Avanço de plantio', d: 'Área planejada e plantada por talhão, com percentual.', run(F) { return avancoRel(F, 'Plantio'); } },
+    avanco_colheita: { t: 'Avanço de colheita', d: 'Área plantada e colhida por talhão, toneladas e produtividade.', run(F) { return avancoRel(F, 'Colheita'); } },
+    scouting: { t: 'Exportação detalhada de visitas', d: 'Uma linha por adversidade registrada em cada visita.', run(F) {
+      const out = []; for (const m of S.data.monitoramentos) { if (!F.tset.has(key(m.talhao_id)) || !F.periodo(m.data)) continue; const t = get('talhoes', m.talhao_id), c = culturaNaData(t, m.data);
+        const base = { Código: m.id, Data: fmtDate(m.data), Fazenda: get('fazendas', t?.fazenda_id)?.nome, Talhão: nomeTal(t), Cultura: c?.cultura || '', Safra: c?.safra || '', 'Estado do talhão': m.estado_talhao || '', 'Estado hídrico': m.estado_hidrico || '', 'Estádio fenológico': m.estadio || '', 'Rendimento estimado': m.produtividade_estimada ?? null, Responsável: m.responsavel || '' };
+        const rs = m.resultados && m.resultados.length ? m.resultados : [{ alvo: m.alvo, nivel: m.nivel }];
+        for (const r of rs) out.push(Object.assign({}, base, { Adversidade: r.alvo || '', 'Nome científico': r.cientifico || '', Medida: r.medida || '', Valor: r.valor ?? null, Severidade: r.nivel || '' })); }
+      return out.sort((a, b) => b.Código - a.Código); } },
+    coordenadas: { t: 'Coordenadas dos talhões', d: 'Latitude e longitude do centro de cada talhão.', run(F) {
+      return F.tals.map(t => { const c = centroTal(t); return { Produtor: get('produtores', t._prod)?.nome, Fazenda: get('fazendas', t.fazenda_id)?.nome, Talhão: nomeTal(t), 'Área (ha)': num(t.area_ha), Latitude: c ? Math.round(c[0] * 1e6) / 1e6 : null, Longitude: c ? Math.round(c[1] * 1e6) / 1e6 : null }; }); } },
+  };
+  function avancoRel(F, tipo) {
+    return S.data.safras.filter(s => F.tset.has(key(s.talhao_id)) && (!F.safra || s.safra === F.safra)).map(s => {
+      const t = get('talhoes', s.talhao_id), area = num(s.area_ha) || num(t?.area_ha);
+      const av = S.data.avancos.filter(a => a.tipo === tipo && key(a.talhao_id) === key(s.talhao_id) && (!a.safra || a.safra === s.safra));
+      const feito = Math.min(area, av.reduce((x, a) => x + num(a.area_ha), 0) || ((tipo === 'Plantio' ? s.data_plantio : s.data_colheita) ? area : 0));
+      const r = { Fazenda: get('fazendas', t?.fazenda_id)?.nome, Talhão: nomeTal(t), Safra: s.safra, Cultura: s.cultura, [tipo === 'Plantio' ? 'Área planejada (ha)' : 'Área plantada (ha)']: area, [tipo === 'Plantio' ? 'Área plantada (ha)' : 'Área colhida (ha)']: feito, '%': area ? Math.round(feito / area * 100) : 0, Data: fmtDate(tipo === 'Plantio' ? s.data_plantio : s.data_colheita) };
+      if (tipo === 'Colheita') { r['Produtividade (t/ha)'] = s.produtividade ?? (av.find(a => a.produtividade)?.produtividade ?? null); r['Toneladas'] = r['Produtividade (t/ha)'] ? Math.round(r['Produtividade (t/ha)'] * feito * 10) / 10 : null; }
+      return r;
+    });
+  }
+  function filtrosRS() {
+    const fazs = RS.prod ? (S.fazPorProd.get(RS.prod) || []) : S.data.fazendas, fset = new Set(fazs.map(f => key(f.id)));
+    const tals = S.data.talhoes.filter(t => fset.has(key(t.fazenda_id)));
+    const periodo = d => (!RS.de || (d || '') >= RS.de) && (!RS.ate || (d || '').slice(0, 10) <= RS.ate);
+    const ords = S.data.ordens.filter(o => fset.has(key(o.fazenda_id)) && periodo(o.data_prevista || o.data_conclusao));
+    return { fazs, tals, tset: new Set(tals.map(t => key(t.id))), ords, periodo, safra: RS.safra };
+  }
+  function viewRelSis() {
+    const root = $('#v-relsis');
+    if (!root.dataset.ready) {
+      root.dataset.ready = 1;
+      root.innerHTML = `<div class="page"><div class="page-head"><div><h2>Relatórios do sistema</h2><p>Planilhas para análise: escolha o relatório, filtre, escolha as colunas e baixe em Excel.</p></div><button class="btn primary" data-rs-xlsx>${icon('xls')} Baixar Excel</button></div>
+        <div class="rs-grid"><nav class="card-box rs-list" id="rs-list" aria-label="Relatórios"></nav>
+        <div class="rs-main"><div class="card-box"><div class="rep-controls"><label class="field"><span>Produtor</span><select id="rs-prod"></select></label><label class="field"><span>Safra</span><select id="rs-safra"></select></label><label class="field"><span>De</span><input type="date" id="rs-de"></label><label class="field"><span>Até</span><input type="date" id="rs-ate"></label></div>
+          <details class="rs-cols"><summary>${icon('xls')} Escolher colunas</summary><div id="rs-cols" class="rep-checks"></div></details></div>
+          <div class="card-box"><h3 id="rs-t"></h3><p class="muted" id="rs-d" style="margin:0"></p><div class="table-wrap" id="rs-tab"></div></div></div></div></div>`;
+      root.addEventListener('click', e => {
+        const b = e.target.closest('[data-rs]'); if (b) { RS.rel = b.dataset.rs; viewRelSis(); return; }
+        if (e.target.closest('[data-rs-xlsx]')) baixarRelSis();
+      });
+      root.addEventListener('change', e => {
+        const id = e.target.id; if (id && id.startsWith('rs-')) { RS[id.slice(3)] = e.target.value; viewRelSis(); return; }
+        const c = e.target.closest('[data-rs-col]'); if (c) { const o = RS.ocultas[RS.rel] = RS.ocultas[RS.rel] || new Set(); if (c.checked) o.delete(c.dataset.rsCol); else o.add(c.dataset.rsCol); viewRelSis(); }
+      });
+    }
+    $('#rs-list').innerHTML = Object.entries(RELS).map(([k, r]) => `<button class="rs-it" data-rs="${k}" aria-current="${k === RS.rel}">${esc(r.t)}</button>`).join('');
+    $('#rs-prod').innerHTML = prodOpts(); $('#rs-prod').value = RS.prod;
+    $('#rs-safra').innerHTML = '<option value="">Todas</option>' + safrasLista().map(s => `<option>${esc(s)}</option>`).join(''); $('#rs-safra').value = RS.safra;
+    $('#rs-de').value = RS.de; $('#rs-ate').value = RS.ate;
+    const R0 = RELS[RS.rel], rows = R0.run(filtrosRS()), cols = Object.keys(rows[0] || {}), oc = RS.ocultas[RS.rel] || new Set(), vis = cols.filter(c => !oc.has(c));
+    RS.rows = rows; RS.vis = vis;
+    $('#rs-t').innerHTML = esc(R0.t) + ` <small>${fmtInt(rows.length)} linhas</small>`; $('#rs-d').textContent = R0.d;
+    $('#rs-cols').innerHTML = cols.map(c => `<label><input type="checkbox" data-rs-col="${esc(c)}" ${oc.has(c) ? '' : 'checked'}> ${esc(c)}</label>`).join('');
+    const fmt = v => typeof v === 'number' ? v.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) : esc(v ?? '—');
+    $('#rs-tab').innerHTML = rows.length ? `<table><thead><tr>${vis.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.slice(0, 300).map(r => `<tr>${vis.map(c => `<td class="${typeof r[c] === 'number' ? 'r' : ''}">${fmt(r[c])}</td>`).join('')}</tr>`).join('')}${rows.length > 300 ? `<tr><td colspan="${vis.length}" class="muted">Mostrando 300 de ${fmtInt(rows.length)} linhas. O Excel traz todas.</td></tr>` : ''}</tbody></table>` : '<p class="empty" style="padding:12px">Nenhum dado com esses filtros.</p>';
+  }
+  async function baixarRelSis() {
+    try {
+      await loadLib('xlsx');
+      const X = window.XLSX, wb = X.utils.book_new(), rows = RS.rows.map(r => Object.fromEntries(RS.vis.map(c => [c, r[c]])));
+      const ws = X.utils.json_to_sheet(rows.length ? rows : [{ 'Sem registros': '' }]);
+      ws['!cols'] = RS.vis.map(k => ({ wch: Math.min(50, Math.max(k.length + 2, ...rows.slice(0, 200).map(r => String(r[k] ?? '').length + 1))) }));
+      X.utils.book_append_sheet(wb, ws, RELS[RS.rel].t.slice(0, 31));
+      X.writeFile(wb, 'inovaagro-' + RS.rel.replace(/_/g, '-') + '-' + today() + '.xlsx');
+      toast('Planilha gerada.');
+    } catch (e) { toast('Não foi possível gerar a planilha. Verifique a internet.'); }
+  }
+
+  // ---------- Ordem: produtos com dose recomendada e executada, ordem no tanque, receita em PDF ----------
+  function produtosHtml(list) {
+    const ins = S.data.insumos.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+    return `<div class="field full prod-ed"><span style="font-size:13px;font-weight:500;color:var(--muted)">Produtos (na ordem de carga do tanque)</span>
+      <datalist id="dl-insumos">${ins.map(i => `<option value="${esc(i.nome)}">${esc(i.classe || '')}</option>`).join('')}</datalist>
+      <div class="table-wrap"><table class="prod-t"><thead><tr><th>#</th><th>Produto</th><th class="r">Dose recomendada</th><th>Unidade</th><th class="r">Dose executada</th><th></th></tr></thead><tbody>${(list || []).map(prodRow).join('')}</tbody></table></div>
+      <div><button type="button" class="btn small" data-prod-add>+ Produto</button></div></div>`;
+  }
+  const prodRow = (p = {}) => `<tr><td class="ord-n"></td><td><input type="text" list="dl-insumos" class="p-prod" value="${esc(p.produto || '')}" aria-label="Produto"></td><td><input type="number" step="any" class="p-dose r" value="${p.dose ?? ''}" aria-label="Dose recomendada"></td><td><select class="p-un" aria-label="Unidade">${['Lt/ha', 'Kg/ha', 'Ml/ha', 'Gr/ha', 't/ha', 'Sementes/m'].map(u => `<option ${u === (p.unidade || 'Lt/ha') ? 'selected' : ''}>${u}</option>`).join('')}</select></td><td><input type="number" step="any" class="p-exec r" value="${p.dose_exec ?? ''}" aria-label="Dose executada"></td><td class="nowrap"><button type="button" class="btn small" data-prod-up aria-label="Subir">↑</button><button type="button" class="btn small" data-prod-down aria-label="Descer">↓</button><button type="button" class="btn small danger" data-prod-del aria-label="Remover">×</button></td></tr>`;
+  function prodEditor(bg, rec) {
+    const tb = $('.prod-t tbody', bg); if (!tb) return;
+    const num_ = () => tb.querySelectorAll('tr').forEach((tr, i) => $('.ord-n', tr).textContent = i + 1);
+    num_();
+    bg.addEventListener('click', e => {
+      if (e.target.closest('[data-prod-add]')) { tb.insertAdjacentHTML('beforeend', prodRow()); num_(); $('tr:last-child .p-prod', tb).focus(); }
+      const tr = e.target.closest('.prod-t tr'); if (!tr) return;
+      if (e.target.closest('[data-prod-del]')) tr.remove();
+      if (e.target.closest('[data-prod-up]') && tr.previousElementSibling) tr.parentNode.insertBefore(tr, tr.previousElementSibling);
+      if (e.target.closest('[data-prod-down]') && tr.nextElementSibling) tr.parentNode.insertBefore(tr.nextElementSibling, tr);
+      num_();
+    });
+    bg.addEventListener('change', e => { const i = e.target.closest('.p-prod'); if (!i) return; const ins = S.data.insumos.find(x => x.nome === i.value); if (ins && ins.unidade) { const s = $('.p-un', i.closest('tr')); s.value = ins.unidade; } });
+  }
+  function lerProdutos(bg, antigos) {
+    return [...bg.querySelectorAll('.prod-t tbody tr')].map(tr => {
+      const nome = $('.p-prod', tr).value.trim(); if (!nome) return null;
+      const old = (antigos || []).find(p => p.produto === nome) || {}, ins = S.data.insumos.find(x => x.nome === nome);
+      const d = $('.p-dose', tr).value, x = $('.p-exec', tr).value;
+      return Object.assign({}, old, { produto: nome, classe: old.classe || ins?.classe || '', dose: d === '' ? null : Number(d), unidade: $('.p-un', tr).value, dose_exec: x === '' ? null : Number(x) });
+    }).filter(Boolean);
+  }
+  async function receitaPDF(o) {
+    try { await loadLib('jspdf'); await loadLib('autotable'); } catch (e) { toast('Não foi possível carregar o gerador de PDF. Verifique a internet.'); return; }
+    const { jsPDF } = window.jspdf, doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const f = get('fazendas', o.fazenda_id), p = f && get('produtores', f.produtor_id), ts = (o.talhao_ids || []).map(t => get('talhoes', t)).filter(Boolean), area = num(o.area_ha) || areaTal(ts);
+    try { const lg = imgDataUrl('.nav-brand .logo-claro'); if (lg) doc.addImage(lg.url, 'PNG', 14, 10, 52, 52 * lg.h / lg.w); } catch (e) { }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.text('Ordem de trabalho · ' + (o.tipo || ''), 196, 16, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text(o.titulo || '', 196, 22, { align: 'right' });
+    doc.setDrawColor(94, 129, 69); doc.setLineWidth(0.8); doc.line(14, 27, 196, 27);
+    const info = [['Produtor', p?.nome || '—'], ['Fazenda', f?.nome || '—'], ['Situação', o.status || 'Planejada'], ['Data prevista', fmtDate(o.data_prevista)], ['Área total', fmtHa(area) + ' ha'], ['Responsável', o.responsavel || '—'], ['Empreiteiro', nomeRef('aplicadores', o.aplicador_id)], ['Máquina', nomeRef('maquinas', o.maquina_id)], ['Vazão', o.vazao_l_ha ? o.vazao_l_ha + ' L/ha' : '—']];
+    doc.autoTable({ startY: 31, body: info, theme: 'plain', styles: { fontSize: 9, cellPadding: 1.2 }, columnStyles: { 0: { fontStyle: 'bold', cellWidth: 32 } } });
+    const prods = o.produtos || [];
+    doc.autoTable({ startY: doc.lastAutoTable.finalY + 4, head: [['#', 'Produto', 'Classe', 'Dose/ha', 'Total para ' + fmtHa(area) + ' ha', 'Dose executada']], body: prods.map((x, i) => [i + 1, x.produto, x.classe || '', (x.dose ?? '—') + ' ' + (x.unidade || ''), x.dose != null ? (Math.round(x.dose * area * 100) / 100).toLocaleString('pt-BR') + ' ' + (x.unidade || '').replace('/ha', '') : '—', x.dose_exec != null ? x.dose_exec + ' ' + (x.unidade || '') : '']), headStyles: { fillColor: [94, 129, 69] }, styles: { fontSize: 9 } });
+    doc.autoTable({ startY: doc.lastAutoTable.finalY + 4, head: [['Talhão', 'Área (ha)', 'Cultura atual', 'Aplicado em', 'Área aplicada']], body: ts.map(t => { const c = culturaAtual(t); return [nomeTal(t), fmtHa(t.area_ha), c ? c.cultura + ' ' + c.safra : '', '', '']; }), headStyles: { fillColor: [94, 129, 69] }, styles: { fontSize: 9 } });
+    let y = doc.lastAutoTable.finalY + 8;
+    doc.setFontSize(9); if (o.obs) { doc.text('Observações: ' + o.obs, 14, y, { maxWidth: 182 }); y += 10; }
+    doc.text('Condições na aplicação:  Temperatura ______ °C   Umidade ______ %   Vento ______ km/h', 14, y + 4);
+    doc.line(14, y + 26, 90, y + 26); doc.line(120, y + 26, 196, y + 26); doc.text('Responsável técnico', 14, y + 31); doc.text('Operador / empreiteiro', 120, y + 31);
+    doc.setTextColor(120); doc.setFontSize(8); doc.text('Gerado pelo INOVAAGRO em ' + new Date().toLocaleString('pt-BR'), 14, 290);
+    doc.save('ordem-' + String(o.titulo || o.id).replace(/[^\w-]+/g, '-') + '.pdf');
+  }
+
 
   // ---------- Exportar ----------
   async function exportar() {

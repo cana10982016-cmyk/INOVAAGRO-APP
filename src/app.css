@@ -452,3 +452,33 @@ a.tile:hover { border-color: var(--brand-2); }
   #pn-map { position: relative; height: 340px; }
   .bell { margin-left: auto; }
 }
+
+/* ---------- Fase 1b: análise, relatórios do sistema, produtos da ordem ---------- */
+.an-body { display: grid; gap: 14px; }
+.an-body .span2, .grid2 > .span2 { grid-column: 1 / -1; }
+.svg-wrap { overflow-x: auto; max-width: 100%; }
+.svg-wrap svg { display: block; }
+.svg-wrap text { font-size: 11px; fill: var(--muted); font-family: inherit; }
+.rs-grid { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 14px; align-items: start; }
+.rs-main { display: grid; gap: 14px; min-width: 0; }
+.rs-list { padding: 8px; gap: 2px; position: sticky; top: 12px; }
+.rs-it { text-align: left; border: 0; background: none; font: inherit; padding: 9px 10px; border-radius: 8px; cursor: pointer; color: var(--fg); }
+.rs-it:hover { background: var(--hover, rgba(94,129,69,.08)); }
+.rs-it[aria-current="true"] { background: var(--brand); color: #fff; font-weight: 600; }
+.rs-cols summary { cursor: pointer; font-weight: 600; display: inline-flex; gap: 6px; align-items: center; }
+.rs-cols summary svg { width: 16px; height: 16px; }
+.rep-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; padding-top: 8px; font-size: 13px; }
+.prod-ed { display: grid; gap: 6px; }
+.prod-t { font-size: 13px; min-width: 560px; }
+.prod-t td { padding: 4px; vertical-align: middle; }
+.prod-t input, .prod-t select { width: 100%; min-width: 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--fg); font: inherit; }
+.prod-t input.r { text-align: right; }
+.prod-t .ord-n { width: 26px; color: var(--muted); text-align: center; font-weight: 600; }
+.prod-t .nowrap { white-space: nowrap; }
+.prod-t .btn.small { padding: 3px 7px; margin-left: 2px; }
+.modal footer [data-receita] svg { width: 16px; height: 16px; }
+@media (max-width: 760px) { .rs-grid { grid-template-columns: 1fr; } .rs-list { position: static; display: flex; overflow-x: auto; } .rs-it { white-space: nowrap; flex: 0 0 auto; } }
+.prod-t th:nth-child(3), .prod-t th:nth-child(5) { width: 120px; }
+.prod-t th:nth-child(4) { width: 120px; }
+.prod-t th:nth-child(6) { width: 112px; }
+.prod-t .p-prod { min-width: 160px; }
