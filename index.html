@@ -1151,6 +1151,13 @@ a.tile:hover { border-color: var(--brand-2); }
 .exec-t { min-width: 520px; }
 .exec-t tfoot td { padding: 6px 4px; border-top: 1px solid var(--line); }
 .sec-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.silo-t { min-width: 720px; }
+.silo-t th:nth-child(1) { width: 140px; } .silo-t th:nth-child(2) { width: 150px; } .silo-t th:nth-child(3), .silo-t th:nth-child(4), .silo-t th:nth-child(5) { width: 95px; } .silo-t th:last-child { width: 40px; }
+tr.click { cursor: pointer; }
+tr.click:hover td { background: rgba(94,129,69,.06); }
+.page-head .head-acts { flex: 0 1 auto; justify-content: flex-end; }
+.head-acts select { width: auto; min-width: 170px; max-width: 260px; }
+@media (max-width: 760px) { .page-head .head-acts { justify-content: flex-start; } .head-acts select { flex: 1 1 150px; max-width: none; } }
 
 </style>
 <aside class="nav" id="nav" aria-label="Menu principal">
@@ -1287,6 +1294,8 @@ a.tile:hover { border-color: var(--brand-2); }
       { k: 'data_plantio_programada', l: 'Plantio programado', t: 'date' },
       { k: 'espacamento_cm', l: 'Espaçamento (cm)', t: 'number' },
       { k: 'produtividade_objetivo', l: 'Produtividade objetivo (t/ha)', t: 'number' },
+      { k: 'prod_estimada', l: 'Produtividade estimada para a colheita (t/ha)', t: 'number' },
+      { k: 'colheita_prevista', l: 'Colheita prevista', t: 'date' },
       { k: 'area_ha', l: 'Área plantada (ha)', t: 'number' },
       { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
     ],
@@ -1384,6 +1393,7 @@ a.tile:hover { border-color: var(--brand-2); }
       { k: 'data_enchimento', l: 'Enchimento', t: 'date' },
       { k: 'data_extracao', l: 'Extração', t: 'date' },
       { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
+      { k: 'monitoramentos', l: 'Monitoramentos', t: 'silo', full: 1 },
     ],
     avancos: [
       { k: 'tipo', l: 'Tipo', t: 'select', opts: ['Plantio', 'Colheita'], req: 1 },
@@ -1695,6 +1705,7 @@ a.tile:hover { border-color: var(--brand-2); }
     tipos_trabalho: '<path d="M4 6h16M4 12h16M4 18h10"/><circle cx="19" cy="18" r="2"/>',
     sociedade: '<path d="M4 21V5l8-3 8 3v16"/><path d="M9 21v-5h6v5M8 8h2M14 8h2M8 12h2M14 12h2"/>',
     configuracao: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
+    harvest: '<path d="M3 20h18"/><path d="M7 20V10M12 20V6M17 20v-8"/><path d="m5 8 3-3 3 3"/>',
     print: '<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>',
   };
   const icon = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n] || IC[ORD_ICON[n]] || IC.ordens}</svg>`;
@@ -1705,6 +1716,7 @@ a.tile:hover { border-color: var(--brand-2); }
     'Atividades', ['monitoramentos', 'Visitas'], ['ord-aplicacoes', 'Aplicações'], ['ord-plantio', 'Plantio'], ['ord-colheita', 'Colheita'], ['ord-fertilizacao', 'Fertilização'], ['ord-tratos', 'Tratos culturais'], ['ord-outros', 'Outros'], ['ordens', 'Todas as ordens'], ['avancos', 'Avanços de plantio e colheita'], ['controles', 'Controles de campo'], ['armadilhas', 'Armadilhas'],
     'Análise', ['analise', 'Painéis de análise'], ['relsis', 'Relatórios do sistema'], ['relatorios', 'Relatório por fazenda (PDF)'],
     'Clima', ['clima', 'Chuvas e previsão'], ['pluviometros', 'Pluviômetros'],
+    'Harvest', ['harvest', 'Previsão de colheita'],
     'Silo bag', ['silobolsas', 'Silobolsas'], ['depositos', 'Depósitos'],
   ];
   const TITULO = Object.fromEntries(NAV.filter(Array.isArray));
@@ -1726,7 +1738,7 @@ a.tile:hover { border-color: var(--brand-2); }
     const nn = notificacoes().filter(x => !NOT.lidas.has(x.id)).length;
     for (const el of document.querySelectorAll('#badge-not, #badge-bell')) { el.hidden = !nn; el.textContent = nn > 99 ? '99+' : nn; }
   }
-  const VIEWS = { painel: viewPainel, mapa: viewMapa, produtores: viewProdutores, fazendas: viewFazendas, talhoes: viewTalhoes, safras: viewSafras, monitoramentos: viewMonitoramentos, ordens: viewOrdens, relatorios: viewRelatorios, equipe: viewEquipe, clima: viewClima, feed: viewFeed, notificacoes: viewNotificacoes, planejamento: viewPlanejamento, importar: viewImportar, analise: viewAnalise, relsis: viewRelSis, sociedade: viewSociedade, configuracao: viewConfiguracao };
+  const VIEWS = { painel: viewPainel, mapa: viewMapa, produtores: viewProdutores, fazendas: viewFazendas, talhoes: viewTalhoes, safras: viewSafras, monitoramentos: viewMonitoramentos, ordens: viewOrdens, relatorios: viewRelatorios, equipe: viewEquipe, clima: viewClima, feed: viewFeed, notificacoes: viewNotificacoes, planejamento: viewPlanejamento, importar: viewImportar, analise: viewAnalise, relsis: viewRelSis, sociedade: viewSociedade, configuracao: viewConfiguracao, harvest: viewHarvest };
   for (const k of KINDS_NOVOS) if (k !== 'chuvas' && k !== 'config') VIEWS[k] = () => viewModulo(k);
   let current = null;
   function route() {
@@ -2143,7 +2155,7 @@ a.tile:hover { border-color: var(--brand-2); }
     depositos: { t: 'Depósitos', s: 'Armazéns de insumos, grãos e combustível.', sort: 'nome',
       cols: [['nome', 'Depósito'], ['tipo', 'Tipo'], [r => fazNome(r.fazenda_id), 'Fazenda'], ['capacidade', 'Capacidade']] },
     silobolsas: { t: 'Silobolsas', s: 'Grãos armazenados em silobolsa: enchimento, extração e situação.', sort: 'codigo',
-      cols: [['codigo', 'Código'], [r => r.situacao ? `<span class="pill ${{ Cheia: 'info', 'Em extração': 'warn', Extraída: 'ok' }[r.situacao] || ''}">${esc(r.situacao)}</span>` : '—', 'Situação'], ['produto', 'Produto'], ['safra', 'Safra'], [r => fazNome(r.fazenda_id), 'Fazenda'], [r => fmtHa(r.toneladas), 't', 1], ['data_enchimento', 'Enchimento', 0, 'd'], ['data_extracao', 'Extração', 0, 'd']], filtro: 'situacao' },
+      cols: [['codigo', 'Código'], [r => r.situacao ? `<span class="pill ${{ Cheia: 'info', 'Em extração': 'warn', Extraída: 'ok' }[r.situacao] || ''}">${esc(r.situacao)}</span>` : '—', 'Situação'], ['produto', 'Produto'], ['safra', 'Safra'], [r => fazNome(r.fazenda_id), 'Fazenda'], [r => fmtHa(r.toneladas), 't', 1], [r => { const m = ultSilo(r); return m ? `${fmtDate(m.data)} <span class="pill ${{ Bom: 'ok', 'Pequenos furos': 'warn', Danificado: 'bad', Rompido: 'bad' }[m.estado] || ''}">${esc(m.estado)}</span>` : '<span class="muted">nunca</span>'; }, 'Último monitoramento'], ['data_enchimento', 'Enchimento', 0, 'd'], ['data_extracao', 'Extração', 0, 'd']], filtro: 'situacao' },
     avancos: { t: 'Avanços de plantio e colheita', s: 'Área plantada e colhida por talhão, com produtividade.', sort: '-data',
       cols: [['data', 'Data', 0, 'd'], [r => `<span class="pill ${r.tipo === 'Colheita' ? 'warn' : 'ok'}">${esc(r.tipo || '')}</span>`, 'Tipo'], [r => talNome(r.talhao_id), 'Talhão'], ['safra', 'Safra'], [r => fmtHa(r.area_ha), 'Área (ha)', 1], [r => r.produtividade == null ? '—' : fmtHa(r.produtividade), 't/ha', 1], ['finalizado', 'Finalizado']], filtro: 'tipo' },
     controles: { t: 'Controles', s: 'Perda na colheita, falhas de plantio (Stolf), gemas por metro e estande de plantas, com cálculo automático a partir dos pontos amostrais.', sort: '-data',
@@ -2558,6 +2570,7 @@ a.tile:hover { border-color: var(--brand-2); }
       case 'tags': { const sel = new Set(v || []); const tg = S.data.etiquetas.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR')); return `<div class="field full" style="display:grid;gap:4px"><span style="font-size:13px;font-weight:500;color:var(--muted)">${f.l}</span><div class="tagpick">${tg.map(t => `<label class="tag" style="--tag:${TAG_COR[t.cor] || OUTROS}"><input type="checkbox" name="${f.k}" value="${esc(t.nome)}" ${sel.has(t.nome) ? 'checked' : ''}> ${esc(t.nome)}</label>`).join('') || '<span class="muted" style="font-size:13px">Nenhuma etiqueta cadastrada. Crie em Administração → Etiquetas.</span>'}</div></div>`; }
       case 'produtos': return produtosHtml(v);
       case 'exec': return '<div class="field full exec-ed" data-exec></div>';
+      case 'silo': return siloHtml(v);
       case 'calc': return '<div class="field full ctrl-ed" data-ctrl></div>';
       case 'talhoes': return `<div class="field full" style="display:grid;gap:4px"><span style="font-size:13px;font-weight:500;color:var(--muted)">${f.l}</span><div class="checks" id="${id}">${v}</div></div>`;
       default: input = `<input type="text" id="${id}" name="${f.k}" value="${esc(v)}"${ph}${req}>`;
@@ -2597,7 +2610,7 @@ a.tile:hover { border-color: var(--brand-2); }
     const fields = (ov && ov.fields) || FIELDS[kind];
     const bg = document.createElement('div');
     bg.className = 'modal-bg';
-    bg.innerHTML = `<div class="modal ${(kind === 'monitoramentos' && rec.pontos) || kind === 'controles' || kind === 'ordens' ? 'wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mtitle"><header><h2 id="mtitle">${isNew ? 'Novo ' : podeEditar() ? 'Editar ' : ''}${esc(NOME[kind])}</h2><button class="x" data-close aria-label="Fechar">×</button></header>
+    bg.innerHTML = `<div class="modal ${(kind === 'monitoramentos' && rec.pontos) || kind === 'controles' || kind === 'ordens' || kind === 'silobolsas' ? 'wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mtitle"><header><h2 id="mtitle">${isNew ? (NOVA[kind] ? 'Nova ' : 'Novo ') : podeEditar() ? 'Editar ' : ''}${esc(NOME[kind])}</h2><button class="x" data-close aria-label="Fechar">×</button></header>
       <form novalidate>${fields.map(f => fieldHtml(f, f.t === 'talhoes' ? talChecks(rec.fazenda_id, rec.talhao_ids) : rec[f.k])).join('')}</form>
       ${detalhes(kind, rec)}
       <footer>${isNew ? '' : '<button class="btn danger" data-del>Excluir</button>'}${kind === 'ordens' && !isNew ? `<button class="btn" data-receita>${icon('pdf')} Receita PDF</button>` : ''}<div class="right"><button class="btn" data-close>${podeEditar() ? 'Cancelar' : 'Fechar'}</button><button class="btn primary" data-save>Salvar</button></div></footer></div>`;
@@ -2609,6 +2622,7 @@ a.tile:hover { border-color: var(--brand-2); }
     if (kind === 'ordens') prodEditor(bg, rec);
     if (kind === 'controles') ctrlEditor(bg, rec);
     if (kind === 'ordens') execEditor(bg, rec);
+    if (kind === 'silobolsas') siloEditor(bg);
     bg.addEventListener('click', async e => {
       if (e.target === bg || e.target.closest('[data-close]')) return close();
       if (e.target.closest('[data-receita]')) { const o = Object.assign({}, rec); if (podeEditar()) o.produtos = lerProdutos(bg, rec.produtos); receitaPDF(o); return; }
@@ -2624,6 +2638,7 @@ a.tile:hover { border-color: var(--brand-2); }
         if (!isNew) { Object.assign(out, get(kind, rec.id) || {}); delete out._prod; }
         let missing = null;
         for (const f of fields) {
+          if (f.t === 'silo') { out[f.k] = lerSilo(bg); continue; }
           if (f.t === 'exec') { const ex = bg._lerExec ? bg._lerExec() : null; out[f.k] = ex; if (ex && ex.length) { const ap = ex.reduce((a, x) => a + num(x.area_aplicada), 0), pl = ex.reduce((a, x) => a + num(x.area_planejada), 0); if (pl) out.area_ha = Math.round(pl * 100) / 100; out.area_aplicada_ha = Math.round(ap * 100) / 100; } continue; }
           if (f.t === 'calc') { const c = bg._lerCalc && bg._lerCalc(); out.calc = c ? c.calc : null; out.classificacao = c && c.r ? c.r.classe || null : null; continue; }
           if (f.t === 'produtos') { out[f.k] = lerProdutos(bg, rec.produtos); continue; }
@@ -2993,6 +3008,7 @@ a.tile:hover { border-color: var(--brand-2); }
       else if (o.status === 'Concluída' && diasDesde(o.data_conclusao) <= 15) out.push({ id: 'exe-' + o.id, tipo: 'atividades', data: o.data_conclusao, cor: '#2a78d6', t: `Ordem executada: ${o.titulo}`, d: f, go: 'ordens:' + o.id });
       else if (pendente(o) && o.data_emissao && diasDesde(o.data_emissao) <= 15) out.push({ id: 'emi-' + o.id, tipo: 'atividades', data: o.data_emissao, cor: '#7a4fd0', t: `Nova ordem emitida: ${o.titulo}`, d: f, go: 'ordens:' + o.id });
     }
+    for (const sb of S.data.silobolsas || []) { if (sb.situacao === 'Extraída') continue; const m = ultSilo(sb); if (m && (m.estado === 'Danificado' || m.estado === 'Rompido')) out.push({ id: 'sb-' + sb.id + m.data, tipo: 'atividades', data: m.data, cor: '#d03b3b', t: 'Silobolsa ' + (sb.codigo || '') + ': ' + m.estado.toLowerCase(), d: fazNome(sb.fazenda_id), go: 'silobolsas:' + sb.id }); else if (!m || diasDesde(m.data) > 30) out.push({ id: 'sbm-' + sb.id + (m ? m.data : ''), tipo: 'atividades', data: m ? m.data : sb.data_enchimento || today(), cor: '#eda100', t: 'Silobolsa ' + (sb.codigo || '') + ' sem monitoramento há mais de 30 dias', d: fazNome(sb.fazenda_id), go: 'silobolsas:' + sb.id }); }
     for (const c of S.data.chuvas) { const ev = [c.granizo === 'Sim' && 'granizo', c.geada === 'Sim' && 'geada', c.vento_forte === 'Sim' && 'dano por vento'].filter(Boolean); if (ev.length && diasDesde(c.data) <= 15) out.push({ id: 'cev-' + c.id, tipo: 'atividades', data: c.data, cor: '#d03b3b', t: 'Alerta de clima: ' + ev.join(', '), d: nomeRef('pluviometros', c.pluviometro_id), go: 'chuvas:' + c.id }); }
     for (const c of S.data.chuvas) if (diasDesde(c.data) <= 7) out.push({ id: 'chu-' + c.id, tipo: 'atividades', data: c.data, cor: '#2a78d6', t: `Chuva registrada: ${String(c.mm).replace('.', ',')} mm`, d: nomeRef('pluviometros', c.pluviometro_id), go: 'chuvas:' + c.id });
     return out.sort((a, b) => (b.data || '').localeCompare(a.data || ''));
@@ -3495,6 +3511,85 @@ a.tile:hover { border-color: var(--brand-2); }
     bg._lerExec = () => { if (!box.querySelector('tr[data-tid]')) return rec.talhoes_detalhe || null; lerTela(); const ids = new Set(marcados().map(key)); return [...atual.values()].filter(x => ids.has(key(x.talhao_id))).map(x => Object.assign(x, { talhao_id: get('talhoes', x.talhao_id)?.id ?? x.talhao_id })); };
     render();
   }
+
+  // ---------- Harvest: previsão de colheita ----------
+  const CANA_CORTE = [120, 100, 90, 82, 76, 70]; // t/ha de referência por corte (1º ao 6º ou mais)
+  const PROD_REF = { Soja: [3.6, 'sc', 60], Milho: [9, 'sc', 60], 'Milho safrinha': [6, 'sc', 60], Sorgo: [4.5, 'sc', 60], Feijão: [2.2, 'sc', 60], Trigo: [3.2, 'sc', 60], Algodão: [4.5, '@', 15], Café: [1.8, 'sc', 60] };
+  const CICLO_DIAS = { Soja: 120, Milho: 140, 'Milho safrinha': 130, Sorgo: 120, Feijão: 90, Trigo: 120, Algodão: 180 };
+  const addMeses = (d, m) => { const x = new Date(d + 'T12:00:00'); x.setMonth(x.getMonth() + m); return x.toISOString().slice(0, 10); };
+  const addDias = (d, n) => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+  function previsaoTal(t, safra) {
+    const s = culturaAtual(t, safra); if (!s || s.data_colheita) return null;
+    const area = num(s.area_ha) || num(t.area_ha), cult = s.cultura || '', plantio = s.data_plantio || s.data_plantio_programada || null;
+    let data = s.colheita_prevista || null, prod = num(s.prod_estimada) || null, fonte = s.prod_estimada ? 'Informada' : '', corte = null, idade = null;
+    if (plantio) idade = Math.max(0, Math.round(diasDesde(plantio) / 30.4));
+    if (cult === 'Cana-de-açúcar') {
+      const hist = (S.safPorTal.get(key(t.id)) || []).map(x => x.data_colheita).filter(Boolean).sort();
+      if (plantio) corte = Math.max(1, Math.floor((diasDesde(plantio) - 30) / 365) + (diasDesde(plantio) >= 540 ? 0 : 1));
+      if (!data) { let d = hist.length ? addMeses(hist[hist.length - 1], 12) : plantio ? addMeses(plantio, 18) : null; while (d && d < addMeses(today(), -6)) d = addMeses(d, 12); data = d; }
+      if (!prod) { const m = (S.monPorTal.get(key(t.id)) || []).filter(x => num(x.produtividade_estimada) >= 20 && num(x.produtividade_estimada) <= 250).sort((a, b) => (b.data || '').localeCompare(a.data || ''))[0]; if (m) { prod = num(m.produtividade_estimada); fonte = 'Visita ' + fmtDate(m.data); } }
+      if (!prod && num(s.produtividade_objetivo)) { prod = num(s.produtividade_objetivo); fonte = 'Objetivo da safra'; }
+      if (!prod) { prod = CANA_CORTE[Math.min(CANA_CORTE.length, corte || 1) - 1]; fonte = 'Referência do ' + (corte || 1) + 'º corte'; }
+    } else {
+      if (!data && plantio && CICLO_DIAS[cult]) data = addDias(plantio, CICLO_DIAS[cult]);
+      if (!prod && num(s.produtividade_objetivo)) { prod = num(s.produtividade_objetivo); fonte = 'Objetivo da safra'; }
+      if (!prod && PROD_REF[cult]) { prod = PROD_REF[cult][0]; fonte = 'Referência da cultura'; }
+    }
+    return { t, s, plantio, area, cult, data, prod, fonte, corte, idade, producao: prod ? Math.round(prod * area * 10) / 10 : null };
+  }
+  const HV = { prod: '', safra: '', ordem: 'data' };
+  function viewHarvest() {
+    const root = $('#v-harvest');
+    if (!root.dataset.ready) {
+      root.dataset.ready = 1;
+      root.innerHTML = `<div class="page"><div class="page-head"><div><h2>Previsão de colheita</h2><p>Quando colher e quanto deve render cada talhão. Usa a produtividade informada na safra, a estimada nas visitas ou uma referência por corte e cultura. Clique no talhão para ajustar.</p></div><div class="head-acts"><select id="hv-prod" aria-label="Produtor"></select><select id="hv-safra" aria-label="Safra"></select><button class="btn" data-hv-xlsx>${icon('xls')} Excel</button></div></div>
+        <div id="hv-tiles" class="tiles"></div>
+        <div class="grid2"><section class="card-box"><h3>Área a colher por mês <small>hectares</small></h3><div id="hv-mes"></div></section><section class="card-box"><h3>Produção estimada por cultura</h3><div id="hv-cult"></div></section></div>
+        <section class="card-box"><h3>Talhões a colher <small id="hv-n"></small></h3><div class="table-wrap"><table><thead><tr><th>Talhão</th><th>Fazenda</th><th>Cultura / variedade</th><th class="r">Área (ha)</th><th class="r">Idade</th><th>Colheita prevista</th><th class="r">Produtividade</th><th class="r">Produção (t)</th><th>Base da estimativa</th></tr></thead><tbody id="hv-tb"></tbody></table></div></section></div>`;
+      root.addEventListener('change', e => { if (e.target.id === 'hv-prod') HV.prod = e.target.value; if (e.target.id === 'hv-safra') HV.safra = e.target.value; viewHarvest(); });
+      root.addEventListener('click', e => { const tr = e.target.closest('tr[data-hv]'); if (tr) { const s = get('safras', tr.dataset.hv); if (s) openForm('safras', s); } if (e.target.closest('[data-hv-xlsx]')) baixarHarvest(); });
+    }
+    $('#hv-prod').innerHTML = prodOpts(); $('#hv-prod').value = HV.prod;
+    const sl = safrasLista(); if (!sl.includes(HV.safra)) HV.safra = sl.includes(conf('preferencias').safra_padrao) ? conf('preferencias').safra_padrao : sl[0] || '';
+    $('#hv-safra').innerHTML = sl.map(s => `<option>${esc(s)}</option>`).join(''); $('#hv-safra').value = HV.safra;
+    const fazs = HV.prod ? (S.fazPorProd.get(HV.prod) || []) : S.data.fazendas, fset = new Set(fazs.map(f => key(f.id)));
+    const L = S.data.talhoes.filter(t => fset.has(key(t.fazenda_id))).map(t => previsaoTal(t, HV.safra)).filter(Boolean).sort((a, b) => (a.data || '9').localeCompare(b.data || '9'));
+    HV.lista = L;
+    const area = L.reduce((a, x) => a + x.area, 0), prodT = L.reduce((a, x) => a + num(x.producao), 0), d30 = L.filter(x => x.data && x.data >= today() && x.data <= addDias(today(), 30)), pass = L.filter(x => x.data && x.data < today());
+    const tile = (l, v, s, al) => `<div class="tile ${al ? 'alert' : ''}"><span class="lbl">${l}</span><span class="val">${v}</span><span class="sub">${s}</span></div>`;
+    $('#hv-tiles').innerHTML = tile('Área a colher', fmtHa0(area) + ' ha', fmtInt(L.length) + ' talhões') + tile('Produção estimada', fmtHa0(prodT) + ' t', area ? 'média de ' + fmt1(prodT / area) + ' t/ha' : '—') + tile('Colher nos próximos 30 dias', fmtHa0(d30.reduce((a, x) => a + x.area, 0)) + ' ha', fmtInt(d30.length) + ' talhões') + tile('Passou da data prevista', fmtInt(pass.length) + ' talhões', fmtHa0(pass.reduce((a, x) => a + x.area, 0)) + ' ha sem colheita registrada', pass.length);
+    const meses = [...new Set(L.map(x => (x.data || '').slice(0, 7)).filter(Boolean))].sort().slice(0, 14);
+    $('#hv-mes').innerHTML = colunas(meses.map(ym => { const v = L.filter(x => (x.data || '').startsWith(ym)).reduce((a, x) => a + x.area, 0); return { n: mesLbl(ym), v, lbl: fmtHa0(v) }; }), 'ha');
+    const pc = new Map(); for (const x of L) pc.set(x.cult, (pc.get(x.cult) || 0) + num(x.producao));
+    $('#hv-cult').innerHTML = barras([...pc.entries()].sort((a, b) => b[1] - a[1]).map(([n, v]) => ({ n, v, c: CULT_COLOR[n] || OUTROS, lbl: fmtHa0(v) + ' t' })), { colorFill: 1 });
+    $('#hv-n').textContent = fmtInt(L.length) + ' talhões';
+    $('#hv-tb').innerHTML = L.slice(0, 500).map(x => { const atr = x.data && x.data < today(); return `<tr data-hv="${esc(x.s.id)}" class="click"><td>${esc(nomeTal(x.t))}</td><td>${esc(get('fazendas', x.t.fazenda_id)?.nome || '—')}</td><td>${esc(x.cult)}${x.s.variedade ? ' · ' + esc(x.s.variedade) : ''}${x.corte ? ` <span class="muted">${x.corte}º corte</span>` : ''}</td><td class="r">${fmtHa(x.area)}</td><td class="r">${x.idade != null ? x.idade + ' meses' : '—'}</td><td>${x.data ? (atr ? `<span class="pill bad">${fmtDate(x.data)}</span>` : fmtDate(x.data)) : '<span class="muted">—</span>'}</td><td class="r">${x.prod ? fmt1(x.prod) + (x.cult === 'Cana-de-açúcar' || !PROD_REF[x.cult] ? ' t/ha' : ' t/ha') : '—'}</td><td class="r">${x.producao != null ? fmtHa0(x.producao) : '—'}</td><td class="muted">${esc(x.fonte)}</td></tr>`; }).join('') || '<tr><td colspan="9" class="muted">Nenhum talhão com safra a colher.</td></tr>';
+  }
+  async function baixarHarvest() {
+    try { await loadLib('xlsx'); } catch (e) { toast('Não foi possível gerar a planilha. Verifique a internet.'); return; }
+    const X = window.XLSX, wb = X.utils.book_new();
+    const rows = (HV.lista || []).map(x => ({ Produtor: get('produtores', x.t._prod)?.nome || '', Fazenda: get('fazendas', x.t.fazenda_id)?.nome || '', Talhão: nomeTal(x.t), Cultura: x.cult, Variedade: x.s.variedade || '', Corte: x.corte || '', 'Área (ha)': Math.round(x.area * 100) / 100, Plantio: x.plantio ? fmtDate(x.plantio) : '', 'Idade (meses)': x.idade, 'Colheita prevista': x.data ? fmtDate(x.data) : '', 'Produtividade (t/ha)': x.prod, 'Produção (t)': x.producao, 'Base da estimativa': x.fonte }));
+    X.utils.book_append_sheet(wb, X.utils.json_to_sheet(rows.length ? rows : [{ 'Sem registros': '' }]), 'Previsão de colheita');
+    X.writeFile(wb, 'inovaagro-previsao-colheita-' + today() + '.xlsx'); toast('Planilha gerada.');
+  }
+
+  // ---------- Silo bag: monitoramento da bolsa ----------
+  const SILO_EST = ['Bom', 'Pequenos furos', 'Danificado', 'Rompido'];
+  function siloHtml(list) {
+    return `<div class="field full prod-ed silo-ed"><span style="font-size:13px;font-weight:500;color:var(--muted)">Monitoramentos da bolsa</span>
+      <div class="table-wrap"><table class="prod-t silo-t"><thead><tr><th>Data</th><th>Estado da bolsa</th><th class="r">Umidade (%)</th><th class="r">Temperatura (°C)</th><th class="r">CO₂ (%)</th><th>Observação</th><th></th></tr></thead><tbody>${(list || []).map(siloRow).join('')}</tbody></table></div>
+      <div><button type="button" class="btn small" data-silo-add>+ Monitoramento</button></div></div>`;
+  }
+  const siloRow = (m = {}) => `<tr><td><input type="date" class="s-data" value="${esc(m.data || '')}" aria-label="Data"></td><td><select class="s-est" aria-label="Estado">${SILO_EST.map(x => `<option ${x === (m.estado || 'Bom') ? 'selected' : ''}>${x}</option>`).join('')}</select></td><td><input type="number" step="any" class="s-um r" value="${m.umidade ?? ''}" aria-label="Umidade"></td><td><input type="number" step="any" class="s-temp r" value="${m.temperatura ?? ''}" aria-label="Temperatura"></td><td><input type="number" step="any" class="s-co2 r" value="${m.co2 ?? ''}" aria-label="CO2"></td><td><input type="text" class="s-obs" value="${esc(m.obs || '')}" aria-label="Observação"></td><td><button type="button" class="btn small danger" data-silo-del aria-label="Remover">×</button></td></tr>`;
+  function siloEditor(bg) {
+    const tb = $('.silo-t tbody', bg); if (!tb) return;
+    bg.addEventListener('click', e => {
+      if (e.target.closest('[data-silo-add]')) { tb.insertAdjacentHTML('afterbegin', siloRow({ data: today() })); }
+      const d = e.target.closest('[data-silo-del]'); if (d) d.closest('tr').remove();
+    });
+  }
+  const lerSilo = bg => [...bg.querySelectorAll('.silo-t tbody tr')].map(tr => { const v = c => $(c, tr).value; const n = c => v(c) === '' ? null : Number(v(c)); return { data: v('.s-data') || null, estado: v('.s-est'), umidade: n('.s-um'), temperatura: n('.s-temp'), co2: n('.s-co2'), obs: v('.s-obs').trim() || null }; }).filter(m => m.data).sort((a, b) => b.data.localeCompare(a.data));
+  const ultSilo = r => (r.monitoramentos || []).slice().sort((a, b) => (b.data || '').localeCompare(a.data || ''))[0] || null;
 
   // ---------- Contorno dos talhões: importar KML ou GeoJSON ----------
   function areaGeo(ring) {

@@ -502,3 +502,10 @@ a.tile:hover { border-color: var(--brand-2); }
 .exec-t { min-width: 520px; }
 .exec-t tfoot td { padding: 6px 4px; border-top: 1px solid var(--line); }
 .sec-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.silo-t { min-width: 720px; }
+.silo-t th:nth-child(1) { width: 140px; } .silo-t th:nth-child(2) { width: 150px; } .silo-t th:nth-child(3), .silo-t th:nth-child(4), .silo-t th:nth-child(5) { width: 95px; } .silo-t th:last-child { width: 40px; }
+tr.click { cursor: pointer; }
+tr.click:hover td { background: rgba(94,129,69,.06); }
+.page-head .head-acts { flex: 0 1 auto; justify-content: flex-end; }
+.head-acts select { width: auto; min-width: 170px; max-width: 260px; }
+@media (max-width: 760px) { .page-head .head-acts { justify-content: flex-start; } .head-acts select { flex: 1 1 150px; max-width: none; } }
