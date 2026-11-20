@@ -381,7 +381,7 @@
     async del(k, id) { const { error } = await this.cli.from(k).delete().eq('id', key(id)); if (error) throw error; },
     // Equipe
     async meuPapel() { const r = await this.cli.rpc('meu_papel'); if (r.error) throw r.error; return r.data; },
-    async membros() { const { data, error } = await this.cli.from('membros').select('email,nome,papel,ativo,criado_em').order('email'); if (error) throw error; return data; },
+    async membros() { let r = await this.cli.from('membros').select('email,nome,papel,ativo,criado_em,fazendas').order('email'); if (r.error) { r = await this.cli.from('membros').select('email,nome,papel,ativo,criado_em').order('email'); if (!r.error) S.faltaFazPerm = true; } if (r.error) throw r.error; return r.data; },
     async addMembro(m) { const { error } = await this.cli.from('membros').insert(m); if (error) throw error; },
     async updMembro(email, patch) { const { error } = await this.cli.from('membros').update(patch).eq('email', email); if (error) throw error; },
     async delMembro(email) { const { error } = await this.cli.from('membros').delete().eq('email', email); if (error) throw error; },
@@ -1236,9 +1236,10 @@
           <label class="field"><span>Permissão</span><select name="papel">${Object.entries(PAPEIS).map(([k, p]) => `<option value="${k}" ${k === 'editor' ? 'selected' : ''}>${p.l}</option>`).join('')}</select></label>
           <button class="btn primary" type="submit">Adicionar</button></form>
         <p class="muted" style="margin:0;font-size:13px">Depois de adicionar, envie o endereço do sistema para a pessoa. No primeiro acesso ela digita este e-mail, escolhe uma senha e clica em <b>Primeiro acesso: criar minha senha</b>.</p></section>
-      <div class="table-wrap"><table><thead><tr><th>E-mail</th><th>Nome</th><th>Permissão</th><th>Acesso</th><th></th></tr></thead><tbody>
+      <div class="table-wrap"><table><thead><tr><th>E-mail</th><th>Nome</th><th>Permissão</th><th>Fazendas que vê</th><th>Acesso</th><th></th></tr></thead><tbody>
         ${E.lista.map(m => { const self = m.email.toLowerCase() === eu; return `<tr data-email="${esc(m.email)}"><td>${esc(m.email)}${self ? ' <span class="pill info">você</span>' : ''}</td><td>${esc(m.nome || '—')}</td>
           <td><select data-m="papel" ${self ? 'disabled title="Você não pode mudar a própria permissão"' : ''}>${Object.entries(PAPEIS).map(([k, p]) => `<option value="${k}" ${m.papel === k ? 'selected' : ''}>${p.l}</option>`).join('')}${PAPEIS[m.papel] ? '' : `<option selected>${esc(m.papel)}</option>`}</select></td>
+          <td>${m.papel === 'admin' ? '<span class="muted">Todas (administrador)</span>' : `<button class="btn small" data-m="faz" ${S.faltaFazPerm ? 'disabled title="Rode a atualização do banco para liberar"' : ''}>${(m.fazendas || []).length ? fmtInt(m.fazendas.length) + ' fazenda(s)' : 'Todas'}</button>`}</td>
           <td>${m.ativo === false ? '<span class="pill">Bloqueado</span>' : '<span class="pill ok">Ativo</span>'}</td>
           <td>${self ? '' : `<button class="btn small" data-m="ativo">${m.ativo === false ? 'Liberar' : 'Bloquear'}</button> <button class="btn small danger" data-m="del">Remover</button>`}</td></tr>`; }).join('')}
       </tbody></table></div></div>`;
@@ -1251,11 +1252,33 @@
       catch (err) { toast('Não foi possível adicionar: ' + (err.message || err)); }
     });
   }
+  function escolherFazendas(m) {
+    const sel = new Set((m.fazendas || []).map(String)), bg = document.createElement('div'); bg.className = 'modal-bg';
+    const grupos = S.data.produtores.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR')).map(p => [p, (S.fazPorProd.get(key(p.id)) || []).slice().sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))]).filter(x => x[1].length);
+    bg.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="fz-t"><header><h2 id="fz-t">Fazendas de ${esc(m.nome || m.email)}</h2><button class="x" data-close aria-label="Fechar">×</button></header>
+      <div style="padding:12px 18px;display:grid;gap:10px"><p class="muted" style="margin:0;font-size:13px">Marque as fazendas que esta pessoa pode ver e editar. Sem nenhuma marcada, ela vê todas. A regra vale no banco de dados, não só na tela.</p>
+      <input type="search" placeholder="Buscar fazenda…" data-fz-q aria-label="Buscar fazenda">
+      <div class="fz-list">${grupos.map(([p, fs]) => `<details open><summary><label><input type="checkbox" data-fz-prod="${esc(p.id)}"> <b>${esc(p.nome)}</b> <span class="muted">(${fs.length})</span></label></summary>${fs.map(f => `<label class="fz-it"><input type="checkbox" data-fz="${esc(f.id)}" data-prod="${esc(p.id)}" ${sel.has(key(f.id)) ? 'checked' : ''}> ${esc(f.nome)}</label>`).join('')}</details>`).join('')}</div></div>
+      <footer><button class="btn" data-fz-todas>Liberar todas</button><div class="right"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-fz-save>Salvar</button></div></footer></div>`;
+    document.body.appendChild(bg);
+    const sync = () => bg.querySelectorAll('[data-fz-prod]').forEach(c => { const its = [...bg.querySelectorAll(`[data-fz][data-prod="${c.dataset.fzProd}"]`)]; c.checked = its.every(i => i.checked); c.indeterminate = !c.checked && its.some(i => i.checked); });
+    sync();
+    bg.addEventListener('change', e => { const c = e.target.closest('[data-fz-prod]'); if (c) bg.querySelectorAll(`[data-fz][data-prod="${c.dataset.fzProd}"]`).forEach(i => i.checked = c.checked); sync(); });
+    bg.addEventListener('input', e => { if (!e.target.matches('[data-fz-q]')) return; const q = e.target.value.toLowerCase(); bg.querySelectorAll('.fz-it').forEach(l => l.hidden = q && !l.textContent.toLowerCase().includes(q)); });
+    bg.addEventListener('click', async e => {
+      if (e.target === bg || e.target.closest('[data-close]')) return bg.remove();
+      const todas = e.target.closest('[data-fz-todas]'), salvar = e.target.closest('[data-fz-save]'); if (!todas && !salvar) return;
+      const lista = todas ? null : [...bg.querySelectorAll('[data-fz]:checked')].map(i => i.dataset.fz);
+      try { await SB.updMembro(m.email, { fazendas: lista && lista.length ? lista : null }); toast(lista && lista.length ? 'Acesso limitado a ' + lista.length + ' fazenda(s).' : 'Acesso a todas as fazendas.'); bg.remove(); carregarEquipe(); }
+      catch (err) { toast('Não foi possível salvar: ' + (err.message || err)); }
+    });
+  }
   async function acaoEquipe(e) {
     const tr = e.target.closest('tr[data-email]'); if (!tr) return;
     const email = tr.dataset.email, m = E.lista.find(x => x.email === email), el = e.target.closest('[data-m]'); if (!el || !m) return;
     try {
       if (el.dataset.m === 'papel' && e.type === 'change') { await SB.updMembro(email, { papel: el.value }); toast('Permissão alterada.'); }
+      else if (el.dataset.m === 'faz' && e.type === 'click') { escolherFazendas(m); return; }
       else if (el.dataset.m === 'ativo' && e.type === 'click') { await SB.updMembro(email, { ativo: m.ativo === false }); toast(m.ativo === false ? 'Acesso liberado.' : 'Acesso bloqueado.'); }
       else if (el.dataset.m === 'del' && e.type === 'click') { if (!el.dataset.sure) { el.dataset.sure = 1; el.textContent = 'Confirmar'; return; } await SB.delMembro(email); toast('Removido da equipe.'); }
       else return;

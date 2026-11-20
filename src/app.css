@@ -492,3 +492,8 @@ a.tile:hover { border-color: var(--brand-2); }
 #ctrl-out b { font-size: 16px; }
 .alertas { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-bottom: 10px; }
 .alertas .pill { font-size: 12.5px; padding: 3px 9px; }
+.fz-list { max-height: 52vh; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+.fz-list details { padding: 4px 0; border-bottom: 1px solid var(--line); }
+.fz-list details:last-child { border-bottom: 0; }
+.fz-list summary { cursor: pointer; padding: 4px 0; }
+.fz-it { display: flex; gap: 8px; align-items: center; padding: 3px 0 3px 26px; font-size: 13.5px; }

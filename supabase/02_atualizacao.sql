@@ -71,3 +71,40 @@ end $$;
 drop trigger if exists membros_manter_admin on membros;
 create constraint trigger membros_manter_admin after update or delete on membros
   deferrable initially deferred for each row execute function membros_manter_admin();
+
+-- Permissões por fazenda: se a lista "fazendas" do membro estiver vazia, ele vê todas.
+-- Administrador sempre vê tudo.
+alter table membros add column if not exists fazendas text[];
+create or replace function minhas_fazendas() returns text[] language sql stable security definer set search_path = public as $$
+  select case when m.papel = 'admin' or m.fazendas is null or cardinality(m.fazendas) = 0 then null else m.fazendas end
+    from membros m where lower(m.email) = lower(auth.jwt() ->> 'email') and m.ativo limit 1;
+$$;
+create or replace function pode_ver(t text, rid text, d jsonb) returns boolean language plpgsql stable security definer set search_path = public as $$
+declare f text[] := minhas_fazendas();
+begin
+  if f is null then return true; end if;
+  if t = 'fazendas' then return rid = any(f); end if;
+  if t = 'produtores' then return exists (select 1 from fazendas z where z.dados ->> 'produtor_id' = rid and z.id = any(f)); end if;
+  if d ->> 'fazenda_id' is not null then return d ->> 'fazenda_id' = any(f); end if;
+  if d ->> 'talhao_id' is not null then return exists (select 1 from talhoes x where x.id = d ->> 'talhao_id' and x.dados ->> 'fazenda_id' = any(f)); end if;
+  if t = 'chuvas' and d ->> 'pluviometro_id' is not null then
+    return exists (select 1 from pluviometros p where p.id = d ->> 'pluviometro_id' and (p.dados ->> 'fazenda_id' is null or p.dados ->> 'fazenda_id' = any(f)));
+  end if;
+  return t in ('insumos', 'maquinas', 'aplicadores', 'etiquetas', 'depositos', 'pluviometros', 'chuvas', 'silobolsas', 'armadilhas');
+end $$;
+grant execute on function minhas_fazendas(), pode_ver(text, text, jsonb) to authenticated;
+do $$
+declare t text;
+begin
+  foreach t in array array['produtores','fazendas','talhoes','safras','monitoramentos','ordens',
+                           'insumos','maquinas','aplicadores','depositos','silobolsas','avancos','controles','armadilhas','pluviometros','chuvas','etiquetas'] loop
+    execute format('drop policy if exists equipe_ler on %I', t);
+    execute format('drop policy if exists equipe_incluir on %I', t);
+    execute format('drop policy if exists equipe_alterar on %I', t);
+    execute format('drop policy if exists equipe_excluir on %I', t);
+    execute format('create policy equipe_ler on %I for select to authenticated using (sou_membro() and pode_ver(%L, id, dados))', t, t);
+    execute format('create policy equipe_incluir on %I for insert to authenticated with check (posso_editar() and pode_ver(%L, id, dados))', t, t);
+    execute format('create policy equipe_alterar on %I for update to authenticated using (posso_editar() and pode_ver(%L, id, dados)) with check (posso_editar() and pode_ver(%L, id, dados))', t, t, t);
+    execute format('create policy equipe_excluir on %I for delete to authenticated using (posso_editar() and pode_ver(%L, id, dados))', t, t);
+  end loop;
+end $$;
