@@ -1,6 +1,6 @@
 /* INOVAAGRO: service worker. Guarda o app no celular para abrir sem internet.
    Dados do banco NÃO passam por aqui (ficam no IndexedDB, ver src/offline.js). */
-const VERSAO = 'inovaagro-app-v6';
+const VERSAO = 'inovaagro-app-v7';
 const MAPA = 'inovaagro-mapa';
 const ESSENCIAIS = [
   './', './index.html', './config.js', './manifest.webmanifest',
@@ -25,6 +25,15 @@ async function redePrimeiro(req) {
   } catch (e) {
     return (await c.match(req, { ignoreSearch: true })) || (req.mode === 'navigate' ? c.match('./index.html') : Response.error());
   }
+}
+// Abre na hora com a cópia guardada e atualiza por trás (vale na próxima abertura).
+// Sem cópia guardada, busca na internet como antes.
+async function guardadoPrimeiro(req, e) {
+  const c = await caches.open(VERSAO);
+  const hit = (await c.match(req, { ignoreSearch: true })) || (req.mode === 'navigate' ? await c.match('./index.html') || await c.match('./') : null);
+  if (!hit) return redePrimeiro(req);
+  e.waitUntil(fetch(req).then(r => { if (r && r.ok) return c.put(req, r.clone()).then(() => req.mode === 'navigate' ? c.put('./index.html', r) : null); }).catch(() => {}));
+  return hit;
 }
 async function cacheMapa(req) {
   const c = await caches.open(MAPA);
@@ -53,6 +62,6 @@ self.addEventListener('fetch', e => {
   const u = new URL(req.url);
   if (u.hostname.endsWith('supabase.co')) return; // banco e login: sempre direto
   if (u.hostname === 'server.arcgisonline.com' || u.hostname === 'tile.openstreetmap.org') return e.respondWith(cacheMapa(req));
-  if (u.origin === self.location.origin) return e.respondWith(redePrimeiro(req));
+  if (u.origin === self.location.origin) return e.respondWith(guardadoPrimeiro(req, e));
   if (/cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(u.hostname)) return e.respondWith(cacheDepoisRede(req));
 });
