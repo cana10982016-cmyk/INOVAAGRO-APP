@@ -25,11 +25,11 @@ window.Campo = (function () {
   const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
   const LIMA = '#b1d243', AZUL = '#3b8ee8';
 
-  let pref = { faz: null, base: 'sat', nomes: true, pontos: true, pluv: true, calor: null, calorDias: 90, recentes: [], rotaDias: 15, rotaNunca: false };
+  let pref = { faz: null, base: 'sat', nomes: true, pontos: true, pluv: true, calor: null, calorDias: 90, vigor: false, vigorImg: true, recentes: [], rotaDias: 15, rotaNunca: false };
   try { Object.assign(pref, JSON.parse(localStorage.getItem(LS) || '{}')); } catch (e) { }
   const salvarPref = () => { try { localStorage.setItem(LS, JSON.stringify(pref)); } catch (e) { } };
 
-  let root = null, map = null, bases = {}, baseAtual = null, lyTal, lyLbl, lyPts, lyPluv, lyGps, lyCalor, lyRota;
+  let root = null, map = null, bases = {}, baseAtual = null, lyTal, lyLbl, lyPts, lyPluv, lyGps, lyCalor, lyRota, lyVigor;
   let selTal = null, pane = 'hoje', fila = new Set(), nMidia = 0, faixaFechada = -1;
   const gps = { pos: null, watch: null, seguir: false };
   const movidas = new Map(); // seções do site exibidas dentro do modo campo
@@ -197,6 +197,7 @@ window.Campo = (function () {
     const estradas = L.tileLayer(ESRI + 'Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, pane: 'ref', ...TILE });
     const ruas = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap', ...TILE });
     bases = { sat: [img], hib: [img, estradas, nomes], ruas: [ruas] };
+    lyVigor = L.layerGroup().addTo(map);
     lyTal = L.featureGroup().addTo(map);
     lyCalor = L.layerGroup().addTo(map);
     lyLbl = L.layerGroup().addTo(map);
@@ -225,6 +226,8 @@ window.Campo = (function () {
     const daFaz = pref.faz && String(t.fazenda_id) === String(pref.faz);
     const c = pref.calor ? calor.get(String(t.id)) : undefined;
     if (c != null) return { color: sel ? LIMA : '#ffffff', weight: sel ? 3.5 : daFaz ? 2 : 1.2, opacity: daFaz || !pref.faz || sel ? 1 : 0.55, fillColor: COR_CL[c], fillOpacity: sel ? 0.6 : 0.5 };
+    const vg = pref.vigor && !pref.calor && window.Vigor ? window.Vigor.info(t) : null;
+    if (vg && vg.v) { const img = vgImg && vgImg === String(t.fazenda_id); return { color: sel ? LIMA : '#ffffff', weight: sel ? 3.5 : vg.alerta ? 2.6 : daFaz ? 1.6 : 1.1, opacity: daFaz || !pref.faz || sel ? 1 : 0.55, dashArray: vg.alerta && !sel ? '6 4' : null, fillColor: vg.cl.c, fillOpacity: img ? (sel ? 0.12 : 0) : sel ? 0.65 : 0.55 }; }
     return { color: sel ? LIMA : '#ffffff', weight: sel ? 3.5 : daFaz ? 2 : 1.2, opacity: daFaz || !pref.faz || sel ? 1 : 0.55, fillColor: sel ? LIMA : '#ffffff', fillOpacity: sel ? 0.18 : pref.calor ? 0 : 0.04 };
   }
   // Contorno mais leve só para desenhar: tira pontos que ficam a menos de 0,5 m da linha (invisível no mapa).
@@ -272,9 +275,23 @@ window.Campo = (function () {
       l._sig = sg; l.addTo(lyTal); camadaTal.set(k, l);
     }
     for (const [k, l] of camadaTal) if (!vivos.has(k)) { lyTal.removeLayer(l); camadaTal.delete(k); }
-    desenharPontos(); desenharPluv(); rotulos(); desenharCard(); topo();
+    desenharPontos(); desenharPluv(); rotulos(); desenharCard(); topo(); desenharVigorImg();
   }
-  function estilos() { for (const t of I().S.data.talhoes) { const l = camadaTal.get(String(t.id)); if (l) l.setStyle(estilo(t)); } rotulos(); }
+  // Imagem do vigor pixel a pixel (guardada no aparelho quando o vigor da fazenda é calculado)
+  let vgImg = null, vgSig = null;
+  async function desenharVigorImg() {
+    if (!lyVigor) return;
+    if (pref.vigor) legenda();
+    const f = fazAtual();
+    const quer = pref.vigor && pref.vigorImg && !pref.calor && f && window.Vigor ? String(f.id) : null;
+    const img = quer ? await window.Vigor.imagem(quer) : null;
+    const sig = img ? quer + img.data + img.url.length : null;
+    if (sig === vgSig) return;
+    lyVigor.clearLayers(); vgSig = sig; vgImg = img ? quer : null;
+    if (img) L.imageOverlay(img.url, img.bounds, { opacity: 0.92, interactive: false, className: 'vg-img' }).addTo(lyVigor);
+    estilos();
+  }
+  function estilos() { for (const t of I().S.data.talhoes) { const l = camadaTal.get(String(t.id)); if (l) l.setStyle(estilo(t)); } rotulos(); desenharVigorImg(); }
   // Nomes dos talhões: reaproveita os que já estão na tela e só cria ou tira os que mudaram.
   const lblTal = new Map(); let lblPedido = 0;
   function rotulos() {
@@ -356,6 +373,8 @@ window.Campo = (function () {
   function legenda() {
     let el = $('#cp-leg');
     if (!el) { el = document.createElement('button'); el.id = 'cp-leg'; el.className = 'cp-leg'; el.dataset.cp = 'camadas'; const m = $('#cp-map'); if (!m) return; m.after(el); }
+    if (!pref.calor && pref.vigor && window.Vigor) { el.hidden = false; const r = fazAtual() ? window.Vigor.resumo(fazAtual().id) : null; el.innerHTML = `<b>Vigor por satélite</b><small>${r && r.ult ? 'imagem de ' + window.Vigor.fd(r.ult).slice(0, 5) : 'toque para atualizar'}</small><span>${window.Vigor.CL.slice(1).reverse().map(c => `<i style="background:${c.c}"></i>${esc(c.curto)}`).join('')}</span>`; el.classList.add('vg-leg-cel'); return; }
+    el.classList.remove('vg-leg-cel');
     if (!pref.calor) { el.hidden = true; return; }
     const it = pref.calor === 'todas' ? null : CN() && CN().get(pref.calor);
     el.hidden = false;
@@ -408,6 +427,7 @@ window.Campo = (function () {
     el.innerHTML = `<button class="cp-ib cp-card-x" data-cp="fechar-card" aria-label="Fechar">${ic('fechar')}</button>
       <div class="cp-card-t"><b>${esc(t.nome)}</b><span>${esc(f ? f.nome : '')} · ${I().fmtHa(t.area_ha)} ha</span></div>
       <div class="cp-card-i">${c ? `<span>${esc(c.cultura || '')}${c.variedade ? ' · ' + esc(c.variedade) : ''}${c.safra ? ' · ' + esc(c.safra) : ''}</span>` : '<span class="cp-mut">Sem safra cadastrada</span>'}
+        ${window.Vigor && window.Vigor.info(t).v ? `<span class="vg-card">${window.Vigor.linhaTalhao(t)}</span>` : ''}
         <span>${v ? `Última visita: ${esc(I().fmtDate(v.data))}${v.semaforo ? ` <i class="cp-dot" style="background:${SEM[v.semaforo] || 'var(--muted)'}"></i>` : ''}` : '<span class="cp-mut">Sem visitas</span>'}</span></div>
       <div class="cp-card-b"><button class="cp-btn pri" data-cp="visita-nova">${ic('lupa')}Nova visita</button><button class="cp-btn" data-cp="atividades">${ic('mais')}Atividades</button><button class="cp-btn" data-cp="navegar">${ic('navegar')}Ir até o talhão</button><button class="cp-btn" data-cp="linha-tempo">${ic('historico')}Histórico</button></div>`;
   }
@@ -544,9 +564,14 @@ window.Campo = (function () {
         <label class="cp-f cp-full"><span>Período</span><select data-cp-calor="dias">${[30, 60, 90, 180, 365].map(d => `<option value="${d}" ${pref.calorDias === d ? 'selected' : ''}>Últimos ${d} dias</option>`).join('')}</select></label>
       </div>
       <p class="cp-mut">Cada talhão fica com a cor da visita mais recente do período. As bolinhas mostram cada amostra no ponto do GPS.</p>
+      ${window.Vigor ? `<h3 class="cp-h3 cp-h3s">Vigor por satélite</h3>
+      <div class="cp-tg">${[['vigor', 'Colorir talhões pelo vigor'], ['vigorImg', 'Imagem pixel a pixel (manchas)']].map(([k, l]) => `<label><span>${l}</span><input type="checkbox" role="switch" data-cp="tg" data-k="${k}" ${pref[k] ? 'checked' : ''}></label>`).join('')}</div>
+      ${pref.calor ? '<p class="cp-mut">Desligue o mapa de calor acima para ver as cores do vigor.</p>' : ''}
+      <div id="cp-vg-pan">${fazAtual() ? '' : '<p class="cp-mut">Escolha uma fazenda no topo do mapa para calcular o vigor dos talhões.</p>'}</div>` : ''}
       ${fazAtual() ? `<button class="cp-btn pri" data-cp="mo-faz">${ic('mapaoff')}${MO.info[fazAtual().id] ? 'Mapa offline de ' + esc(fazAtual().nome) + ' ✓' : 'Baixar a fazenda ' + esc(fazAtual().nome) + ' inteira'}</button>` : ''}
       <button class="cp-btn" data-cp="mo-tela">${ic('mapaoff')}Mapas offline das fazendas</button>
       <button class="cp-btn" data-cp="baixar-mapa">${ic('download')}Salvar só a área da tela</button>`, 'alto');
+    if (window.Vigor && fazAtual()) window.Vigor.montar($('#cp-vg-pan'), fazAtual().id, { btn: 'cp-btn pri vg-btn', max: 5, cls: 'vg-cel', agendar: true });
   }
 
   // ---------- Telas (pilha) ----------
@@ -1365,7 +1390,7 @@ window.Campo = (function () {
   function clique(e) {
     const b = e.target.closest('[data-cp]'); if (!b || !root.contains(b)) return;
     const a = b.dataset.cp;
-    if (b.matches('input')) { if (a === 'tg') { pref[b.dataset.k] = b.checked; salvarPref(); if (b.dataset.k === 'nomes') rotulos(); if (b.dataset.k === 'pontos') desenharPontos(); if (b.dataset.k === 'pluv') desenharPluv(); } if (a === 'so-faz') { soFaz = b.checked; historico(); } return; }
+    if (b.matches('input')) { if (a === 'tg') { pref[b.dataset.k] = b.checked; salvarPref(); if (b.dataset.k === 'nomes') rotulos(); if (b.dataset.k === 'pontos') desenharPontos(); if (b.dataset.k === 'pluv') desenharPluv(); if (b.dataset.k === 'vigor' || b.dataset.k === 'vigorImg') { estilos(); legenda(); desenharVigorImg(); } } if (a === 'so-faz') { soFaz = b.checked; historico(); } return; }
     switch (a) {
       case 'menu': menu(); break;
       case 'fechar-menu': fecharMenu(); break;

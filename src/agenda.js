@@ -609,5 +609,5 @@ window.Agenda = (function () {
       if (cel && cel.isConnected) renderCel();
     });
   }
-  return { view, avisos, contar, contarMeu, paraRota, celular, abrir, situacao, IC };
+  return { view, avisos, contar, contarMeu, paraRota, celular, abrir, situacao, IC, novo: def => formulario(null, Object.assign({ data: hoje(), tecnico: eu() }, def || {})) };
 })();

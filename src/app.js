@@ -12,7 +12,8 @@
   const KINDS_NOVOS = ['insumos', 'maquinas', 'aplicadores', 'depositos', 'silobolsas', 'avancos', 'controles', 'armadilhas', 'pluviometros', 'chuvas', 'etiquetas', 'config', 'tipos_trabalho'];
   const KINDS_FIN = ['veiculos', 'despesas', 'contas']; // módulo financeiro (src/financeiro.js)
   const KINDS_AGENDA = ['agenda']; // agenda da equipe (src/agenda.js)
-  const KINDS = [...KINDS_BASE, ...KINDS_NOVOS, ...KINDS_FIN, ...KINDS_AGENDA];
+  const KINDS_VIGOR = ['vigor']; // vigor dos talhões por satélite (src/vigor.js)
+  const KINDS = [...KINDS_BASE, ...KINDS_NOVOS, ...KINDS_FIN, ...KINDS_AGENDA, ...KINDS_VIGOR];
   const NOME = { produtores: 'produtor', fazendas: 'fazenda', talhoes: 'talhão', safras: 'plantio', monitoramentos: 'monitoramento', ordens: 'ordem de trabalho',
     insumos: 'insumo', maquinas: 'máquina', aplicadores: 'aplicador', depositos: 'depósito', silobolsas: 'silobolsa', avancos: 'avanço', controles: 'controle', armadilhas: 'armadilha', pluviometros: 'pluviômetro', chuvas: 'registro de chuva', etiquetas: 'etiqueta', config: 'cadastro', tipos_trabalho: 'tipo de trabalho' };
   const NOVA = { ordens: 1, fazendas: 1, safras: 0, tipos_trabalho: 0, maquinas: 1, silobolsas: 1, armadilhas: 1, etiquetas: 1 };
@@ -318,6 +319,7 @@
       case 'situacao': { const s = SIT[situacao(t)]; return [s.l, s.c]; }
       case 'condicao': { const c = condicao(t); return c ? [c, COND[c] || OUTROS] : ['Sem monitoramento', OUTROS]; }
       case 'atividade': { const a = ATV[atividade(t)]; return [a.l, a.c]; }
+      case 'vigor': return window.Vigor ? window.Vigor.grupo(t) : ['Sem leitura de vigor', OUTROS];
       default: { const p = get('produtores', t._prod); return [p ? p.nome : 'Sem produtor', S.colors.get(key(t._prod)) || OUTROS]; }
     }
   }
@@ -413,6 +415,7 @@
       if (!(await SB.session().catch(() => null))) { falhou = true; if (avisar !== false) toast('Entre de novo no app para enviar as alterações salvas no aparelho.'); return; }
       for (const it of fila) {
         if (it.k === 'agenda' && S.faltaAgenda) continue; // tabela ainda não criada: fica guardado no aparelho
+        if (it.k === 'vigor' && S.faltaVigor) continue; // idem (supabase/07_vigor.sql)
         try { if (it.del) await SB.del(it.k, it.id); else await SB.upsert(it.k, [it.obj]); await Off.tirar(it); }
         catch (e) {
           if (Off.erroDeRede(e)) { falhou = true; break; }
@@ -423,7 +426,7 @@
       Sync.offline = falhou && !SB.user;
     } finally {
       Sync.rodando = false; Sync.pend = (await Off.fila()).length; setSync();
-      if (!falhou && Sync.pend > (S.faltaAgenda ? (await Off.fila()).filter(it => it.k === 'agenda').length : 0)) setTimeout(() => sincronizar(false), 300); // alterações feitas durante o envio
+      if (!falhou && Sync.pend > (S.faltaAgenda || S.faltaVigor ? (await Off.fila()).filter(it => (it.k === 'agenda' && S.faltaAgenda) || (it.k === 'vigor' && S.faltaVigor)).length : 0)) setTimeout(() => sincronizar(false), 300); // alterações feitas durante o envio
       if (falhou && avisar) toast('Salvo no aparelho. Será enviado quando a internet voltar.');
     }
   }
@@ -462,6 +465,7 @@
         for (;;) {
           const { data, error } = await this.cli.from(k).select('id,dados').range(from, from + 999);
           if (error && KINDS_AGENDA.includes(k) && !Off.erroDeRede(error)) { S.faltaAgenda = true; break; } // banco ainda sem a agenda (supabase/06_agenda.sql)
+          if (error && KINDS_VIGOR.includes(k) && !Off.erroDeRede(error)) { S.faltaVigor = true; break; } // banco ainda sem o vigor (supabase/07_vigor.sql)
           if (error && KINDS_FIN.includes(k) && !Off.erroDeRede(error)) { S.faltaFin = true; break; } // banco ainda sem o módulo financeiro
           if (error && KINDS_NOVOS.includes(k) && !Off.erroDeRede(error)) { S.faltaTabela = true; break; } // banco ainda sem a atualização
           if (error) throw error;
@@ -587,7 +591,7 @@
     'Atividades', ['agenda', 'Agenda da equipe'], ['monitoramentos', 'Visitas'], ['ord-aplicacoes', 'Aplicações'], ['ord-plantio', 'Plantio'], ['ord-colheita', 'Colheita'], ['ord-fertilizacao', 'Fertilização'], ['ord-tratos', 'Tratos culturais'], ['ord-outros', 'Outros'], ['ordens', 'Todas as ordens'], ['avancos', 'Avanços de plantio e colheita'], ['controles', 'Controles de campo'], ['cotesia', 'Liberação de Cotesia'], ['armadilhas', 'Armadilhas'],
     'Análise', ['analise', 'Painéis de análise'], ['relsis', 'Relatórios do sistema'], ['relatorios', 'Relatório por fazenda (PDF)'], ['custos', 'Custos por talhão'], ['comparar', 'Comparar safras'], ['produtividade', 'Produtividade da cana'], ['linhatempo', 'Histórico do talhão'], ['relmensal', 'Relatório mensal do cliente'],
     'Clima', ['clima', 'Chuvas e previsão'], ['pluviometros', 'Pluviômetros'],
-    'Imagens satelitais', ['satelite', 'NDVI e cor real'],
+    'Imagens satelitais', ['satelite', 'Vigor dos talhões e NDVI'],
     'Harvest', ['harvest', 'Previsão de colheita'],
     'Silo bag', ['silobolsas', 'Silobolsas'], ['depositos', 'Depósitos'],
     'Financeiro', ['financeiro', 'Despesas e veículos'],
@@ -814,8 +818,11 @@
     else if (S.colorBy === 'situacao') items.sort((a, b) => Object.values(SIT).findIndex(s => s.l === a[0]) - Object.values(SIT).findIndex(s => s.l === b[0]));
     else if (S.colorBy === 'condicao') { const ord = [...Object.keys(COND), 'Sem monitoramento']; items.sort((a, b) => ord.indexOf(a[0]) - ord.indexOf(b[0])); }
     else if (S.colorBy === 'produtor') items.sort((a, b) => a[0].localeCompare(b[0], 'pt-BR'));
+    else if (S.colorBy === 'vigor' && window.Vigor) { const ord = [...window.Vigor.CL.map(c => c.l).reverse(), window.Vigor.SEM.l]; items.sort((a, b) => ord.indexOf(a[0]) - ord.indexOf(b[0])); }
     else items.sort((a, b) => (a[1].c === OUTROS) - (b[1].c === OUTROS) || b[1].a - a[1].a);
     $('#legend').innerHTML = items.map(([n, x]) => `<div class="li ${S.ocultos.has(n) ? 'off' : ''}" role="button" tabindex="0" data-leg="${esc(n)}" aria-pressed="${!S.ocultos.has(n)}" title="Clique para mostrar ou esconder · ${esc(n)}: ${fmtInt(x.n)} talhões, ${fmtHa(x.a)} ha"><i class="dot" style="background:${x.c}"></i><span class="grow">${esc(n)}</span><span class="num">${fmtHa0(x.a)} ha</span></div>`).join('') || '<span class="muted">Nenhum talhão.</span>';
+    const vb = $('#vg-mapa');
+    if (vb && window.Vigor) { vb.hidden = S.colorBy !== 'vigor'; if (!vb.hidden) { if (S.sel.fazenda) window.Vigor.montar(vb, S.sel.fazenda, { cls: 'vg-compacto', max: 4, agendar: true }); else { delete vb.dataset.vgPan; vb.innerHTML = '<p class="vg-dica">Clique numa fazenda no mapa ou na lista para ver e atualizar o vigor dos talhões.</p>'; } } }
   }
 
   function selectProdutor(id) { S.sel = { produtor: id, fazenda: null, talhao: null }; afterSel(true); }
@@ -875,6 +882,7 @@
         <dt>Condição</dt><dd>${cond ? `<i class="dot" style="background:${COND[cond] || OUTROS}"></i> ${esc(cond)}` : '<span class="muted">Sem monitoramento</span>'}</dd>
         ${t.obs ? `<dt>Obs.</dt><dd>${esc(t.obs)}</dd>` : ''}<dt>Código SIMA</dt><dd class="num muted">${/^\d+$/.test(key(t.id)) ? esc(t.id) : '—'}</dd></dl>
         <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small primary" data-act="hist">Histórico do talhão</button><button class="btn small" data-act="ndvi">NDVI</button><button class="btn small so-edita" data-act="edit-tal">Editar talhão</button></div>
+        ${window.Vigor && window.Vigor.info(t).v ? `<section class="mini"><div class="sec-title">Vigor por satélite <button class="btn small" data-act="ndvi">Ver imagens</button></div>${window.Vigor.blocoTalhao(t)}</section>` : ''}
         <section class="mini"><div class="sec-title">Safras <button class="btn small so-edita" data-act="new-saf">+ Plantio</button></div>
           ${saf.length ? saf.map(s => `<div class="it" data-edit="safras:${esc(s.id)}"><div class="top"><b>${esc(s.cultura)}</b><span class="muted">${esc(s.safra)}</span></div><span class="muted">${esc(s.variedade || '')}${s.data_plantio ? ' · plantio ' + fmtDate(s.data_plantio) : ''}${s.produtividade ? ' · ' + esc(s.produtividade) : ''}</span></div>`).join('') : '<p class="empty">Nenhum plantio cadastrado.</p>'}</section>
         <section class="mini"><div class="sec-title">Monitoramentos <button class="btn small so-edita" data-act="new-mon">+ Registrar</button></div>
@@ -2976,10 +2984,10 @@
     if (!root.dataset.ready) {
       root.dataset.ready = 1;
       root.innerHTML = `<div class="page"><div class="page-head"><div><h2>Imagens satelitais</h2><p>Índice de vegetação (NDVI) e cor real das imagens Sentinel-2 dos últimos 6 meses. Verde forte é lavoura vigorosa; amarelo e vermelho mostram falhas, estresse ou solo exposto.</p></div><div class="head-acts"><select id="sat-faz" aria-label="Fazenda"></select></div></div>
-        <div class="sat-grid"><section class="card-box sat-lista"><h3>Datas disponíveis <small>menos nuvem = melhor</small></h3><div class="seg" role="group" aria-label="Tipo de imagem"><button data-sat-modo="ndvi">NDVI</button><button data-sat-modo="cor">Cor real</button></div><div id="sat-cenas"></div></section>
+        <div class="sat-grid"><div class="sat-col"><section class="card-box vg-sat" id="vg-sat"></section><section class="card-box sat-lista"><h3>Datas disponíveis <small>menos nuvem = melhor</small></h3><div class="seg" role="group" aria-label="Tipo de imagem"><button data-sat-modo="vigor" title="Imagem do último cálculo de vigor, só dentro dos talhões">Vigor</button><button data-sat-modo="ndvi">NDVI</button><button data-sat-modo="cor">Cor real</button></div><div id="sat-cenas"></div></section></div>
         <section class="card-box sat-mapa"><div id="sat-map" role="region" aria-label="Mapa com imagem de satélite"></div><div class="ndvi-leg"><span>Solo / falha</span><i></i><span>Vegetação vigorosa</span></div><p class="muted" id="sat-info" style="margin:0;font-size:12.5px"></p></section></div></div>`;
       root.addEventListener('change', e => { if (e.target.id === 'sat-faz') { SAT.faz = e.target.value; SAT.tal = null; viewSatelite(); } });
-      root.addEventListener('click', e => { const c = e.target.closest('[data-cena]'); if (c) { SAT.cena = SAT.cenas.find(x => x.id === c.dataset.cena); desenharSat(); } const m = e.target.closest('[data-sat-modo]'); if (m) { SAT.modo = m.dataset.satModo; desenharSat(); } });
+      root.addEventListener('click', e => { const c = e.target.closest('[data-cena]'); if (c) { SAT.cena = SAT.cenas.find(x => x.id === c.dataset.cena); desenharSat(); } const m = e.target.closest('[data-sat-modo]'); if (m) { SAT.modo = m.dataset.satModo; SAT.modoEscolhido = true; desenharSat(); } });
     }
     const fz = S.data.fazendas.slice().sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
     if (!SAT.faz && fz[0]) SAT.faz = key(S.sel.fazenda && get('fazendas', S.sel.fazenda) ? S.sel.fazenda : fz[0].id);
@@ -2991,7 +2999,9 @@
     setTimeout(() => SAT.map.invalidateSize(), 50);
     const ts = S.talPorFaz.get(SAT.faz) || [], bb = bboxGeoms(ts.map(t => t.geometry));
     if (SAT.linhas) SAT.linhas.remove();
-    SAT.linhas = L.featureGroup(ts.filter(t => t.geometry).map(t => L.geoJSON(t.geometry, { style: { color: key(t.id) === key(SAT.tal) ? '#ffd400' : '#ffffff', weight: key(t.id) === key(SAT.tal) ? 3 : 1.5, fill: false } }).bindTooltip(esc(nomeTal(t)), { sticky: true }))).addTo(SAT.map);
+    const VG = window.Vigor;
+    SAT.linhas = L.featureGroup(ts.filter(t => t.geometry).map(t => { const sel = key(t.id) === key(SAT.tal), vi = VG && VG.info(t); return L.geoJSON(t.geometry, { style: { color: sel ? '#ffd400' : vi && vi.v ? vi.cl.c : '#ffffff', weight: sel ? 3.5 : vi && vi.alerta ? 3 : vi && vi.v ? 2.2 : 1.5, fill: false, dashArray: vi && vi.alerta && !sel ? '6 4' : null } }).bindTooltip(esc(nomeTal(t)) + (vi && vi.v ? ` · NDVI ${VG.f2(vi.v.ndvi)}${vi.alerta ? ' · precisa de visita' : ''}` : ''), { sticky: true }).on('click', () => { SAT.tal = key(t.id); viewSatelite(); }); })).addTo(SAT.map);
+    if (VG) { VG.montar($('#vg-sat'), SAT.faz, { agendar: true, max: 8 }); const fk = SAT.faz; VG.imagem(fk).then(img => { if (SAT.faz !== fk) return; SAT.vgImgDados = img; if (img && !SAT.modoEscolhido) SAT.modo = 'vigor'; desenharSat(); }); }
     if (!bb) { $('#sat-cenas').innerHTML = '<p class="muted">Esta fazenda não tem contorno de talhão. Importe o contorno em Talhões → Importar contorno (KML).</p>'; return; }
     const alvo = SAT.tal && get('talhoes', SAT.tal);
     if (alvo && alvo.geometry) SAT.map.fitBounds(L.geoJSON(alvo.geometry).getBounds(), { maxZoom: 16 }); else SAT.map.fitBounds([[bb[1], bb[0]], [bb[3], bb[2]]], { maxZoom: 16 });
@@ -3006,7 +3016,16 @@
     document.querySelectorAll('[data-sat-modo]').forEach(b => b.setAttribute('aria-pressed', b.dataset.satModo === SAT.modo));
     $('#sat-cenas').innerHTML = SAT.cenas.length ? `<div class="cenas">${SAT.cenas.map(c => `<button class="cena" data-cena="${esc(c.id)}" aria-pressed="${SAT.cena && c.id === SAT.cena.id}"><b>${fmtDate(c.data)}</b><span class="pill ${c.nuvem <= 10 ? 'ok' : c.nuvem <= 25 ? 'warn' : 'bad'}">${c.nuvem}% nuvem</span></button>`).join('')}</div>` : '<p class="muted">Nenhuma imagem com pouca nuvem nos últimos 6 meses.</p>';
     if (SAT.lyr) { SAT.lyr.remove(); SAT.lyr = null; }
-    $('.ndvi-leg').hidden = SAT.modo !== 'ndvi';
+    const vgBtn = document.querySelector('[data-sat-modo="vigor"]'); if (vgBtn) vgBtn.hidden = !SAT.vgImgDados;
+    if (SAT.modo === 'vigor' && !SAT.vgImgDados) SAT.modo = 'ndvi';
+    $('.ndvi-leg').hidden = SAT.modo === 'cor';
+    if (SAT.modo === 'vigor') {
+      const img = SAT.vgImgDados;
+      SAT.lyr = L.imageOverlay(img.url, img.bounds, { opacity: 0.92, className: 'vg-img' }).addTo(SAT.map);
+      SAT.linhas && SAT.linhas.bringToFront();
+      $('#sat-info').textContent = 'Vigor calculado na imagem de ' + fmtDate(img.data) + ' (Sentinel-2, 20 m por ponto). Cinza: nuvem ou sem dado. Para outra data, use NDVI ou Cor real.';
+      return;
+    }
     if (!SAT.cena) return;
     SAT.lyr = L.tileLayer(tileSat(SAT.cena.id, SAT.modo), { maxZoom: 18, maxNativeZoom: 15, opacity: 0.85, crossOrigin: true }).addTo(SAT.map);
     SAT.lyr.on('tileerror', () => { $('#sat-info').textContent = 'Algumas partes da imagem não carregaram. Tente outra data.'; });
@@ -3286,5 +3305,5 @@
   // Nome do pluviômetro de uma chuva, mesmo depois de excluído
   const nomePluv = c => { const r = get('pluviometros', c.pluviometro_id); return r ? (r.nome || key(r.id)) : c.pluviometro_nome ? c.pluviometro_nome + ' (excluído)' : '—'; };
   // Ponte para o modo campo (src/campo.js)
-  window.INOVA = { updateBadges, climaFaz: id => { CL.faz = key(id); const v = $('#v-clima'); if (v && v.dataset.ready && !v.hidden) viewClima(); }, selectTalhao, selectFazenda, selectProdutor, previsao, atrasada, notificacoes, nomeDe, loadLib, imgDataUrl, custosOrdem, dataCusto, safraPorData, sugerirProdutos, insPorNome, conf, exportar, semaforo, fmtR, fmtHa0, diasDesde, num, safrasLista, ordemDaVisita, ehAdmin: () => S.papel === 'admin' || Store.mode !== 'supabase', COT, excluirPluv, nomePluv, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
+  window.INOVA = { satTalhao: id => { const t = get('talhoes', id); if (!t) return; SAT.faz = key(t.fazenda_id); SAT.tal = key(t.id); if (location.hash === '#satelite') viewSatelite(); else location.hash = 'satelite'; }, updateBadges, climaFaz: id => { CL.faz = key(id); const v = $('#v-clima'); if (v && v.dataset.ready && !v.hidden) viewClima(); }, selectTalhao, selectFazenda, selectProdutor, previsao, atrasada, notificacoes, nomeDe, loadLib, imgDataUrl, custosOrdem, dataCusto, safraPorData, sugerirProdutos, insPorNome, conf, exportar, semaforo, fmtR, fmtHa0, diasDesde, num, safrasLista, ordemDaVisita, ehAdmin: () => S.papel === 'admin' || Store.mode !== 'supabase', COT, excluirPluv, nomePluv, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
 })();
