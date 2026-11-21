@@ -1455,6 +1455,11 @@ html, body { overscroll-behavior: none; }
 
 @media (max-width: 760px) { .topbar, .modal-bg { backdrop-filter: none; -webkit-backdrop-filter: none; } .topbar { background: var(--surface); } }
 
+.pluv-del .modal { max-width: 460px; }
+.pluv-del-b { padding: 4px 20px 8px; display: grid; gap: 8px; line-height: 1.45; }
+.pluv-del-f { display: grid !important; grid-template-columns: 1fr; justify-items: stretch; gap: 8px; }
+.pluv-del-f .btn { width: 100%; justify-content: center; min-height: 44px; }
+
 /* ===== Modo campo (celular) — src/campo.js ===== */
 body.campo-on .nav, body.campo-on .topbar, body.campo-on .nav-scrim { display: none !important; }
 body.campo-on main { top: 0; left: 0; right: 0; bottom: 0; }
@@ -1749,6 +1754,11 @@ body.campo-on .toast { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); ma
 .cp-prop { display: grid; gap: 12px; }
 .cp-propr { display: flex; align-items: baseline; justify-content: space-between; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); }
 .cp-propr span { color: var(--muted); font-weight: 600; } .cp-propr b { font-size: 28px; font-variant-numeric: tabular-nums; }
+.cp-pv { display: grid; gap: 10px; padding: 14px; margin: 0 12px 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.cp-pv > div:first-child { display: grid; gap: 3px; } .cp-pv small { color: var(--muted); font-size: 13px; }
+.cp-pv-b { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.cp-pv-b .cp-btn { min-height: 42px; padding: 0 8px; gap: 6px; font-size: 14px; } .cp-pv-b svg { width: 18px; height: 18px; flex: none; }
+.cp-btn-del { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
 
 /* INOVAAGRO — Financeiro (despesas e veículos). Cores das categorias: ordem fixa validada para daltonismo. */
 :root { --fin-c1: #2a78d6; --fin-c2: #eb6834; --fin-c3: #1baf7a; --fin-c4: #eda100; --fin-c5: #e87ba4; --fin-c6: #6250d6; }
@@ -3269,7 +3279,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
     const ch = S.data.chuvas.slice().sort((a, b) => (b.data || '').localeCompare(a.data || ''));
     $('#cl-tot').textContent = fmtInt(ch.length) + ' registros · ' + fmtHa0(ch.reduce((a, x) => a + num(x.mm), 0)) + ' mm no total';
     const sn = v => v === 'Sim' ? '<span class="pill warn">Sim</span>' : '<span class="muted">Não</span>';
-    $('#cl-tb').innerHTML = ch.map(c => `<tr data-row="${esc(c.id)}"><td>${fmtDate(c.data)}</td><td>${esc(nomeRef('pluviometros', c.pluviometro_id))}</td><td class="r">${esc(String(c.mm ?? '—').replace('.', ','))}</td><td>${sn(c.granizo)}</td><td>${sn(c.geada)}</td><td>${sn(c.vento_forte)}</td><td class="wrap">${esc(c.obs || '')}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Nenhum registro de chuva.</td></tr>';
+    $('#cl-tb').innerHTML = ch.map(c => `<tr data-row="${esc(c.id)}"><td>${fmtDate(c.data)}</td><td>${esc(nomePluv(c))}</td><td class="r">${esc(String(c.mm ?? '—').replace('.', ','))}</td><td>${sn(c.granizo)}</td><td>${sn(c.geada)}</td><td>${sn(c.vento_forte)}</td><td class="wrap">${esc(c.obs || '')}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Nenhum registro de chuva.</td></tr>';
     desenharPrev(); acumulados();
   }
   function distKm(a, b) { const R = 6371, r = x => x * Math.PI / 180, dl = r(b[0] - a[0]), dg = r(b[1] - a[1]); const h = Math.sin(dl / 2) ** 2 + Math.cos(r(a[0])) * Math.cos(r(b[0])) * Math.sin(dg / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); }
@@ -3672,6 +3682,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
       if (e.target.closest('[data-mon-ordem]')) { ordemDaVisita(rec); return; }
       if (e.target.closest('[data-sug-abrir]')) { abrirSugestao(bg); return; }
       if (e.target.closest('[data-receita]')) { const o = Object.assign({}, rec); if (podeEditar()) o.produtos = lerProdutos(bg, rec.produtos); receitaPDF(o); return; }
+      if (e.target.closest('[data-del]') && kind === 'pluviometros') { if (await excluirPluv(rec)) close(); return; }
       if (e.target.closest('[data-del]')) {
         const b = e.target.closest('[data-del]');
         if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'Confirmar exclusão'; return; }
@@ -4056,8 +4067,8 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
       else if (pendente(o) && o.data_emissao && diasDesde(o.data_emissao) <= 15) out.push({ id: 'emi-' + o.id, tipo: 'atividades', data: o.data_emissao, cor: '#7a4fd0', t: `Nova ordem emitida: ${o.titulo}`, d: f, go: 'ordens:' + o.id });
     }
     for (const sb of S.data.silobolsas || []) { if (sb.situacao === 'Extraída') continue; const m = ultSilo(sb); if (m && (m.estado === 'Danificado' || m.estado === 'Rompido')) out.push({ id: 'sb-' + sb.id + m.data, tipo: 'atividades', data: m.data, cor: '#d03b3b', t: 'Silobolsa ' + (sb.codigo || '') + ': ' + m.estado.toLowerCase(), d: fazNome(sb.fazenda_id), go: 'silobolsas:' + sb.id }); else if (!m || diasDesde(m.data) > 30) out.push({ id: 'sbm-' + sb.id + (m ? m.data : ''), tipo: 'atividades', data: m ? m.data : sb.data_enchimento || today(), cor: '#eda100', t: 'Silobolsa ' + (sb.codigo || '') + ' sem monitoramento há mais de 30 dias', d: fazNome(sb.fazenda_id), go: 'silobolsas:' + sb.id }); }
-    for (const c of S.data.chuvas) { const ev = [c.granizo === 'Sim' && 'granizo', c.geada === 'Sim' && 'geada', c.vento_forte === 'Sim' && 'dano por vento'].filter(Boolean); if (ev.length && diasDesde(c.data) <= 15) out.push({ id: 'cev-' + c.id, tipo: 'atividades', data: c.data, cor: '#d03b3b', t: 'Alerta de clima: ' + ev.join(', '), d: nomeRef('pluviometros', c.pluviometro_id), go: 'chuvas:' + c.id }); }
-    for (const c of S.data.chuvas) if (diasDesde(c.data) <= 7) out.push({ id: 'chu-' + c.id, tipo: 'atividades', data: c.data, cor: '#2a78d6', t: `Chuva registrada: ${String(c.mm).replace('.', ',')} mm`, d: nomeRef('pluviometros', c.pluviometro_id), go: 'chuvas:' + c.id });
+    for (const c of S.data.chuvas) { const ev = [c.granizo === 'Sim' && 'granizo', c.geada === 'Sim' && 'geada', c.vento_forte === 'Sim' && 'dano por vento'].filter(Boolean); if (ev.length && diasDesde(c.data) <= 15) out.push({ id: 'cev-' + c.id, tipo: 'atividades', data: c.data, cor: '#d03b3b', t: 'Alerta de clima: ' + ev.join(', '), d: nomePluv(c), go: 'chuvas:' + c.id }); }
+    for (const c of S.data.chuvas) if (diasDesde(c.data) <= 7) out.push({ id: 'chu-' + c.id, tipo: 'atividades', data: c.data, cor: '#2a78d6', t: `Chuva registrada: ${String(c.mm).replace('.', ',')} mm`, d: nomePluv(c), go: 'chuvas:' + c.id });
     if (window.Financeiro) try { out.push(...window.Financeiro.avisos()); } catch (e) { console.warn(e); } // despesas, orçamento e contas
     return out.sort((a, b) => (b.data || '').localeCompare(a.data || ''));
   }
@@ -5305,8 +5316,38 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
     if (SB.on) sincronizar(false);
     document.dispatchEvent(new Event('inova:pronto'));
   }
+  // Excluir pluviômetro: pergunta o que fazer com as chuvas registradas nele.
+  function excluirPluv(p) {
+    if (!p) return Promise.resolve(false);
+    if (!podeEditar()) { toast('Você não tem permissão para excluir.'); return Promise.resolve(false); }
+    const ch = S.data.chuvas.filter(c => key(c.pluviometro_id) === key(p.id));
+    const n = ch.length, mm = ch.reduce((a, c) => a + num(c.mm), 0);
+    return new Promise(res => {
+      const bg = document.createElement('div'); bg.className = 'modal-bg pluv-del';
+      bg.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="pdt"><header><h2 id="pdt">Excluir pluviômetro</h2><button class="icon-btn" data-x aria-label="Fechar">✕</button></header>
+        <div class="pluv-del-b"><p>Excluir <b>${esc(p.nome || 'pluviômetro')}</b>${p.fazenda_id ? ' da fazenda ' + esc(nomeRef('fazendas', p.fazenda_id)) : ''}?</p>
+        ${n ? `<p>Ele tem <b>${fmtInt(n)} chuva${n > 1 ? 's' : ''} registrada${n > 1 ? 's' : ''}</b> (${esc(String(Math.round(mm * 10) / 10).replace('.', ','))} mm no total). O que fazer com elas?</p>` : '<p>Ele não tem chuvas registradas.</p>'}</div>
+        <footer class="pluv-del-f">${n ? `<button class="btn primary" data-op="manter">Excluir e manter as chuvas no histórico</button><button class="btn danger" data-op="tudo">Excluir junto as ${fmtInt(n)} chuvas</button>` : '<button class="btn danger" data-op="tudo">Excluir</button>'}<button class="btn ghost" data-x>Cancelar</button></footer></div>`;
+      document.body.appendChild(bg);
+      const fim = v => { bg.remove(); res(v); };
+      bg.addEventListener('click', async e => {
+        if (e.target === bg || e.target.closest('[data-x]')) return fim(false);
+        const b = e.target.closest('[data-op]'); if (!b) return;
+        bg.querySelectorAll('button').forEach(x => x.disabled = true);
+        try {
+          if (b.dataset.op === 'tudo') for (const c of ch) await Store.remove('chuvas', c.id);
+          else for (const c of ch) if (!c.pluviometro_nome) await Store.save('chuvas', { ...c, pluviometro_nome: p.nome || '' });
+          await Store.remove('pluviometros', p.id);
+          toast(b.dataset.op === 'tudo' && n ? 'Pluviômetro e chuvas excluídos.' : n ? 'Pluviômetro excluído. As chuvas continuam no histórico.' : 'Pluviômetro excluído.');
+          fim(true);
+        } catch (err) { fim(false); }
+      });
+    });
+  }
+  // Nome do pluviômetro de uma chuva, mesmo depois de excluído
+  const nomePluv = c => { const r = get('pluviometros', c.pluviometro_id); return r ? (r.nome || key(r.id)) : c.pluviometro_nome ? c.pluviometro_nome + ' (excluído)' : '—'; };
   // Ponte para o modo campo (src/campo.js)
-  window.INOVA = { COT, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
+  window.INOVA = { COT, excluirPluv, nomePluv, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
 })();
 
 /* INOVAAGRO — Levantamento de pragas, doenças e plantas daninhas da cana-de-açúcar.
@@ -5550,7 +5591,7 @@ window.Campo = (function () {
     ['Colheita', [['Ordem de colheita', 'colheita', t => ordem(t, 'Colheita')], ['Controle das perdas na colheita', 'perdas', t => controle(t, 'Perda na colheita')], ['Avanço da colheita', 'avanco', t => avanco(t, 'Colheita')]]],
     ['Fertilização', [['Ordem de fertilização', 'adubo', t => ordem(t, 'Fertilização')]]],
     ['Controle biológico', [['Liberação de Cotesia', 'cotesia', t => cotesiaNova(t)]]],
-    ['Clima', [['Registrar chuva', 'pluv', () => chuva()]]],
+    ['Clima', [['Registrar chuva', 'pluv', () => chuva()], ['Pluviômetros', 'pluv', () => pluvLista()]]],
   ];
 
   // ---------- Utilidades ----------
@@ -5859,7 +5900,7 @@ window.Campo = (function () {
     if (filtroH === 'tudo' || filtroH === 'monitoramentos') for (const m of S.data.monitoramentos) if (okTal(m.talhao_id)) out.push({ k: 'monitoramentos', r: m, d: (m.data || '') + (m.hora ? 'T' + m.hora : ''), t: 'Visita' + (m.alvo ? ' · ' + m.alvo : ''), s: nomeTalFaz(m.talhao_id), i: 'lupa', sem: m.semaforo });
     if (filtroH === 'tudo' || filtroH === 'ordens') for (const o of S.data.ordens) if (histTal ? (o.talhao_ids || []).map(String).includes(String(histTal)) : (!fz || String(o.fazenda_id) === fz)) out.push({ k: 'ordens', r: o, d: o.data_conclusao || o.data_prevista || o.atualizado_em || '', t: o.titulo || o.tipo || 'Ordem', s: (o.status || '') + ' · ' + (faz(o.fazenda_id)?.nome || ''), i: 'trator' });
     for (const k of ['avancos', 'controles']) if (filtroH === 'tudo' || filtroH === k) for (const a of S.data[k] || []) if (okTal(a.talhao_id)) out.push({ k, r: a, d: a.data || '', t: (k === 'avancos' ? 'Avanço · ' : 'Controle · ') + (a.tipo || ''), s: nomeTalFaz(a.talhao_id), i: k === 'avancos' ? 'avanco' : 'regua' });
-    if ((filtroH === 'tudo' || filtroH === 'chuvas') && !histTal) for (const c of S.data.chuvas || []) { const p = I().get('pluviometros', c.pluviometro_id); if (fz && p && p.fazenda_id && String(p.fazenda_id) !== fz) continue; out.push({ k: 'chuvas', r: c, d: c.data || '', t: 'Chuva · ' + String(c.mm ?? '—').replace('.', ',') + ' mm', s: p ? p.nome : '', i: 'chuva' }); }
+    if ((filtroH === 'tudo' || filtroH === 'chuvas') && !histTal) for (const c of S.data.chuvas || []) { const p = I().get('pluviometros', c.pluviometro_id); if (fz && p && p.fazenda_id && String(p.fazenda_id) !== fz) continue; out.push({ k: 'chuvas', r: c, d: c.data || '', t: 'Chuva · ' + String(c.mm ?? '—').replace('.', ',') + ' mm', s: I().nomePluv(c), i: 'chuva' }); }
     return out.sort((a, b) => String(b.d).localeCompare(String(a.d)));
   }
   const nomeTalFaz = id => { const t = tal(id); if (!t) return ''; const f = faz(t.fazenda_id); return t.nome + (f ? ' · ' + f.nome : ''); };
@@ -5892,6 +5933,7 @@ window.Campo = (function () {
         <button data-cp="rota">${ic('rota')}Rota de visitas do dia</button>
         <button data-cp="cot-lista">${ic('cotesia')}Liberações de Cotesia</button>
         ${window.Financeiro ? `<button data-cp="financeiro">${ic('nota')}Despesas e veículos</button>` : ''}
+        <button data-cp="pluv-lista">${ic('pluv')}Pluviômetros</button>
         <button data-cp="niveis">${ic('semaforo')}Níveis de controle da cana</button>
         <button data-cp="tab" data-p="clima">${ic('clima')}Clima</button>
         <button data-cp="suporte">${ic('suporte')}Centro de suporte</button>
@@ -6027,6 +6069,26 @@ window.Campo = (function () {
           ${e.red == null ? '<em class="cp-cl">Sem levantamento</em>' : `<em class="cp-cl ${cl}">${e.red > 0 ? 'Caiu' : e.red < 0 ? 'Subiu' : 'Igual'} ${I().fmtInt(Math.abs(Math.round(e.red)))}%</em>`}</button>`;
       }).join('') || '<p class="cp-mut cp-pad">Nenhuma liberação registrada. Use Atividade, "Liberação de Cotesia".</p>'}</div>
       ${I().podeEditar() ? `<button class="cp-btn pri cp-concluir" data-cp="cot-nova">${ic('mais')}Nova liberação</button>` : ''}`, { cls: 'cp-cotl' });
+  }
+
+  // ---------- Pluviômetros (cadastrar, editar e excluir) ----------
+  function pluvLista() {
+    fecharSheet(); fecharMenu();
+    const S = I().S, pode = I().podeEditar();
+    const pl = (S.data.pluviometros || []).filter(p => !pref.faz || !p.fazenda_id || String(p.fazenda_id) === String(pref.faz)).sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+    tela(`<header class="cp-bar"><button class="cp-ib" data-cp="voltar" aria-label="Voltar">${ic('voltar')}</button><h1>Pluviômetros</h1><span></span></header>
+      <div class="cp-ctx">${pref.faz ? `<b>${esc(fazAtual()?.nome || '')}</b> · ` : ''}${pl.length} pluviômetro${pl.length === 1 ? '' : 's'}</div>
+      <div class="cp-lst">${pl.map(p => {
+        const ch = (S.data.chuvas || []).filter(c => String(c.pluviometro_id) === String(p.id)).sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')));
+        return `<div class="cp-pv"><div><b>${esc(p.nome || 'Pluviômetro')}</b><small>${esc(faz(p.fazenda_id)?.nome || 'Sem fazenda')}${p.lat == null ? ' · sem posição no mapa' : ''}</small>
+          <small>${ch.length ? `${ch.length} chuva${ch.length > 1 ? 's' : ''} · última ${esc(I().fmtDate(ch[0].data))}: ${esc(String(ch[0].mm ?? '—').replace('.', ','))} mm` : 'Nenhuma chuva registrada'}</small></div>
+          ${pode ? `<div class="cp-pv-b"><button class="cp-btn pri" data-cp="pv-chuva" data-id="${esc(p.id)}">${ic('pluv')}Chuva</button><button class="cp-btn" data-cp="pv-editar" data-id="${esc(p.id)}">${ic('editar')}Editar</button><button class="cp-btn cp-btn-del" data-cp="pv-excluir" data-id="${esc(p.id)}">${ic('lixo')}Excluir</button></div>` : ''}</div>`;
+      }).join('') || '<p class="cp-mut cp-pad">Nenhum pluviômetro cadastrado.</p>'}</div>
+      ${pode ? `<button class="cp-btn pri cp-concluir" data-cp="pv-novo">${ic('mais')}Novo pluviômetro aqui</button>` : ''}`, { cls: 'cp-pvl' });
+  }
+  function pluvNovo() {
+    if (!exigeEditar()) return;
+    I().openForm('pluviometros', null, { fazenda_id: pref.faz || '', lat: gps.pos ? +gps.pos.lat.toFixed(6) : null, lng: gps.pos ? +gps.pos.lng.toFixed(6) : null });
   }
 
   // ---------- Rota de visitas do dia ----------
@@ -6615,6 +6677,11 @@ window.Campo = (function () {
       case 'rota-visita': { const t = tal(b.dataset.id); if (t) novaVisita(t); break; }
       case 'cot-lista': cotesiaLista(); break;
       case 'financeiro': fecharMenu(); if (window.Financeiro) window.Financeiro.celular(); break;
+      case 'pluv-lista': pluvLista(); break;
+      case 'pv-novo': pluvNovo(); break;
+      case 'pv-chuva': chuva(I().get('pluviometros', b.dataset.id)); break;
+      case 'pv-editar': I().openForm('pluviometros', I().get('pluviometros', b.dataset.id)); break;
+      case 'pv-excluir': I().excluirPluv(I().get('pluviometros', b.dataset.id)); break;
       case 'cot-nova': comTalhao(cotesiaNova, 'Talhão da liberação'); break;
       case 'am-item': amostraItem(b.dataset.id); break;
       case 'am-livre': amostraLivre(); break;
@@ -6662,6 +6729,7 @@ window.Campo = (function () {
     if (pane === 'historico' && !telas.length) historico();
     const top = telas[telas.length - 1];
     if (top && top.el.classList.contains('cp-cotl')) { voltarTela(); cotesiaLista(); }
+    if (top && top.el.classList.contains('cp-pvl')) { const y = top.el.scrollTop; voltarTela(); pluvLista(); const n = telas[telas.length - 1]; if (n) n.el.scrollTop = y; }
   });
   document.addEventListener('inova:sync', () => { if (root) { atualizarFila(); if (root.classList.contains('cp-menu-on')) menu(); } });
   window.addEventListener('online', () => { Midia.enviar(); });

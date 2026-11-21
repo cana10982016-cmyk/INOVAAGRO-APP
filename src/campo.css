@@ -292,3 +292,8 @@ body.campo-on .toast { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); ma
 .cp-prop { display: grid; gap: 12px; }
 .cp-propr { display: flex; align-items: baseline; justify-content: space-between; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); }
 .cp-propr span { color: var(--muted); font-weight: 600; } .cp-propr b { font-size: 28px; font-variant-numeric: tabular-nums; }
+.cp-pv { display: grid; gap: 10px; padding: 14px; margin: 0 12px 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.cp-pv > div:first-child { display: grid; gap: 3px; } .cp-pv small { color: var(--muted); font-size: 13px; }
+.cp-pv-b { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.cp-pv-b .cp-btn { min-height: 42px; padding: 0 8px; gap: 6px; font-size: 14px; } .cp-pv-b svg { width: 18px; height: 18px; flex: none; }
+.cp-btn-del { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
