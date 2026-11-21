@@ -1127,7 +1127,7 @@
     const ch = S.data.chuvas.slice().sort((a, b) => (b.data || '').localeCompare(a.data || ''));
     $('#cl-tot').textContent = fmtInt(ch.length) + ' registros · ' + fmtHa0(ch.reduce((a, x) => a + num(x.mm), 0)) + ' mm no total';
     const sn = v => v === 'Sim' ? '<span class="pill warn">Sim</span>' : '<span class="muted">Não</span>';
-    $('#cl-tb').innerHTML = ch.map(c => `<tr data-row="${esc(c.id)}"><td>${fmtDate(c.data)}</td><td>${esc(nomeRef('pluviometros', c.pluviometro_id))}</td><td class="r">${esc(String(c.mm ?? '—').replace('.', ','))}</td><td>${sn(c.granizo)}</td><td>${sn(c.geada)}</td><td>${sn(c.vento_forte)}</td><td class="wrap">${esc(c.obs || '')}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Nenhum registro de chuva.</td></tr>';
+    $('#cl-tb').innerHTML = ch.map(c => `<tr data-row="${esc(c.id)}"><td>${fmtDate(c.data)}</td><td>${esc(nomePluv(c))}</td><td class="r">${esc(String(c.mm ?? '—').replace('.', ','))}</td><td>${sn(c.granizo)}</td><td>${sn(c.geada)}</td><td>${sn(c.vento_forte)}</td><td class="wrap">${esc(c.obs || '')}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Nenhum registro de chuva.</td></tr>';
     desenharPrev(); acumulados();
   }
   function distKm(a, b) { const R = 6371, r = x => x * Math.PI / 180, dl = r(b[0] - a[0]), dg = r(b[1] - a[1]); const h = Math.sin(dl / 2) ** 2 + Math.cos(r(a[0])) * Math.cos(r(b[0])) * Math.sin(dg / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); }
@@ -1530,6 +1530,7 @@
       if (e.target.closest('[data-mon-ordem]')) { ordemDaVisita(rec); return; }
       if (e.target.closest('[data-sug-abrir]')) { abrirSugestao(bg); return; }
       if (e.target.closest('[data-receita]')) { const o = Object.assign({}, rec); if (podeEditar()) o.produtos = lerProdutos(bg, rec.produtos); receitaPDF(o); return; }
+      if (e.target.closest('[data-del]') && kind === 'pluviometros') { if (await excluirPluv(rec)) close(); return; }
       if (e.target.closest('[data-del]')) {
         const b = e.target.closest('[data-del]');
         if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'Confirmar exclusão'; return; }
@@ -1914,8 +1915,8 @@
       else if (pendente(o) && o.data_emissao && diasDesde(o.data_emissao) <= 15) out.push({ id: 'emi-' + o.id, tipo: 'atividades', data: o.data_emissao, cor: '#7a4fd0', t: `Nova ordem emitida: ${o.titulo}`, d: f, go: 'ordens:' + o.id });
     }
     for (const sb of S.data.silobolsas || []) { if (sb.situacao === 'Extraída') continue; const m = ultSilo(sb); if (m && (m.estado === 'Danificado' || m.estado === 'Rompido')) out.push({ id: 'sb-' + sb.id + m.data, tipo: 'atividades', data: m.data, cor: '#d03b3b', t: 'Silobolsa ' + (sb.codigo || '') + ': ' + m.estado.toLowerCase(), d: fazNome(sb.fazenda_id), go: 'silobolsas:' + sb.id }); else if (!m || diasDesde(m.data) > 30) out.push({ id: 'sbm-' + sb.id + (m ? m.data : ''), tipo: 'atividades', data: m ? m.data : sb.data_enchimento || today(), cor: '#eda100', t: 'Silobolsa ' + (sb.codigo || '') + ' sem monitoramento há mais de 30 dias', d: fazNome(sb.fazenda_id), go: 'silobolsas:' + sb.id }); }
-    for (const c of S.data.chuvas) { const ev = [c.granizo === 'Sim' && 'granizo', c.geada === 'Sim' && 'geada', c.vento_forte === 'Sim' && 'dano por vento'].filter(Boolean); if (ev.length && diasDesde(c.data) <= 15) out.push({ id: 'cev-' + c.id, tipo: 'atividades', data: c.data, cor: '#d03b3b', t: 'Alerta de clima: ' + ev.join(', '), d: nomeRef('pluviometros', c.pluviometro_id), go: 'chuvas:' + c.id }); }
-    for (const c of S.data.chuvas) if (diasDesde(c.data) <= 7) out.push({ id: 'chu-' + c.id, tipo: 'atividades', data: c.data, cor: '#2a78d6', t: `Chuva registrada: ${String(c.mm).replace('.', ',')} mm`, d: nomeRef('pluviometros', c.pluviometro_id), go: 'chuvas:' + c.id });
+    for (const c of S.data.chuvas) { const ev = [c.granizo === 'Sim' && 'granizo', c.geada === 'Sim' && 'geada', c.vento_forte === 'Sim' && 'dano por vento'].filter(Boolean); if (ev.length && diasDesde(c.data) <= 15) out.push({ id: 'cev-' + c.id, tipo: 'atividades', data: c.data, cor: '#d03b3b', t: 'Alerta de clima: ' + ev.join(', '), d: nomePluv(c), go: 'chuvas:' + c.id }); }
+    for (const c of S.data.chuvas) if (diasDesde(c.data) <= 7) out.push({ id: 'chu-' + c.id, tipo: 'atividades', data: c.data, cor: '#2a78d6', t: `Chuva registrada: ${String(c.mm).replace('.', ',')} mm`, d: nomePluv(c), go: 'chuvas:' + c.id });
     return out.sort((a, b) => (b.data || '').localeCompare(a.data || ''));
   }
   function viewNotificacoes() {
@@ -3162,6 +3163,36 @@
     if (SB.on) sincronizar(false);
     document.dispatchEvent(new Event('inova:pronto'));
   }
+  // Excluir pluviômetro: pergunta o que fazer com as chuvas registradas nele.
+  function excluirPluv(p) {
+    if (!p) return Promise.resolve(false);
+    if (!podeEditar()) { toast('Você não tem permissão para excluir.'); return Promise.resolve(false); }
+    const ch = S.data.chuvas.filter(c => key(c.pluviometro_id) === key(p.id));
+    const n = ch.length, mm = ch.reduce((a, c) => a + num(c.mm), 0);
+    return new Promise(res => {
+      const bg = document.createElement('div'); bg.className = 'modal-bg pluv-del';
+      bg.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="pdt"><header><h2 id="pdt">Excluir pluviômetro</h2><button class="icon-btn" data-x aria-label="Fechar">✕</button></header>
+        <div class="pluv-del-b"><p>Excluir <b>${esc(p.nome || 'pluviômetro')}</b>${p.fazenda_id ? ' da fazenda ' + esc(nomeRef('fazendas', p.fazenda_id)) : ''}?</p>
+        ${n ? `<p>Ele tem <b>${fmtInt(n)} chuva${n > 1 ? 's' : ''} registrada${n > 1 ? 's' : ''}</b> (${esc(String(Math.round(mm * 10) / 10).replace('.', ','))} mm no total). O que fazer com elas?</p>` : '<p>Ele não tem chuvas registradas.</p>'}</div>
+        <footer class="pluv-del-f">${n ? `<button class="btn primary" data-op="manter">Excluir e manter as chuvas no histórico</button><button class="btn danger" data-op="tudo">Excluir junto as ${fmtInt(n)} chuvas</button>` : '<button class="btn danger" data-op="tudo">Excluir</button>'}<button class="btn ghost" data-x>Cancelar</button></footer></div>`;
+      document.body.appendChild(bg);
+      const fim = v => { bg.remove(); res(v); };
+      bg.addEventListener('click', async e => {
+        if (e.target === bg || e.target.closest('[data-x]')) return fim(false);
+        const b = e.target.closest('[data-op]'); if (!b) return;
+        bg.querySelectorAll('button').forEach(x => x.disabled = true);
+        try {
+          if (b.dataset.op === 'tudo') for (const c of ch) await Store.remove('chuvas', c.id);
+          else for (const c of ch) if (!c.pluviometro_nome) await Store.save('chuvas', { ...c, pluviometro_nome: p.nome || '' });
+          await Store.remove('pluviometros', p.id);
+          toast(b.dataset.op === 'tudo' && n ? 'Pluviômetro e chuvas excluídos.' : n ? 'Pluviômetro excluído. As chuvas continuam no histórico.' : 'Pluviômetro excluído.');
+          fim(true);
+        } catch (err) { fim(false); }
+      });
+    });
+  }
+  // Nome do pluviômetro de uma chuva, mesmo depois de excluído
+  const nomePluv = c => { const r = get('pluviometros', c.pluviometro_id); return r ? (r.nome || key(r.id)) : c.pluviometro_nome ? c.pluviometro_nome + ' (excluído)' : '—'; };
   // Ponte para o modo campo (src/campo.js)
-  window.INOVA = { COT, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
+  window.INOVA = { COT, excluirPluv, nomePluv, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
 })();
