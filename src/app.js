@@ -1033,7 +1033,7 @@
       if (st === 'Concluída' || st === 'Cancelada') it = it.reverse();
       return `<div class="col"><h3>${esc(st === 'Planejada' ? 'Emitida / planejada' : st)} <span class="muted num">${it.length}</span></h3>${it.slice(0, 200).map(o => {
         const f = get('fazendas', o.fazenda_id); const ts = (o.talhao_ids || []).map(id => get('talhoes', id)).filter(Boolean);
-        return `<div class="card ${atrasada(o) ? 'late' : ''}" data-edit="ordens:${esc(o.id)}"><b>${esc(o.titulo)}</b><small>${esc(o.tipo || '')} · ${atrasada(o) ? '<b style="color:var(--bad)">atrasada</b> · ' : ''}${fmtDate(o.data_prevista)}</small><small>${esc(f?.nome || '—')}${ts.length ? ' · ' + ts.length + (ts.length === 1 ? ' talhão' : ' talhões') + ' · ' + fmtHa(areaO(o)) + ' ha' : ''}</small>${tagsHtml(o.etiquetas)}</div>`;
+        return `<div class="card ${atrasada(o) ? 'late' : ''}" data-edit="ordens:${esc(o.id)}"><b>${esc(o.titulo)}</b><small>${esc(o.tipo || '')} · ${atrasada(o) ? '<b style="color:var(--bad)">atrasada</b> · ' : ''}${fmtDate(o.data_prevista)}</small><small>${esc(f?.nome || '—')}${ts.length ? ' · ' + ts.length + (ts.length === 1 ? ' talhão' : ' talhões') + ' · ' + fmtHa(areaO(o)) + ' ha' : ''}</small>${tagsHtml(o.etiquetas)}${window.Tempo ? window.Tempo.tagOrdem(o) : ''}</div>`;
       }).join('') || '<p class="empty">Nenhuma.</p>'}</div>`;
     }).join('');
   }
@@ -1142,9 +1142,9 @@
     const root = $('#v-clima');
     if (!root.dataset.ready) {
       root.dataset.ready = 1;
-      root.innerHTML = `<div class="page"><div class="page-head"><div><h2>Chuvas e previsão</h2><p>Chuva medida nos pluviômetros e previsão do tempo por fazenda.</p></div><button class="btn primary" data-new="chuvas">+ Registrar chuva</button></div>
+      root.innerHTML = `<div class="page"><div class="page-head"><div><h2>Chuvas e previsão</h2><p>Previsão do tempo por fazenda, melhores horas para aplicar e chuva medida nos pluviômetros.</p></div><button class="btn primary" data-new="chuvas">+ Registrar chuva</button></div>
         <div id="cl-aviso"></div>
-        <section class="card-box"><h3>Previsão e últimos 30 dias <small>fonte: Open-Meteo</small></h3>
+        <section class="card-box"><h3>Previsão do tempo e janela de aplicação <small>fonte: Open-Meteo</small></h3>
           <div class="toolbar"><select id="cl-faz" aria-label="Fazenda"></select></div><div id="cl-prev"><p class="muted">Escolha uma fazenda.</p></div></section>
         <section class="card-box"><h3>Chuvas registradas <small id="cl-tot"></small></h3><div class="table-wrap"><table><thead><tr><th>Data</th><th>Pluviômetro</th><th class="r">mm</th><th>Granizo</th><th>Geada</th><th>Vento</th><th>Observações</th></tr></thead><tbody id="cl-tb"></tbody></table></div></section>
         <section class="card-box"><h3>Chuva acumulada por talhão <small id="cl-acu-s"></small></h3><p class="muted" style="margin:0;font-size:13px">Cada talhão usa o pluviômetro que o atende (escolhido no cadastro do pluviômetro), ou o mais próximo dentro do raio, ou o da mesma fazenda.</p><div class="table-wrap"><table><thead><tr><th>Talhão</th><th>Pluviômetro</th><th class="r">7 dias</th><th class="r">30 dias</th><th class="r">Na safra atual</th><th>Último registro</th></tr></thead><tbody id="cl-acu"></tbody></table></div></section></div>`;
@@ -1197,6 +1197,7 @@
   }
   async function desenharPrev() {
     const el = $('#cl-prev'), f = get('fazendas', CL.faz); if (!el || !f) return;
+    if (window.Tempo) return window.Tempo.render(el, f); // previsão hora a hora e janela de aplicação (src/tempo.js)
     el.innerHTML = '<p class="muted">Carregando previsão…</p>';
     let d; try { d = await previsao(f); } catch (e) { el.innerHTML = '<p class="muted">Não foi possível carregar a previsão agora. Verifique a internet.</p>'; return; }
     if (!d || !d.daily) { el.innerHTML = '<p class="muted">Esta fazenda não tem localização (contorno de talhão ou coordenada).</p>'; return; }
@@ -1967,6 +1968,7 @@
     for (const c of S.data.chuvas) if (diasDesde(c.data) <= 7) out.push({ id: 'chu-' + c.id, tipo: 'atividades', data: c.data, cor: '#2a78d6', t: `Chuva registrada: ${String(c.mm).replace('.', ',')} mm`, d: nomePluv(c), go: 'chuvas:' + c.id });
     if (window.Financeiro) try { out.push(...window.Financeiro.avisos()); } catch (e) { console.warn(e); } // despesas, orçamento e contas
     if (window.Agenda) try { out.push(...window.Agenda.avisos()); } catch (e) { console.warn(e); } // visitas agendadas atrasadas e de hoje
+    if (window.Tempo) try { out.push(...window.Tempo.avisos()); } catch (e) { console.warn(e); } // chuva e vento nas aplicações previstas
     return out.sort((a, b) => (b.data || '').localeCompare(a.data || ''));
   }
   function viewNotificacoes() {
@@ -3135,7 +3137,7 @@
     const ce = e.target.closest('[data-cfg-edit]'); if (ce) { const id = ce.dataset.cfgEdit; openForm('config', Object.assign({ id }, conf(id)), null, { fields: CFG_FIELDS[id] }); return; }
     const no = e.target.closest('[data-new-ord]'); if (no) { openForm('ordens', null, { status: 'Planejada', tipo: no.dataset.newOrd || undefined, data_prevista: today(), data_emissao: today(), vazao_l_ha: conf('preferencias').vazao_padrao ?? undefined, carencia_dias: conf('preferencias').carencia_padrao ?? undefined }); return; }
     const n = e.target.closest('[data-new]'); if (n) { openForm(n.dataset.new, null, n.dataset.new === 'monitoramentos' ? { data: today() } : n.dataset.new === 'ordens' ? { status: 'Planejada' } : {}); return; }
-    const ed = e.target.closest('[data-edit]'); if (ed) { const [k, id] = ed.dataset.edit.split(':'); if (k === 'fin') { if (window.Financeiro) window.Financeiro.abrir(id); return; } if (k === 'agd') { if (window.Agenda) window.Agenda.abrir(id); return; } openForm(k, get(k, id)); return; }
+    const ed = e.target.closest('[data-edit]'); if (ed) { const [k, id] = ed.dataset.edit.split(':'); if (k === 'fin') { if (window.Financeiro) window.Financeiro.abrir(id); return; } if (k === 'agd') { if (window.Agenda) window.Agenda.abrir(id); return; } if (k === 'tp') { if (window.Tempo) window.Tempo.abrir(id); return; } openForm(k, get(k, id)); return; }
     const mf = e.target.closest('[data-map-faz]'); if (mf) { e.stopPropagation(); location.hash = 'mapa'; setTimeout(() => selectFazenda(mf.dataset.mapFaz, true), 60); return; }
     const rf = e.target.closest('[data-rep-faz]'); if (rf) { const f = get('fazendas', rf.dataset.repFaz); R.prod = key(f?.produtor_id || ''); R.faz = rf.dataset.repFaz; location.hash = 'relatorios'; return; }
     const bs = e.target.closest('[data-base]'); if (bs) { setBase(bs.dataset.base); return; }
@@ -3257,5 +3259,5 @@
   // Nome do pluviômetro de uma chuva, mesmo depois de excluído
   const nomePluv = c => { const r = get('pluviometros', c.pluviometro_id); return r ? (r.nome || key(r.id)) : c.pluviometro_nome ? c.pluviometro_nome + ' (excluído)' : '—'; };
   // Ponte para o modo campo (src/campo.js)
-  window.INOVA = { selectTalhao, selectFazenda, selectProdutor, previsao, atrasada, notificacoes, nomeDe, loadLib, imgDataUrl, custosOrdem, dataCusto, safraPorData, sugerirProdutos, insPorNome, conf, exportar, semaforo, fmtR, fmtHa0, diasDesde, num, safrasLista, ordemDaVisita, ehAdmin: () => S.papel === 'admin' || Store.mode !== 'supabase', COT, excluirPluv, nomePluv, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
+  window.INOVA = { updateBadges, climaFaz: id => { CL.faz = key(id); const v = $('#v-clima'); if (v && v.dataset.ready && !v.hidden) viewClima(); }, selectTalhao, selectFazenda, selectProdutor, previsao, atrasada, notificacoes, nomeDe, loadLib, imgDataUrl, custosOrdem, dataCusto, safraPorData, sugerirProdutos, insPorNome, conf, exportar, semaforo, fmtR, fmtHa0, diasDesde, num, safrasLista, ordemDaVisita, ehAdmin: () => S.papel === 'admin' || Store.mode !== 'supabase', COT, excluirPluv, nomePluv, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
 })();

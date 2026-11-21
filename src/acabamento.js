@@ -163,11 +163,24 @@ window.Acab = (function () {
     const k = 'inovaagro.prev.' + f.id;
     try {
       if (!navigator.onLine) throw new Error('off');
+      if (window.Tempo) {
+        const F = await window.Tempo.obter(f); const a = F && F.dias.find(x => x.d === hojeISO()), b = F && F.dias.find(x => x.d > hojeISO()); if (!a) throw new Error('sem');
+        const r = { mm: a.mm, prob: a.prob, max: a.max, min: a.min, vento: a.vento, amanha: b ? b.mm : null, probA: b ? b.prob : null, em: hojeISO() };
+        ls.set(k, r); return r;
+      }
       const p = await I().previsao(f); if (!p || !p.daily) throw new Error('sem');
       const i = p.daily.time.indexOf(hojeISO()); if (i < 0) throw new Error('sem');
       const d = p.daily, r = { mm: d.precipitation_sum[i], prob: d.precipitation_probability_max[i], max: d.temperature_2m_max[i], min: d.temperature_2m_min[i], vento: d.wind_speed_10m_max[i], amanha: d.precipitation_sum[i + 1], probA: d.precipitation_probability_max[i + 1], em: hojeISO() };
       ls.set(k, r); return r;
     } catch (e) { const r = ls.get(k, null); return r && r.em === hojeISO() ? r : null; }
+  }
+  // previsão de hoje + janela para aplicar hoje e amanhã (src/tempo.js)
+  function mostrarPrev(box, f) {
+    previsaoHoje(f).then(p => {
+      if (!box.isConnected) return;
+      box.innerHTML = htmlPrev(p, f);
+      if (p && window.Tempo) window.Tempo.linhaHoje(f).then(h => { if (h && box.isConnected) box.insertAdjacentHTML('beforeend', h); }).catch(() => { });
+    });
   }
   const fmtGraus = v => v == null ? '—' : Math.round(v) + '°';
   function htmlPrev(p, f) {
@@ -202,7 +215,7 @@ window.Acab = (function () {
       ${D.ordHoje.length || D.ordAtr.length ? `<div class="acab-faixa-ord">${svg(IC.ordem)}<span>${D.ordHoje.length ? `<b>${D.ordHoje.length}</b> ${D.ordHoje.length === 1 ? 'ordem prevista' : 'ordens previstas'} para hoje` : ''}${D.ordHoje.length && D.ordAtr.length ? ' · ' : ''}${D.ordAtr.length ? `<b class="acab-v">${D.ordAtr.length}</b> ${D.ordAtr.length === 1 ? 'atrasada' : 'atrasadas'}` : ''}</span><a href="#ordens">Ver ordens${svg(IC.seta)}</a></div>` : ''}
     </div>`;
     const f = fazPrevisao(D), box = $('[data-acab-prev]', el);
-    if (f) previsaoHoje(f).then(p => { if (box.isConnected) box.innerHTML = htmlPrev(p, f); }); else box.innerHTML = '<p class="acab-mut">Cadastre uma fazenda para ver a previsão.</p>';
+    if (f) mostrarPrev(box, f); else box.innerHTML = '<p class="acab-mut">Cadastre uma fazenda para ver a previsão.</p>';
   }
   function contasHtml(c) {
     const nV = c.venc.length, n7 = c.hj.length + c.sem.length;
@@ -241,7 +254,7 @@ window.Acab = (function () {
         ${adm && D.contas ? `<section class="acab-cc"><h2>${svg(IC.contas)}Contas<small>só você vê</small></h2>${contasHtml(D.contas)}</section>` : ''}
       </div>`;
     const f = fazPrevisao(D), box = $('[data-acab-prev]', el);
-    if (f) previsaoHoje(f).then(p => { if (box.isConnected) box.innerHTML = htmlPrev(p, f); }); else box.innerHTML = '';
+    if (f) mostrarPrev(box, f); else box.innerHTML = '';
   }
 
   // =====================================================================
