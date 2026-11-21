@@ -1928,6 +1928,10 @@ body.campo-on .toast { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); ma
 @media print { .fin-quick, .fin-filtros .lnk, .fin .head-acts { display: none; } }
 .fin-t .lbl::before { background: var(--c) !important; }
 .fin-t::after { display: none; }
+.fin-modal form > * { min-width: 0; }
+.fin-modal form input:not([type=checkbox]):not([type=file]), .fin-modal form select, .fin-modal form textarea { width: 100%; max-width: 100%; box-sizing: border-box; }
+.fin-cheio { display: flex; flex-wrap: wrap; white-space: normal; }
+@media (max-width: 760px) { .fin-modal .fin-seg button { min-width: 0; overflow: hidden; text-overflow: ellipsis; } }
 
 </style>
 <aside class="nav" id="nav" aria-label="Menu principal">
