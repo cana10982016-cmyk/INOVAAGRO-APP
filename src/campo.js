@@ -79,6 +79,10 @@ window.Campo = (function () {
     editar: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
     expandir: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
     download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+    ok: '<path d="m5 12 4.5 4.5L19 7"/>',
+    ordem: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/>',
+    mapaoff: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v6"/><path d="M18 14v6M15.5 17.5 18 20l2.5-2.5"/>',
+    cana: '<path d="M5 21c1-6 2-11 7-17"/><path d="M12 4c2 4 2 8 0 11M8 10c2 .5 3.5 2 4 4"/><path d="M3 21h18"/>',
   };
   const ic = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ''}</svg>`;
 
@@ -365,7 +369,7 @@ window.Campo = (function () {
       <div class="cp-card-t"><b>${esc(t.nome)}</b><span>${esc(f ? f.nome : '')} · ${I().fmtHa(t.area_ha)} ha</span></div>
       <div class="cp-card-i">${c ? `<span>${esc(c.cultura || '')}${c.variedade ? ' · ' + esc(c.variedade) : ''}${c.safra ? ' · ' + esc(c.safra) : ''}</span>` : '<span class="cp-mut">Sem safra cadastrada</span>'}
         <span>${v ? `Última visita: ${esc(I().fmtDate(v.data))}${v.semaforo ? ` <i class="cp-dot" style="background:${SEM[v.semaforo] || 'var(--muted)'}"></i>` : ''}` : '<span class="cp-mut">Sem visitas</span>'}</span></div>
-      <div class="cp-card-b"><button class="cp-btn pri" data-cp="visita-nova">${ic('lupa')}Nova visita</button><button class="cp-btn" data-cp="atividades">${ic('mais')}Atividades</button><button class="cp-btn" data-cp="navegar">${ic('navegar')}Ir até o talhão</button><button class="cp-btn" data-cp="hist-tal">${ic('historico')}Histórico</button></div>`;
+      <div class="cp-card-b"><button class="cp-btn pri" data-cp="visita-nova">${ic('lupa')}Nova visita</button><button class="cp-btn" data-cp="atividades">${ic('mais')}Atividades</button><button class="cp-btn" data-cp="navegar">${ic('navegar')}Ir até o talhão</button><button class="cp-btn" data-cp="linha-tempo">${ic('historico')}Histórico</button></div>`;
   }
 
   // ---------- Painéis inferiores ----------
@@ -433,6 +437,8 @@ window.Campo = (function () {
         <button data-cp="rota">${ic('rota')}Rota de visitas do dia</button>
         <button data-cp="cot-lista">${ic('cotesia')}Liberações de Cotesia</button>
         ${window.Financeiro ? `<button data-cp="financeiro">${ic('nota')}Despesas e veículos</button>` : ''}
+        <button data-cp="mo-tela">${ic('mapaoff')}Mapas offline das fazendas</button>
+        <button data-cp="produtividade">${ic('cana')}Produtividade (TCH e ATR)</button>
         <button data-cp="pluv-lista">${ic('pluv')}Pluviômetros</button>
         <button data-cp="niveis">${ic('semaforo')}Níveis de controle da cana</button>
         <button data-cp="tab" data-p="clima">${ic('clima')}Clima</button>
@@ -494,7 +500,9 @@ window.Campo = (function () {
         <label class="cp-f cp-full"><span>Período</span><select data-cp-calor="dias">${[30, 60, 90, 180, 365].map(d => `<option value="${d}" ${pref.calorDias === d ? 'selected' : ''}>Últimos ${d} dias</option>`).join('')}</select></label>
       </div>
       <p class="cp-mut">Cada talhão fica com a cor da visita mais recente do período. As bolinhas mostram cada amostra no ponto do GPS.</p>
-      <button class="cp-btn" data-cp="baixar-mapa">${ic('download')}Salvar o mapa desta área para usar sem internet</button>`, 'alto');
+      ${fazAtual() ? `<button class="cp-btn pri" data-cp="mo-faz">${ic('mapaoff')}${MO.info[fazAtual().id] ? 'Mapa offline de ' + esc(fazAtual().nome) + ' ✓' : 'Baixar a fazenda ' + esc(fazAtual().nome) + ' inteira'}</button>` : ''}
+      <button class="cp-btn" data-cp="mo-tela">${ic('mapaoff')}Mapas offline das fazendas</button>
+      <button class="cp-btn" data-cp="baixar-mapa">${ic('download')}Salvar só a área da tela</button>`, 'alto');
   }
 
   // ---------- Telas (pilha) ----------
@@ -721,6 +729,7 @@ window.Campo = (function () {
         <div class="cp-wps">${[['foto', 'Foto'], ['anexo', 'Anexo'], ['video', 'Vídeo'], ['audio', 'Áudio'], ['nota', 'Anotação']].map(([k, l]) => `<button data-cp="wp" data-t="${k}"><i>${ic(k)}</i><span>${l}</span></button>`).join('')}</div>
         <div class="cp-box" id="cp-vam"></div>
         <div class="cp-box" id="cp-vmed"></div>
+        <div class="cp-box cp-rbox" id="cp-vrec"></div>
         <div class="cp-box" id="cp-vpts"></div>
         <div class="cp-box" id="cp-vdet"></div>
         <button class="cp-btn pri cp-concluir" data-cp="v-concluir">Concluir visita</button>
@@ -757,6 +766,7 @@ window.Campo = (function () {
     $('#cp-vmed').innerHTML = `<div class="cp-row"><b>Médias da visita</b></div>${md.length ? `<ul class="cp-meds">${md.map(x => `<li class="c${x.cl ?? 'n'}"><span><b>${esc(x.alvo)}</b><small>${esc(x.medida)} · ${x.vals.length} amostra${x.vals.length > 1 ? 's' : ''}${x.item ? ' · ' + esc(textoNiveis(x.item)) : ''}</small></span><span class="cp-medv"><b>${esc(fmtV(x.item, x.media))}</b>${chipCl(x.cl)}</span></li>`).join('')}</ul>` : '<p class="cp-mut">Registre amostras com valor para ver as médias.</p>'}`;
     $('#cp-vpts').innerHTML = `<div class="cp-row"><b>Pontos da visita</b><span class="cp-num">${m.pontos.length}</span></div>${m.pontos.length ? `<ul class="cp-pts">${m.pontos.map((p, i) => `<li>${miniatura(p)}<span><b>${i + 1}. ${esc(ROT[p.tipo] || 'Ponto')}</b>${p.obs ? ' · ' + esc(p.obs) : ''}<small>${esc(fmtDH(p.data))}${p.lat != null ? ` · ${(+p.lat).toFixed(5)}, ${(+p.lng).toFixed(5)}` : ' · sem GPS'}${p.midia_id && !p.foto && !(p.midia && p.midia.url) ? ' · <em class="cp-pend">arquivo a enviar</em>' : ''}</small></span><button class="cp-ib" data-cp="v-del-pt" data-i="${i}" aria-label="Apagar ponto">${ic('lixo')}</button></li>`).join('')}</ul>` : '<p class="cp-mut">Use os botões acima para marcar fotos, áudios, vídeos, anexos e anotações no local onde você está.</p>'}`;
     $$('img[data-mid]', $('#cp-vpts')).forEach(async img => { const u = await urlLocal(img.dataset.mid); if (u) img.src = u; });
+    $('#cp-vrec').innerHTML = recBox(m);
     const sel = (k, l, opts) => { if (m[k] && !opts.includes(m[k])) opts = [m[k], ...opts]; return `<label class="cp-f"><span>${l}</span><select data-cp-f="${k}"><option value=""></option>${opts.map(o => `<option ${m[k] === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></label>`; };
     const p = pior(m);
     $('#cp-vdet').innerHTML = `<div class="cp-row"><b>Resultado da visita</b></div>
@@ -772,6 +782,84 @@ window.Campo = (function () {
         <label class="cp-f cp-full"><span>Observações</span><textarea rows="3" data-cp-f="obs">${esc(m.obs || '')}</textarea></label>
       </div>${datalistAlvos()}`;
     vPontosMapa();
+  }
+  // ---------- Recomendação técnica da visita -> ordem de aplicação ----------
+  const fmtD = v => v == null || v === '' ? '—' : Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+  const UNID = ['Lt/ha', 'Kg/ha', 'Ml/ha', 'Gr/ha', 't/ha'];
+  const REC_TIPOS = ['Pulverização', 'Fertilização', 'Tratos culturais', 'Outro'];
+  const areaTals = ids => ids.map(tal).filter(Boolean).reduce((a, t) => a + (+t.area_ha || 0), 0);
+  function recBox(m) {
+    const rc = m.recomendacao, p = pior(m), o = m.ordem_id && I().get('ordens', m.ordem_id);
+    if (!rc || !(rc.produtos || []).length) {
+      const alerta = p && p.cl === 2 ? `<p class="cp-ralerta">${ic('semaforo')}<span><b>${esc(p.item.nome)}</b> passou do nível de controle. Registre a recomendação para gerar a ordem de aplicação.</span></p>` : p && p.cl === 1 ? `<p class="cp-ralerta am">${ic('semaforo')}<span><b>${esc(p.item.nome)}</b> está em atenção.</span></p>` : '';
+      return `<div class="cp-row"><b>Recomendação técnica</b></div>${alerta}<p class="cp-mut">Indique os produtos, as doses e os talhões. Com um toque a recomendação vira ordem de aplicação, mesmo sem internet.</p><button class="cp-btn" data-cp="r-abrir">${ic('mais')}Fazer recomendação</button>`;
+    }
+    const ids = rc.talhao_ids && rc.talhao_ids.length ? rc.talhao_ids : [m.talhao_id], ar = areaTals(ids);
+    return `<div class="cp-row"><b>Recomendação técnica</b><button class="cp-lnk" data-cp="r-abrir">Editar</button></div>
+      <ul class="cp-rlist">${rc.produtos.map(x => `<li><span><b>${esc(x.produto)}</b>${x.classe ? `<small>${esc(x.classe)}</small>` : ''}</span><em>${fmtD(x.dose)} ${esc(x.unidade || '')}</em></li>`).join('')}</ul>
+      <p class="cp-rinfo">${ids.length} talhão(ões) · ${I().fmtHa(ar)} ha${rc.prazo ? ' · aplicar até ' + esc(I().fmtDate(rc.prazo)) : ''}</p>
+      ${o ? `<div class="cp-rok">${ic('ok')}<span>Ordem de aplicação gerada<small>${esc(o.titulo || '')} · ${esc(o.status || 'Planejada')}</small></span><button class="cp-lnk" data-cp="r-ver-ordem">Abrir</button></div>`
+        : `<button class="cp-btn pri" data-cp="r-gerar">${ic('ordem')}Gerar ordem de aplicação</button>`}`;
+  }
+  function recTela() {
+    if (!V || !exigeEditar()) return;
+    const m = V.m, t = tal(m.talhao_id), rc = m.recomendacao || {}, p = pior(m);
+    const lista = (rc.produtos || []).length ? rc.produtos : [{ unidade: 'Lt/ha' }];
+    const ids = new Set((rc.talhao_ids && rc.talhao_ids.length ? rc.talhao_ids : [m.talhao_id]).map(String));
+    const irmaos = (I().S.talPorFaz.get(String(t?.fazenda_id)) || []).slice().sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR', { numeric: true }));
+    const alvo = m.alvo || (p ? p.item.nome : '');
+    const sug = alvo && I().sugerirProdutos ? I().sugerirProdutos(alvo, m.estadio || '', [m.talhao_id]).lista.slice(0, 6) : [];
+    const ultSem = tt => { const u = (I().S.monPorTal.get(String(tt.id)) || []).filter(x => x.id !== m.id).sort((a, b) => (b.data || '').localeCompare(a.data || ''))[0]; return u && I().diasDesde(u.data) <= 30 ? I().semaforo(u) : null; };
+    const el = tela(`<header class="cp-bar"><button class="cp-ib" data-cp="voltar" aria-label="Voltar">${ic('voltar')}</button><h1>Recomendação</h1><span></span></header>
+      <div class="cp-ctx"><b>${esc(t ? t.nome : 'Talhão')}</b> · ${esc(faz(t?.fazenda_id)?.nome || '')}${alvo ? ` · ${esc(alvo)}` : ''}</div>
+      <div class="cp-recm">
+        ${sug.length ? `<h3 class="cp-h3">Sugestões pelo histórico</h3><p class="cp-mut">Produtos usados antes contra ${esc(alvo)}. Toque para adicionar.</p><div class="cp-rsug">${sug.map((x, i) => `<button data-cp="r-sug" data-i="${i}"><b>${esc(x.produto)}</b><small>${x.dose != null ? fmtD(x.dose) + ' ' + esc(x.unidade || '') : esc(x.classe || '')}</small></button>`).join('')}</div>` : ''}
+        <h3 class="cp-h3">Produtos e doses</h3>
+        <div class="cp-rprods">${lista.map(recLinha).join('')}</div>
+        <button class="cp-btn" data-cp="r-add">${ic('mais')}Adicionar produto</button>
+        <h3 class="cp-h3">Aplicar nos talhões</h3>
+        <p class="cp-mut" id="cp-rarea"></p>
+        <div class="cp-rtals">${irmaos.map(tt => { const sm = ultSem(tt); return `<label><input type="checkbox" value="${esc(tt.id)}" ${ids.has(String(tt.id)) ? 'checked' : ''}><span><b>${esc(tt.nome)}</b><small>${I().fmtHa(tt.area_ha)} ha${sm === 'vermelho' || sm === 'amarelo' ? ` · <i class="cp-niv ${sm === 'vermelho' ? 'Alto' : 'Médio'}">${sm} na última visita</i>` : ''}</small></span></label>`; }).join('')}</div>
+        <div class="cp-fs">
+          <label class="cp-f"><span>Tipo</span><select data-r="tipo">${REC_TIPOS.map(x => `<option ${(rc.tipo || 'Pulverização') === x ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+          <label class="cp-f"><span>Aplicar até</span><input type="date" data-r="prazo" value="${esc(rc.prazo || '')}"></label>
+          <label class="cp-f cp-full"><span>Orientações para a aplicação</span><textarea rows="3" data-r="obs" placeholder="Ex.: aplicar com vento abaixo de 10 km/h, volume de calda 150 L/ha">${esc(rc.obs || '')}</textarea></label>
+        </div>
+        <div class="cp-rmacts"><button class="cp-btn" data-cp="r-salvar">Salvar recomendação</button><button class="cp-btn pri" data-cp="r-salvar-gerar">${ic('ordem')}Salvar e gerar ordem</button></div>
+      </div>
+      <datalist id="cp-ins">${I().S.data.insumos.map(x => `<option value="${esc(x.nome)}">`).join('')}</datalist>`, { cls: 'cp-recf' });
+    el._sug = sug;
+    const area = () => { const ids2 = [...el.querySelectorAll('.cp-rtals input:checked')].map(i => i.value); $('#cp-rarea', el).textContent = ids2.length + ' talhão(ões) marcados · ' + I().fmtHa(areaTals(ids2)) + ' ha'; };
+    el.addEventListener('change', e => { if (e.target.closest('.cp-rtals')) area(); });
+    area();
+  }
+  const recLinha = (x = {}) => `<div class="cp-rp"><input class="cp-rp-n" list="cp-ins" placeholder="Produto" value="${esc(x.produto || '')}" aria-label="Produto"><input class="cp-rp-d" type="number" inputmode="decimal" step="any" placeholder="Dose" value="${x.dose ?? ''}" aria-label="Dose por hectare"><select class="cp-rp-u" aria-label="Unidade">${UNID.map(u => `<option ${(x.unidade || 'Lt/ha') === u ? 'selected' : ''}>${u}</option>`).join('')}</select><button class="cp-ib" data-cp="r-del" aria-label="Tirar produto">${ic('lixo')}</button></div>`;
+  function recLer(el) {
+    const produtos = $$('.cp-rp', el).map(r => { const nome = $('.cp-rp-n', r).value.trim(); if (!nome) return null; const d = $('.cp-rp-d', r).value; const ins = I().insPorNome && I().insPorNome(nome); return { produto: nome, dose: d === '' ? null : Number(d), unidade: $('.cp-rp-u', r).value, classe: ins?.classe || '' }; }).filter(Boolean);
+    const talhao_ids = [...el.querySelectorAll('.cp-rtals input:checked')].map(i => { const t = tal(i.value); return t ? t.id : i.value; });
+    const v = k => { const f = $(`[data-r="${k}"]`, el); return f ? f.value.trim() : ''; };
+    return { produtos, talhao_ids, tipo: v('tipo') || 'Pulverização', prazo: v('prazo') || null, obs: v('obs') || null, por: email(), em: new Date().toISOString() };
+  }
+  function recSalvar(el, gerar) {
+    const r = recLer(el);
+    if (!r.produtos.length) { I().toast('Adicione pelo menos um produto.'); return; }
+    if (!r.talhao_ids.length) { I().toast('Marque pelo menos um talhão.'); return; }
+    V.m.recomendacao = r; vSalvar(gerar ? null : 'Recomendação salva.'); voltarTela();
+    if (gerar) recGerar(); else vRender();
+  }
+  function recGerar() {
+    if (!V || !exigeEditar()) return;
+    const m = V.m, rc = m.recomendacao; if (!rc || !(rc.produtos || []).length) return;
+    const t = tal(m.talhao_id); if (!t) return;
+    const ex = m.ordem_id && I().get('ordens', m.ordem_id); if (ex) { I().openForm('ordens', ex); return; }
+    const pr = I().conf ? I().conf('preferencias') : {}, ids = rc.talhao_ids && rc.talhao_ids.length ? rc.talhao_ids : [t.id];
+    const det = ids.map(id => ({ talhao_id: id, area_planejada: +(tal(id)?.area_ha || 0) || null }));
+    const area = Math.round(areaTals(ids) * 100) / 100;
+    const o = { id: I().newId(), titulo: 'Aplicação · ' + (m.alvo || t.nome), tipo: rc.tipo || 'Pulverização', status: 'Planejada', fazenda_id: t.fazenda_id, talhao_ids: ids, talhoes_detalhe: det, area_ha: area || null,
+      data_prevista: rc.prazo || I().today(), responsavel: email(), produtos: rc.produtos.map(x => ({ produto: x.produto, dose: x.dose, unidade: x.unidade, classe: x.classe || '' })),
+      vazao_l_ha: pr.vazao_padrao ?? null, carencia_dias: pr.carencia_padrao ?? null, origem_visita: m.id,
+      obs: [`Recomendação da visita de ${I().fmtDate(m.data)} em ${t.nome}${m.alvo ? ' (' + m.alvo + ')' : ''}.`, rc.obs || ''].filter(Boolean).join('\n'), criado_por: email(), criado_em: new Date().toISOString() };
+    I().Store.save('ordens', o).then(() => { V && (V.m.ordem_id = o.id, vSalvar(), vRender()); I().toast('Ordem de aplicação criada. Ela já aparece em Aplicações.'); }).catch(() => {});
   }
   const ROT = { foto: 'Foto', anexo: 'Anexo', video: 'Vídeo', audio: 'Áudio', nota: 'Anotação' };
   function miniatura(p) {
@@ -1076,6 +1164,91 @@ window.Campo = (function () {
     I().toast(erros ? 'Mapa salvo com ' + erros + ' falhas. Tente de novo para completar.' : 'Mapa desta área salvo para usar sem internet.');
   }
 
+  // ---------- Mapas offline por fazenda (a fazenda inteira, antes de ir a campo) ----------
+  // As imagens ficam num armazenamento separado (inovaagro-mapa-faz), que o app não apaga sozinho.
+  const MO_CACHE = 'inovaagro-mapa-faz', MO_LS = 'inovaagro.mapasOffline.v1', MO_MAX = 9000, KB_TILE = 18;
+  const MO = { info: {}, baixando: null, parar: false, q: '' };
+  try { MO.info = JSON.parse(localStorage.getItem(MO_LS) || '{}'); } catch (e) { }
+  const moSalvar = () => { try { localStorage.setItem(MO_LS, JSON.stringify(MO.info)); } catch (e) { } };
+  function moLimites(f) {
+    let a = 180, b = 90, c = -180, d = -90, ok = false;
+    for (const t of I().S.talPorFaz.get(String(f.id)) || []) { const g = t.geometry; if (!g) continue; const an = g.type === 'Polygon' ? g.coordinates : g.type === 'MultiPolygon' ? g.coordinates.flat() : []; for (const r of an) for (const [lo, la] of r) { ok = true; a = Math.min(a, lo); c = Math.max(c, lo); b = Math.min(b, la); d = Math.max(d, la); } }
+    if (!ok) { const ce = centroFaz(f); if (!ce) return null; a = c = ce.lng; b = d = ce.lat; }
+    const m = 0.004; return { w: a - m, s: b - m, e: c + m, n: d + m }; // ~400 m de margem
+  }
+  const moXY = (lat, lng, z) => { const n = 2 ** z, r = lat * Math.PI / 180; return [Math.floor((lng + 180) / 360 * n), Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n)]; };
+  function moTiles(f) {
+    const L0 = moLimites(f); if (!L0) return null;
+    const urls = []; let zMax = 12;
+    for (let z = 12; z <= 18; z++) {
+      const [x1, y1] = moXY(L0.n, L0.w, z), [x2, y2] = moXY(L0.s, L0.e, z), n = (x2 - x1 + 1) * (y2 - y1 + 1);
+      if (z >= 16 && urls.length + n > MO_MAX) break;
+      for (let x = x1; x <= x2; x++) for (let y = y1; y <= y2; y++) urls.push(`${ESRI}World_Imagery/MapServer/tile/${z}/${y}/${x}`);
+      zMax = z;
+    }
+    return { urls, zMax };
+  }
+  const moMB = n => (n * KB_TILE / 1024).toLocaleString('pt-BR', { maximumFractionDigits: n * KB_TILE / 1024 < 10 ? 1 : 0 }) + ' MB';
+  const moZoomTxt = z => z >= 18 ? 'detalhe máximo' : z >= 17 ? 'detalhe alto' : 'detalhe bom';
+  function moFazendas() {
+    const q = MO.q.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    return I().S.data.fazendas.filter(f => (I().S.talPorFaz.get(String(f.id)) || []).length)
+      .filter(f => !q || (f.nome + ' ' + (I().get('produtores', f.produtor_id)?.nome || '')).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().includes(q))
+      .sort((a, b) => (MO.info[b.id] ? 1 : 0) - (MO.info[a.id] ? 1 : 0) || (pref.faz && String(b.id) === String(pref.faz) ? 1 : 0) - (pref.faz && String(a.id) === String(pref.faz) ? 1 : 0) || String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
+  }
+  function moItem(f) {
+    const i = MO.info[f.id], b = MO.baixando && String(MO.baixando.id) === String(f.id), nT = (I().S.talPorFaz.get(String(f.id)) || []).length;
+    const est = !i && !b ? moTiles(f) : null;
+    return `<li data-mo="${esc(f.id)}"><div class="cp-mo-t"><b>${esc(f.nome)}</b><small>${esc(I().get('produtores', f.produtor_id)?.nome || '')} · ${nT} talhões</small>
+      ${b ? `<div class="cp-mo-bar"><i style="width:${Math.round(MO.baixando.feitos / MO.baixando.total * 100)}%"></i></div><small class="cp-mo-st">Baixando ${MO.baixando.feitos} de ${MO.baixando.total} imagens…</small>`
+        : i ? `<small class="cp-mo-st ok">${ic('ok')}Pronto para usar sem internet · ${esc(I().fmtDate(i.data))} · ${moMB(i.n)}${i.falhas ? ` · <em>${i.falhas} falharam</em>` : ''}</small>`
+        : est ? `<small class="cp-mo-st">Cerca de ${moMB(est.urls.length)} · ${moZoomTxt(est.zMax)}</small>` : '<small class="cp-mo-st">Sem contorno dos talhões</small>'}</div>
+      <div class="cp-mo-acts">${b ? `<button class="cp-btn" data-cp="mo-parar">Parar</button>` : i ? `<button class="cp-ib" data-cp="mo-baixar" aria-label="Atualizar mapa">${ic('sync')}</button><button class="cp-ib" data-cp="mo-apagar" aria-label="Apagar mapa">${ic('lixo')}</button>` : est ? `<button class="cp-btn pri" data-cp="mo-baixar" ${MO.baixando ? 'disabled' : ''}>${ic('download')}Baixar</button>` : ''}</div></li>`;
+  }
+  async function moTela() {
+    fecharMenu(); fecharSheet();
+    const el = tela(`<header class="cp-bar"><button class="cp-ib" data-cp="voltar" aria-label="Voltar">${ic('voltar')}</button><h1>Mapas offline</h1><span></span></header>
+      <div class="cp-mo-top"><p>Baixe a imagem de satélite da <b>fazenda inteira</b> com Wi-Fi, antes de ir a campo. Lá, o mapa abre mesmo sem sinal.</p><div class="cp-mo-uso" id="cp-mo-uso"></div>
+      <input type="search" class="cp-busca" data-cp-mo="q" placeholder="Buscar fazenda ou cliente" value="${esc(MO.q)}"></div>
+      <ul class="cp-mo" id="cp-mo"></ul>`, { cls: 'cp-mot' });
+    $('[data-cp-mo]', el).addEventListener('input', e => { MO.q = e.target.value; moLista(); });
+    moLista(); moUso();
+    return el;
+  }
+  function moLista() { const ul = $('#cp-mo'); if (!ul) return; const l = moFazendas(); ul.innerHTML = l.slice(0, 80).map(moItem).join('') || '<li class="cp-mut">Nenhuma fazenda encontrada.</li>'; }
+  async function moUso() {
+    const el = $('#cp-mo-uso'); if (!el) return;
+    const n = Object.values(MO.info).reduce((a, x) => a + (x.n || 0), 0), q = Object.keys(MO.info).length;
+    let livre = '';
+    try { const e = await navigator.storage.estimate(); if (e && e.quota) livre = ' · ' + ((e.quota - e.usage) / 1073741824).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' GB livres no aparelho'; } catch (e) { }
+    el.innerHTML = q ? `<b>${q}</b> fazenda${q > 1 ? 's' : ''} no aparelho · ${moMB(n)}${livre}` : 'Nenhuma fazenda baixada ainda' + livre;
+  }
+  async function moBaixar(id) {
+    if (!('caches' in window)) { I().toast('Este navegador não guarda mapas offline.'); return; }
+    if (!navigator.onLine) { I().toast('Conecte na internet (de preferência Wi-Fi) para baixar.'); return; }
+    if (MO.baixando) { I().toast('Espere terminar o download atual.'); return; }
+    const f = faz(id); if (!f) return; const tl = moTiles(f); if (!tl) return;
+    try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { }
+    const cache = await caches.open(MO_CACHE);
+    MO.baixando = { id: f.id, feitos: 0, total: tl.urls.length }; MO.parar = false; moLista();
+    let falhas = 0, ult = 0;
+    for (let i = 0; i < tl.urls.length && !MO.parar; i += 8) {
+      await Promise.all(tl.urls.slice(i, i + 8).map(async u => { try { if (!(await cache.match(u))) { const r = await fetch(u, { mode: 'no-cors' }); if (r.type === 'opaque' || r.ok) await cache.put(u, r); else falhas++; } } catch (e) { falhas++; } MO.baixando.feitos++; }));
+      if (Date.now() - ult > 400) { ult = Date.now(); const li = $(`#cp-mo [data-mo="${CSS.escape(String(f.id))}"]`); if (li) li.outerHTML = moItem(f); }
+    }
+    const parou = MO.parar; MO.baixando = null;
+    if (parou) { I().toast('Download parado. O que já baixou continua no aparelho.'); moLista(); return; }
+    MO.info[f.id] = { data: I().today(), n: tl.urls.length, z: tl.zMax, falhas }; moSalvar(); moLista(); moUso();
+    I().toast(falhas ? `Mapa de ${f.nome} salvo, mas ${falhas} imagens falharam. Toque em atualizar para completar.` : `Mapa de ${f.nome} pronto para usar sem internet.`);
+  }
+  async function moApagar(id) {
+    const f = faz(id); if (!f || !confirm(`Apagar o mapa offline de ${f.nome} deste aparelho?`)) return;
+    const tl = moTiles(f), cache = await caches.open(MO_CACHE), outras = new Set();
+    for (const [k] of Object.entries(MO.info)) if (String(k) !== String(id) && faz(k)) for (const u of (moTiles(faz(k)) || { urls: [] }).urls) outras.add(u);
+    if (tl) for (const u of tl.urls) if (!outras.has(u)) await cache.delete(u);
+    delete MO.info[id]; moSalvar(); moLista(); moUso(); I().toast('Mapa offline apagado.');
+  }
+
   // ---------- Sincronização ----------
   async function atualizarFila() {
     const l = await I().Off.fila();
@@ -1197,10 +1370,26 @@ window.Campo = (function () {
       case 'v-ir': navegar(tal(V.m.talhao_id)); break;
       case 'v-exp': V.el.classList.toggle('cp-vmap-grande'); setTimeout(() => V.map && V.map.invalidateSize(), 220); break;
       case 'v-mais': { if (!V.salva) vSalvar(); const m = I().get('monitoramentos', V.m.id) || V.m; voltarTela(); I().openForm('monitoramentos', m); break; }
+      case 'r-abrir': recTela(); break;
+      case 'linha-tempo': if (window.LinhaTempo && selTal) window.LinhaTempo.abrir(selTal); else { histTal = selTal; abrirPane('historico'); } break;
+      case 'mo-tela': moTela(); break;
+      case 'mo-faz': { const f = fazAtual(); moTela(); if (f && !MO.info[f.id]) moBaixar(f.id); break; }
+      case 'mo-baixar': moBaixar(b.closest('[data-mo]').dataset.mo); break;
+      case 'mo-apagar': moApagar(b.closest('[data-mo]').dataset.mo); break;
+      case 'mo-parar': MO.parar = true; break;
+      case 'produtividade': fecharMenu(); location.hash = 'produtividade'; break;
+      case 'r-add': { const box = $('.cp-rprods', b.closest('.cp-tela')); box.insertAdjacentHTML('beforeend', recLinha()); $$('.cp-rp-n', box).pop().focus(); break; }
+      case 'r-del': { const row = b.closest('.cp-rp'), box = row.parentNode; row.remove(); if (!box.children.length) box.insertAdjacentHTML('beforeend', recLinha()); break; }
+      case 'r-sug': { const el = b.closest('.cp-tela'), x = el._sug[+b.dataset.i], box = $('.cp-rprods', el); if (!x) break; const vazia = $$('.cp-rp', box).find(r => !$('.cp-rp-n', r).value.trim()); if ($$('.cp-rp-n', box).some(i => i.value.trim().toLowerCase() === x.produto.toLowerCase())) { I().toast('Esse produto já está na lista.'); break; } const html = recLinha({ produto: x.produto, dose: x.dose, unidade: UNID.includes(x.unidade) ? x.unidade : 'Lt/ha' }); if (vazia) vazia.outerHTML = html; else box.insertAdjacentHTML('beforeend', html); b.classList.add('on'); break; }
+      case 'r-salvar': recSalvar(b.closest('.cp-tela'), false); break;
+      case 'r-salvar-gerar': recSalvar(b.closest('.cp-tela'), true); break;
+      case 'r-gerar': recGerar(); break;
+      case 'r-ver-ordem': { const o = V && I().get('ordens', V.m.ordem_id); if (o) I().openForm('ordens', o); break; }
       case 'v-concluir': if (V.salva || V.m.pontos.length || V.m.amostras_detalhe.length || V.m.semaforo || V.m.obs) { vSalvar('Visita salva.'); } voltarTela(); break;
     }
   }
   document.addEventListener('change', e => {
+    if (e.target.matches('[data-cp-mo]')) return;
     const ro = e.target.closest('[data-cp-rota]');
     if (ro) { if (ro.dataset.cpRota === 'dias') pref.rotaDias = Number(ro.value); else pref.rotaNunca = ro.checked; salvarPref(); voltarTela(); rota(); return; }
     const c = e.target.closest('[data-cp-calor]');
@@ -1235,5 +1424,5 @@ window.Campo = (function () {
   window.addEventListener('online', () => { Midia.enviar(); });
   setInterval(() => { if (nMidia) Midia.enviar(); }, 90000);
 
-  return { view, Midia };
+  return { view, Midia, abrirVisita };
 })();

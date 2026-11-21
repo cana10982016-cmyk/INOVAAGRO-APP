@@ -21,6 +21,14 @@ Para ativar, rode uma vez `supabase/02_atualizacao.sql` no editor SQL do Supabas
 - Funciona sem internet: lançamentos entram na fila e as fotos ficam no aparelho até enviar.
 - Para ativar no banco, rode uma vez `supabase/04_financeiro.sql` no editor SQL do Supabase. Técnico vê e lança só as próprias despesas; administrador vê tudo e aprova. Comprovantes ficam numa área privada.
 
+## Melhorias da cana (produtividade, recomendação, mapas offline, backup, relatórios)
+- **Produtividade da cana** (`src/produtividade.js`, menu Análise): lança TCH e ATR por talhão em cada safra (gravados no plantio: `produtividade` = TCH, `atr`, `corte`, `data_colheita`), calcula TAH e produção e compara as safras.
+- **Histórico do talhão** (`src/linha_tempo.js`): linha do tempo de cada safra com visitas e pragas, aplicações, chuva por mês, colheita e TCH/ATR. No celular, botão Histórico no cartão do talhão.
+- **Recomendação → ordem de aplicação** (`src/campo.js`): na visita do celular, produtos, doses, talhões e prazo; um toque gera a ordem (funciona sem internet). A visita guarda `recomendacao` e `ordem_id`; a ordem guarda `origem_visita`. O site mostra a recomendação na visita e no PDF.
+- **Mapas offline das fazendas** (menu do modo campo): baixa a imagem de satélite da fazenda inteira (zoom 12 a 18) num armazenamento separado (`inovaagro-mapa-faz`), que o app não apaga sozinho.
+- **Backup** (`src/backup.js`, só administrador): rode uma vez `supabase/05_backup.sql` para o banco copiar todas as tabelas toda segunda às 6h (guarda 8 cópias). O site também salva uma cópia semanal no computador do administrador (pasta Downloads). Dá para baixar e restaurar pela tela.
+- **Relatório mensal do cliente** (`src/relatorio_mensal.js`): PDF com visitas, pragas da cana com nível de controle, chuva por dia, aplicações e custos. Custos só aparecem para o administrador.
+
 ## Estrutura
 - `assets/` logo e ícones da InovaAgro.
 - `src/` código-fonte (HTML, CSS, JavaScript puro + Leaflet). Sem etapa de compilação além de `tools/build.py`.
