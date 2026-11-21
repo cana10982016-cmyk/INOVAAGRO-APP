@@ -242,8 +242,9 @@
   const fmtHa0 = n => Number(n || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
   const fmtInt = n => Number(n || 0).toLocaleString('pt-BR');
   const fmtDate = d => d ? d.slice(0, 10).split('-').reverse().join('/') : '—';
-  const today = () => new Date().toISOString().slice(0, 10);
-  const diasDesde = d => d ? Math.floor((Date.now() - new Date(d.slice(0, 10) + 'T12:00:00').getTime()) / 864e5) : 1e9;
+  // data de hoje no fuso do aparelho (antes era a data de Londres: depois das 21h no Brasil já virava o dia seguinte)
+  const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const diasDesde = d => d ? Math.round((new Date(today() + 'T12:00:00').getTime() - new Date(d.slice(0, 10) + 'T12:00:00').getTime()) / 864e5) : 1e9;
   const key = id => String(id);
   const newId = () => 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const podeEditar = () => S.papel !== 'leitura';
@@ -637,6 +638,7 @@
     document.title = (TITULO[name] ? TITULO[name] + ' · ' : '') + 'INOVAAGRO';
     document.body.classList.remove('nav-open');
     VIEWS[name](true);
+    if (window.Acab) window.Acab.entrou(name);
   }
   function refresh() { if (current) VIEWS[current](false); }
 
@@ -1714,6 +1716,7 @@
       root.innerHTML = `<div class="page"><div class="page-head"><div><h2>Início</h2><p id="pn-sub">Resumo das fazendas, safras e operações.</p></div>
         <div class="toolbar"><select id="pn-prod" aria-label="Produtor"></select></div></div>
         <div class="chips" id="pn-safras" role="group" aria-label="Safra"></div>
+        <div id="pn-hoje"></div>
         <div class="cards4" id="pn-cards"></div>
         <section class="card-box pn-mapbox"><h3>Talhões com atividade nos últimos 15 dias <small><a href="#mapa" data-pn-mapa>abrir mapa completo</a></small></h3>
           <div class="pn-map-wrap"><div id="pn-map" role="application" aria-label="Mapa de atividade dos talhões"></div><div class="pn-filtros" id="pn-filtros"></div></div></section>
@@ -1732,6 +1735,7 @@
         else if (a === 'tal') { location.hash = 'mapa'; setTimeout(() => selectTalhao(b, true), 80); }
       });
     }
+    if (window.Acab) window.Acab.resumoSite($('#pn-hoje'));
     const sp = $('#pn-prod'); sp.innerHTML = prodOpts(); sp.value = PN.prod;
     const sl = safrasLista(); if (!sl.includes(PN.safra)) PN.safra = sl.includes(conf('preferencias').safra_padrao) ? conf('preferencias').safra_padrao : sl[0] || '';
     $('#pn-safras').innerHTML = '<span class="muted">Safra:</span>' + sl.slice(0, 6).map(x => `<button class="chip" data-pn-safra="${esc(x)}" aria-pressed="${x === PN.safra}">${esc(x)}</button>`).join('');
@@ -3169,7 +3173,7 @@
   $('#q-mapa').addEventListener('input', renderTree);
   $('#nav-q').addEventListener('input', filtraNav);
   $('#nav-q').addEventListener('keydown', e => { if (e.key === 'Enter') { const a = [...$('#nav-links').querySelectorAll('a')].find(x => !x.hidden); if (a) { location.hash = a.dataset.nav; e.target.value = ''; filtraNav(); e.target.blur(); } } });
-  document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); document.body.classList.add('nav-open'); $('#nav-q').focus(); } });
+  document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); if (window.Acab) window.Acab.buscar(); else { document.body.classList.add('nav-open'); $('#nav-q').focus(); } } });
   $('#color-by').addEventListener('change', e => { S.colorBy = e.target.value; S.ocultos.clear(); styleAll(); drawLegend(); renderTree(); if (map) drawLayers(); });
   window.addEventListener('hashchange', route);
 
@@ -3247,5 +3251,5 @@
   // Nome do pluviômetro de uma chuva, mesmo depois de excluído
   const nomePluv = c => { const r = get('pluviometros', c.pluviometro_id); return r ? (r.nome || key(r.id)) : c.pluviometro_nome ? c.pluviometro_nome + ' (excluído)' : '—'; };
   // Ponte para o modo campo (src/campo.js)
-  window.INOVA = { nomeDe, loadLib, imgDataUrl, custosOrdem, dataCusto, safraPorData, sugerirProdutos, insPorNome, conf, exportar, semaforo, fmtR, fmtHa0, diasDesde, num, safrasLista, ordemDaVisita, ehAdmin: () => S.papel === 'admin' || Store.mode !== 'supabase', COT, excluirPluv, nomePluv, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
+  window.INOVA = { selectTalhao, selectFazenda, selectProdutor, previsao, atrasada, notificacoes, nomeDe, loadLib, imgDataUrl, custosOrdem, dataCusto, safraPorData, sugerirProdutos, insPorNome, conf, exportar, semaforo, fmtR, fmtHa0, diasDesde, num, safrasLista, ordemDaVisita, ehAdmin: () => S.papel === 'admin' || Store.mode !== 'supabase', COT, excluirPluv, nomePluv, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
 })();

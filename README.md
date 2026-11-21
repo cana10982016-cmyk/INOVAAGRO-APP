@@ -29,6 +29,14 @@ Para ativar, rode uma vez `supabase/02_atualizacao.sql` no editor SQL do Supabas
 - **Backup** (`src/backup.js`, só administrador): rode uma vez `supabase/05_backup.sql` para o banco copiar todas as tabelas toda segunda às 6h (guarda 8 cópias). O site também salva uma cópia semanal no computador do administrador (pasta Downloads). Dá para baixar e restaurar pela tela.
 - **Relatório mensal do cliente** (`src/relatorio_mensal.js`): PDF com visitas, pragas da cana com nível de controle, chuva por dia, aplicações e custos. Custos só aparecem para o administrador.
 
+## Acabamento (tema escuro, animações, resumo do dia, busca, ditado)
+- Código em `src/acabamento.js` e `src/acabamento.css`.
+- **Tema**: Automático (segue o aparelho), Claro ou Escuro. No site, botão ao lado da busca; no celular, menu > Aparência. Fica salvo no aparelho.
+- **Animações** leves entre telas; desligadas quando o aparelho pede "reduzir movimento".
+- **Resumo do dia**: no topo do Início (site) e na aba **Hoje** do celular: visitas de hoje, alertas de praga (últimos 15 dias), chuva registrada, previsão (Open-Meteo), ordens de hoje e atrasadas. Contas só para o administrador.
+- **Busca rápida**: Ctrl K no computador ou a lupa no celular; acha fazenda, talhão, visita, ordem e produtor digitando poucas letras (sem acento).
+- **Ditado por voz**: botão "Falar" em todo campo de observação. Precisa de internet; sem sinal, use o microfone do teclado do celular.
+
 ## Estrutura
 - `assets/` logo e ícones da InovaAgro.
 - `src/` código-fonte (HTML, CSS, JavaScript puro + Leaflet). Sem etapa de compilação além de `tools/build.py`.
