@@ -5,6 +5,8 @@
 --   Despesas: o técnico vê, lança e altera só as PRÓPRIAS despesas, enquanto estiverem "Pendente" (ou "Recusada", para corrigir).
 --             O administrador vê todas, aprova, recusa e marca como reembolsada.
 --   Contas a pagar e a receber (honorários, custos fixos): só o administrador vê e altera.
+--   Orçamento mensal: só o administrador vê e altera. Valores de diária e km: a equipe lê (para calcular), só o administrador altera.
+--   Nomes da equipe: todos da equipe podem ler o nome de cada pessoa (para mostrar "Leandro Nascimento" no lugar do e-mail).
 --   Comprovantes (fotos): guardados em área PRIVADA; cada um vê só os seus, o administrador vê todos.
 
 do $$
@@ -65,3 +67,30 @@ create policy comprov_ver on storage.objects for select to authenticated
   using (bucket_id = 'comprovantes' and (public.sou_admin() or owner_id = auth.uid()::text));
 create policy comprov_apagar on storage.objects for delete to authenticated
   using (bucket_id = 'comprovantes' and (public.sou_admin() or owner_id = auth.uid()::text));
+
+-- Orçamento e ajustes do financeiro (tabela config): o orçamento fica num registro só do administrador.
+insert into config (id, dados)
+  select 'financeiro_orcamento', jsonb_build_object('id', 'financeiro_orcamento', 'orcamento', dados -> 'orcamento')
+  from config where id = 'financeiro' and dados ? 'orcamento'
+on conflict (id) do nothing;
+update config set dados = dados - 'orcamento' where id = 'financeiro' and dados ? 'orcamento';
+
+drop policy if exists config_fin_ler on config;
+drop policy if exists config_fin_incluir on config;
+drop policy if exists config_fin_alterar on config;
+drop policy if exists config_fin_excluir on config;
+create policy config_fin_ler on config as restrictive for select to authenticated
+  using (id <> 'financeiro_orcamento' or sou_admin());
+create policy config_fin_incluir on config as restrictive for insert to authenticated
+  with check (id not in ('financeiro', 'financeiro_orcamento') or sou_admin());
+create policy config_fin_alterar on config as restrictive for update to authenticated
+  using (id not in ('financeiro', 'financeiro_orcamento') or sou_admin())
+  with check (id not in ('financeiro', 'financeiro_orcamento') or sou_admin());
+create policy config_fin_excluir on config as restrictive for delete to authenticated
+  using (id not in ('financeiro', 'financeiro_orcamento') or sou_admin());
+
+-- Nomes da equipe (só e-mail e nome, para quem é da equipe)
+create or replace function nomes_equipe() returns table (email text, nome text) language sql stable security definer set search_path = public as $$
+  select m.email::text, m.nome::text from membros m where sou_membro() and coalesce(m.nome, '') <> '';
+$$;
+grant execute on function nomes_equipe() to authenticated;

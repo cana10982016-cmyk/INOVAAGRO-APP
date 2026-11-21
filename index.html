@@ -910,6 +910,9 @@ a { color: var(--accent); }
 .note ol { margin: 6px 0 0; padding-left: 20px; }
 .note code { background: var(--surface); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
 .team-add { display: grid; grid-template-columns: 2fr 2fr 1.3fr auto; gap: 10px; align-items: end; }
+.team-nome { width: 100%; min-width: 150px; height: 34px; padding: 0 10px; border: 1px solid transparent; border-radius: 8px; background: transparent; font: inherit; color: inherit; }
+.team-nome:hover { border-color: var(--line, #e1e0d9); }
+.team-nome:focus { border-color: var(--brand, #3f7d2c); background: var(--surface, #fff); outline: none; }
 .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
 .roles div { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 13px; display: grid; gap: 4px; background: var(--surface); }
 td select { width: auto; padding: 4px 8px; }
@@ -2521,8 +2524,21 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
     el.dataset.mode = Store.mode === 'local' ? 'local' : Store.mode === 'supabase' && (!navigator.onLine || Sync.pend) ? 'offline' : 'nuvem';
     el.title = Sync.pend ? Sync.pend + ' alteração(ões) esperando internet para enviar' : '';
     $('#acct').hidden = Store.mode !== 'supabase';
-    if (SB.user) { $('#who-av').textContent = SB.user.email.slice(0, 2).toUpperCase(); $('#who-email').textContent = SB.user.email; $('#who-papel').textContent = PAPEIS[S.papel]?.l || S.papel; }
+    if (SB.user) { const nm = nomeDe(SB.user.email); $('#who-av').textContent = nm !== SB.user.email ? nm.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('') : SB.user.email.slice(0, 2).toUpperCase(); $('#who-email').textContent = nm; $('#who-email').title = SB.user.email; $('#who-papel').textContent = PAPEIS[S.papel]?.l || S.papel; }
     document.dispatchEvent(new Event('inova:sync'));
+  }
+  // Nomes da equipe (e-mail -> nome), para mostrar "Leandro Nascimento" no lugar do e-mail
+  S.nomes = (() => { try { return JSON.parse(localStorage.getItem('inovaagro.nomes') || '{}'); } catch (e) { return {}; } })();
+  function nomeDe(em) { if (!em) return ''; const k = String(em).toLowerCase(); return S.nomes[k] || em; }
+  async function carregarNomes() {
+    if (!SB.cli || !SB.user) return;
+    let l = null;
+    const r = await SB.cli.rpc('nomes_equipe'); // função do supabase/04_financeiro.sql (todos da equipe podem ler os nomes)
+    if (!r.error) l = r.data; else { try { l = await SB.membros(); } catch (e) { } }
+    if (!l) return;
+    const m = {}; for (const x of l) if (x.email && x.nome) m[String(x.email).toLowerCase()] = x.nome;
+    S.nomes = m; try { localStorage.setItem('inovaagro.nomes', JSON.stringify(m)); } catch (e) { }
+    setSync();
   }
   function setPapel(p) { S.papel = PAPEIS[p] ? p : 'editor'; document.body.dataset.papel = S.papel; renderNav(); setSync(); }
 
@@ -2533,7 +2549,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
     if (Sync.rodando) return 'Enviando…';
     if (!navigator.onLine || Sync.offline) return Sync.pend ? 'Sem internet · ' + Sync.pend + ' para enviar' : 'Sem internet';
     if (Sync.pend) return Sync.pend + ' para enviar';
-    return SB.user ? SB.user.email : 'Online';
+    return SB.user ? nomeDe(SB.user.email) : 'Online';
   }
   async function sincronizar(avisar) {
     if (Store.mode !== 'supabase' || Sync.rodando) return;
@@ -3541,7 +3557,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
           <button class="btn primary" type="submit">Adicionar</button></form>
         <p class="muted" style="margin:0;font-size:13px">Depois de adicionar, envie o endereço do sistema para a pessoa. No primeiro acesso ela digita este e-mail, escolhe uma senha e clica em <b>Primeiro acesso: criar minha senha</b>.</p></section>
       <div class="table-wrap"><table><thead><tr><th>E-mail</th><th>Nome</th><th>Permissão</th><th>Fazendas que vê</th><th>Acesso</th><th></th></tr></thead><tbody>
-        ${E.lista.map(m => { const self = m.email.toLowerCase() === eu; return `<tr data-email="${esc(m.email)}"><td>${esc(m.email)}${self ? ' <span class="pill info">você</span>' : ''}</td><td>${esc(m.nome || '—')}</td>
+        ${E.lista.map(m => { const self = m.email.toLowerCase() === eu; return `<tr data-email="${esc(m.email)}"><td>${esc(m.email)}${self ? ' <span class="pill info">você</span>' : ''}</td><td><input type="text" class="team-nome" data-m="nome" value="${esc(m.nome || '')}" placeholder="Escreva o nome" aria-label="Nome de ${esc(m.email)}"></td>
           <td><select data-m="papel" ${self ? 'disabled title="Você não pode mudar a própria permissão"' : ''}>${Object.entries(PAPEIS).map(([k, p]) => `<option value="${k}" ${m.papel === k ? 'selected' : ''}>${p.l}</option>`).join('')}${PAPEIS[m.papel] ? '' : `<option selected>${esc(m.papel)}</option>`}</select></td>
           <td>${m.papel === 'admin' ? '<span class="muted">Todas (administrador)</span>' : `<button class="btn small" data-m="faz" ${S.faltaFazPerm ? 'disabled title="Rode a atualização do banco para liberar"' : ''}>${(m.fazendas || []).length ? fmtInt(m.fazendas.length) + ' fazenda(s)' : 'Todas'}</button>`}</td>
           <td>${m.ativo === false ? '<span class="pill">Bloqueado</span>' : '<span class="pill ok">Ativo</span>'}</td>
@@ -3581,6 +3597,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
     const tr = e.target.closest('tr[data-email]'); if (!tr) return;
     const email = tr.dataset.email, m = E.lista.find(x => x.email === email), el = e.target.closest('[data-m]'); if (!el || !m) return;
     try {
+      if (el.dataset.m === 'nome') { if (e.type !== 'change') return; const nome = el.value.trim(); await SB.updMembro(email, { nome: nome || null }); m.nome = nome; toast('Nome salvo.'); carregarNomes().catch(() => {}); return; }
       if (el.dataset.m === 'papel' && e.type === 'change') { await SB.updMembro(email, { papel: el.value }); toast('Permissão alterada.'); }
       else if (el.dataset.m === 'faz' && e.type === 'click') { escolherFazendas(m); return; }
       else if (el.dataset.m === 'ativo' && e.type === 'click') { await SB.updMembro(email, { ativo: m.ativo === false }); toast(m.ativo === false ? 'Acesso liberado.' : 'Acesso bloqueado.'); }
@@ -3991,7 +4008,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
   function cardFeed(m) {
     const t = get('talhoes', m.talhao_id), fz = t && get('fazendas', t.fazenda_id), p = fz && get('produtores', fz.produtor_id);
     const c = t && culturaNaData(t, m.data), sem = semaforo(m), fotos = fotosMon(m), i = FD.idx[m.id] || 0;
-    const autor = m.responsavel || (m.criado_por && m.criado_por !== 'local' ? m.criado_por : 'Equipe InovaAgro');
+    const autor = nomeDe(m.responsavel) || (m.criado_por && m.criado_por !== 'local' ? nomeDe(m.criado_por) : 'Equipe InovaAgro');
     const cur = m.curtidas || {}, up = Object.values(cur).filter(v => v > 0).length, down = Object.values(cur).filter(v => v < 0).length, meu = cur[eu()] || 0;
     const cm = m.comentarios || [];
     return `<article class="card-box post" data-mon="${esc(m.id)}">
@@ -4009,7 +4026,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
           <div><button class="btn small" data-edit="monitoramentos:${esc(m.id)}">Abrir visita</button></div></div>
       </div>
       <footer class="post-f"><button class="react ${meu > 0 ? 'on' : ''}" data-fd-reac="1" aria-label="Curtir">${ICR.up}<span>${up}</span></button><button class="react ${meu < 0 ? 'on' : ''}" data-fd-reac="-1" aria-label="Não curtir">${ICR.down}<span>${down}</span></button><button class="react" data-fd-cmt aria-label="Comentários">${ICR.cmt}<span>${cm.length}</span></button></footer>
-      <div class="cmts" ${FD.aberto === m.id || cm.length ? '' : 'hidden'}>${cm.map(x => `<div class="cmt"><span class="avatar sm">${esc(iniciais(x.autor))}</span><div><b>${esc(x.autor)}</b> <small class="muted">${fmtDate(x.data)}</small><p>${esc(x.texto)}</p></div></div>`).join('')}
+      <div class="cmts" ${FD.aberto === m.id || cm.length ? '' : 'hidden'}>${cm.map(x => `<div class="cmt"><span class="avatar sm">${esc(iniciais(nomeDe(x.autor)))}</span><div><b>${esc(nomeDe(x.autor))}</b> <small class="muted">${fmtDate(x.data)}</small><p>${esc(x.texto)}</p></div></div>`).join('')}
         ${podeEditar() ? `<div class="cmt-new"><input type="text" class="cmt-in" placeholder="Escreva um comentário e tecle Enter" aria-label="Comentário"><button class="btn small" data-fd-send>Enviar</button></div>` : ''}</div>
     </article>`;
   }
@@ -4058,7 +4075,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
       const t = get('talhoes', m.talhao_id), lugar = nomeTal(t) + ' · ' + (get('fazendas', t?.fazenda_id)?.nome || '');
       const sem = semaforo(m);
       if (diasDesde(m.data) <= 30 && (sem === 'vermelho' || sem === 'amarelo')) out.push({ id: 'mon-' + m.id, tipo: 'feed', data: m.data, cor: ATV[sem].c, t: `Visita em ${sem} em ${lugar}`, d: m.alvo || m.estadio || m.obs || '', go: 'monitoramentos:' + m.id });
-      for (const c of m.comentarios || []) if (c.autor !== eu() && diasDesde(c.data) <= 60) out.push({ id: 'cmt-' + m.id + '-' + c.data, tipo: 'feed', data: c.data, cor: '#2a78d6', t: `${c.autor} comentou a visita em ${lugar}`, d: c.texto, go: 'monitoramentos:' + m.id });
+      for (const c of m.comentarios || []) if (c.autor !== eu() && diasDesde(c.data) <= 60) out.push({ id: 'cmt-' + m.id + '-' + c.data, tipo: 'feed', data: c.data, cor: '#2a78d6', t: `${nomeDe(c.autor)} comentou a visita em ${lugar}`, d: c.texto, go: 'monitoramentos:' + m.id });
     }
     for (const o of S.data.ordens) {
       const f = get('fazendas', o.fazenda_id)?.nome || '';
@@ -5296,6 +5313,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
       const ok = await SB.cli.rpc('sou_membro');
       if (ok.error && Off.erroDeRede(ok.error)) { /* caiu a internet: segue com o que já carregou */ }
       else if (ok.error || !ok.data) { await Off.limpar().catch(() => {}); showLogin('O e-mail ' + SB.user.email + ' ainda não tem acesso ou está bloqueado. Peça ao administrador para liberar.'); $('#login-out').hidden = false; return; }
+      carregarNomes().catch(() => {});
       try { const pp = await SB.meuPapel() || 'leitura'; setPapel(pp); try { localStorage.setItem('inovaagro.papel', pp); } catch (e) { } }
       catch (e) { if (Off.erroDeRede(e)) usarPapelSalvo(); else { S.equipePendente = true; setPapel('editor'); } } // sem internet / banco ainda sem a atualização de permissões
       if (!S.base.produtores.length) setTimeout(() => toast('Banco vazio. Use "Importar dados" para carregar o arquivo exportado.'), 800);
@@ -6776,6 +6794,8 @@ window.Financeiro = (function () {
   const REEMB_PAG = 'Dinheiro / Pix próprio (reembolsar)';
   const reembolsavel = d => REEMB_TIPOS.includes(d.tipo) || d.forma_pagamento === REEMB_PAG;
   const CFG = () => I().get('config', 'financeiro') || {};
+  // O orçamento fica num registro separado, que só o administrador lê (ver supabase/04_financeiro.sql)
+  const ORC = () => (I().get('config', 'financeiro_orcamento') || {}).orcamento || CFG().orcamento || {};
   // Rateio: uma despesa pode ser dividida em partes iguais entre as fazendas visitadas
   const fazendasDe = d => (Array.isArray(d.fazenda_ids) && d.fazenda_ids.length ? d.fazenda_ids : d.fazenda_id ? [d.fazenda_id] : []).map(String);
   const partes = d => { const f = fazendasDe(d); return f.map(id => [id, n(d.valor) / f.length]); };
@@ -6818,7 +6838,7 @@ window.Financeiro = (function () {
       if (ativo()) render();
     } catch (e) { membrosOk = false; }
   }
-  const nomePessoa = em => { if (!em) return '—'; const m = membros[String(em).toLowerCase()]; return (m && m.nome) || (em === 'local' ? 'Este aparelho' : String(em).split('@')[0]); };
+  const nomePessoa = em => { if (!em) return '—'; const m = membros[String(em).toLowerCase()]; return (m && m.nome) || (S().nomes || {})[String(em).toLowerCase()] || (em === 'local' ? 'Este aparelho' : String(em).split('@')[0]); };
 
   // ---------- Período ----------
   const PER = { mes: 'Este mês', mes_ant: 'Mês passado', d30: 'Últimos 30 dias', d90: 'Últimos 90 dias', ano: 'Este ano', tudo: 'Tudo', custom: 'Escolher datas' };
@@ -7029,6 +7049,8 @@ window.Financeiro = (function () {
   function render() {
     if (!root) return;
     const p = periodo(), adm = souAdmin(), ed = I().podeEditar();
+    // Valores e relatórios são só do administrador; o técnico só lança e acompanha os próprios lançamentos
+    if (!adm && !['lanc', 'veic'].includes(F.aba)) F.aba = 'lanc';
     const lista = filtradas();
     const pessoas = [...new Set(despesas().map(d => String(d.usuario || '').toLowerCase()).filter(Boolean))].sort((a, b) => nomePessoa(a).localeCompare(nomePessoa(b), 'pt-BR'));
     const fazIds = [...new Set(despesas().flatMap(fazendasDe))];
@@ -7036,26 +7058,26 @@ window.Financeiro = (function () {
     const pend = adm ? despesas().filter(d => (d.status || 'Pendente') === 'Pendente') : [];
     const aviso = S().faltaFin ? `<div class="note"><b>Falta um passo para salvar na nuvem.</b> O administrador precisa rodar uma vez o arquivo <code>supabase/04_financeiro.sql</code> no editor SQL do Supabase. Até lá, o que for lançado fica guardado neste aparelho.</div>` : '';
     const avisoFoto = Env.semBucket ? '<div class="note">As fotos dos comprovantes estão guardadas no aparelho. Para enviá-las, o administrador precisa rodar o arquivo <code>supabase/04_financeiro.sql</code> no Supabase.</div>' : '';
-    const titulo = adm ? 'Despesas da equipe e custos dos veículos.' : 'Suas despesas de campo e os veículos que você usa.';
+    const titulo = adm ? 'Despesas da equipe e custos dos veículos.' : 'Lance aqui suas despesas de campo. Os valores e relatórios ficam com o administrador.';
     root.innerHTML = `<div class="page">
       <div class="page-head"><div><h2>Despesas e veículos</h2><p>${titulo}</p></div>
         <div class="head-acts">${adm ? `<button class="btn" data-f="ajustes">${I().icon('configuracao')} Ajustes</button>` : ''}${ed ? `<button class="btn primary" data-f="novo">${svg(IC.mais)}Lançar despesa</button>` : ''}
-          <button class="btn" data-f="xlsx">${I().icon('xls')} Excel</button><button class="btn" data-f="pdf">${I().icon('pdf')} PDF</button></div></div>
+          ${adm ? `<button class="btn" data-f="xlsx">${I().icon('xls')} Excel</button><button class="btn" data-f="pdf">${I().icon('pdf')} PDF</button>` : ''}</div></div>
       ${aviso}${avisoFoto}${htmlAvisos()}
       ${ed && F.aba !== 'contas' && F.aba !== 'lucro' ? `<div class="fin-quick" role="group" aria-label="Lançamento rápido">${TIPOS.map(t => `<button data-f="novo" data-tipo="${t}"><i class="fin-qi ${TIPO_INFO[t].cls}">${svg(TIPO_INFO[t].ic)}</i><span>${t === 'Outra' ? 'Outra despesa' : t}</span></button>`).join('')}</div>` : ''}
       <div class="fin-filtros">
         <select data-flt="per" aria-label="Período">${Object.entries(PER).map(([k, l]) => `<option value="${k}" ${F.per === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
         ${F.per === 'custom' ? `<input type="date" data-flt="de" value="${esc(F.de)}" aria-label="De"><input type="date" data-flt="ate" value="${esc(F.ate)}" aria-label="Até">` : ''}
         ${F.aba === 'contas' || F.aba === 'lucro' ? '' : `<select data-flt="veic" aria-label="Veículo"><option value="">Todos os veículos</option>${veiculos().map(v => `<option value="${esc(v.id)}" ${String(v.id) === F.veic ? 'selected' : ''}>${esc(v.placa)} · ${esc(v.modelo || '')}</option>`).join('')}</select>
-        ${adm || pessoas.length > 1 ? `<select data-flt="func" aria-label="Funcionário"><option value="">Toda a equipe</option>${pessoas.map(e => `<option value="${esc(e)}" ${e === F.func ? 'selected' : ''}>${esc(nomePessoa(e))}</option>`).join('')}</select>` : ''}
+        ${adm ? `<select data-flt="func" aria-label="Funcionário"><option value="">Toda a equipe</option>${pessoas.map(e => `<option value="${esc(e)}" ${e === F.func ? 'selected' : ''}>${esc(nomePessoa(e))}</option>`).join('')}</select>` : ''}
         <select data-flt="tipo" aria-label="Tipo"><option value="">Todos os tipos</option>${TIPOS.map(t => `<option value="${t}" ${t === F.tipo ? 'selected' : ''}>${TIPO_INFO[t].plural}</option>`).join('')}</select>
         ${fazendas.length ? `<select data-flt="faz" aria-label="Fazenda ou cliente"><option value="">Todas as fazendas</option>${fazendas.map(f => `<option value="${esc(f.id)}" ${String(f.id) === F.faz ? 'selected' : ''}>${esc(f.nome)}</option>`).join('')}</select>` : ''}
         <select data-flt="status" aria-label="Situação"><option value="">Qualquer situação</option>${STATUS.map(s => `<option ${s === F.status ? 'selected' : ''}>${s}</option>`).join('')}</select>
         ${F.veic || F.func || F.tipo || F.faz || F.status ? '<button class="lnk" data-f="limpar">Limpar filtros</button>' : ''}`}
       </div>
       ${pend.length && F.aba !== 'contas' && F.aba !== 'lucro' ? `<div class="fin-pend"><span><b>${I().fmtInt(pend.length)} despesa${pend.length > 1 ? 's' : ''} esperando aprovação</b> · ${R$(pend.reduce((a, d) => a + n(d.valor), 0))}</span><button class="btn small" data-f="ver-pend">Revisar</button></div>` : ''}
-      <div class="tabs" role="tablist">${[['resumo', 'Resumo'], ['lanc', 'Lançamentos'], ['veic', 'Veículos'], ['reemb', 'Reembolsos'], ...(adm ? [['contas', 'Contas a pagar e receber'], ['lucro', 'Lucro por cliente']] : [])].map(([k, l]) => `<button role="tab" data-f="aba" data-aba="${k}" aria-selected="${F.aba === k}">${l}${k === 'lanc' ? ` <span class="ct num">${I().fmtInt(lista.length)}</span>` : k === 'veic' ? ` <span class="ct num">${I().fmtInt(veiculos().length)}</span>` : ''}</button>`).join('')}</div>
-      <div class="fin-body">${F.aba === 'lanc' ? htmlLanc(lista) : F.aba === 'veic' ? htmlVeic(p, lista) : F.aba === 'reemb' ? htmlReemb(p) : F.aba === 'contas' && adm ? htmlContas(p) : F.aba === 'lucro' && adm ? htmlLucro(p) : htmlResumo(p, lista)}</div>
+      <div class="tabs" role="tablist">${(adm ? [['resumo', 'Resumo'], ['lanc', 'Lançamentos'], ['veic', 'Veículos'], ['reemb', 'Reembolsos'], ['contas', 'Contas a pagar e receber'], ['lucro', 'Lucro por cliente']] : [['lanc', 'Meus lançamentos'], ['veic', 'Veículos']]).map(([k, l]) => `<button role="tab" data-f="aba" data-aba="${k}" aria-selected="${F.aba === k}">${l}${k === 'lanc' ? ` <span class="ct num">${I().fmtInt(lista.length)}</span>` : k === 'veic' ? ` <span class="ct num">${I().fmtInt(veiculos().length)}</span>` : ''}</button>`).join('')}</div>
+      <div class="fin-body">${F.aba === 'lanc' ? htmlLanc(lista) : F.aba === 'veic' ? htmlVeic(p, lista) : !adm ? '' : F.aba === 'reemb' ? htmlReemb(p) : F.aba === 'contas' && adm ? htmlContas(p) : F.aba === 'lucro' && adm ? htmlLucro(p) : htmlResumo(p, lista)}</div>
       <div class="fin-tip" hidden></div></div>`;
   }
 
@@ -7125,7 +7147,7 @@ window.Financeiro = (function () {
     const mostra = ord.slice(0, F.lim), tot = lista.reduce((a, d) => a + n(d.valor), 0);
     const sel = [...F.sel].filter(id => I().get('despesas', id));
     return `${adm && sel.length ? `<div class="fin-bulk"><b>${sel.length} selecionada(s)</b><button class="btn small" data-f="bulk" data-st="Aprovada">${svg(IC.ok)}Aprovar</button><button class="btn small" data-f="bulk" data-st="Reembolsada">Marcar reembolsada</button><button class="btn small" data-f="bulk" data-st="Recusada">Recusar</button><button class="lnk" data-f="sel-limpar">Limpar seleção</button></div>` : ''}
-      <div class="table-wrap fin-tab"><table><thead><tr>${adm ? `<th class="ck"><input type="checkbox" data-f="sel-tudo" aria-label="Selecionar todas" ${mostra.length && mostra.every(d => F.sel.has(String(d.id))) ? 'checked' : ''}></th>` : ''}<th>Data</th><th>Tipo</th><th>Detalhe</th><th>Veículo</th><th>Fazenda</th>${adm ? '<th>Funcionário</th>' : ''}<th>Situação</th><th class="r">Valor</th><th aria-label="Comprovante"></th></tr></thead>
+      <div class="table-wrap fin-tab"><table><thead><tr>${adm ? `<th class="ck"><input type="checkbox" data-f="sel-tudo" aria-label="Selecionar todas" ${mostra.length && mostra.every(d => F.sel.has(String(d.id))) ? 'checked' : ''}></th>` : ''}<th>Data</th><th>Tipo</th><th>Detalhe</th><th>Veículo</th><th>Fazenda</th>${adm ? '<th>Funcionário</th>' : ''}<th>Situação</th>${adm ? '<th class="r">Valor</th>' : ''}<th aria-label="Comprovante"></th></tr></thead>
       <tbody>${mostra.map(d => {
         const v = veic(d.veiculo_id), fzs = fazendasDe(d), f = I().get('fazendas', fzs[0]), ti = TIPO_INFO[d.tipo] || TIPO_INFO['Outra'], st = d.status || 'Pendente', k = kmlPor.get(String(d.id));
         return `<tr class="click" data-f="abrir" data-id="${esc(d.id)}">${adm ? `<td class="ck"><input type="checkbox" data-f="sel" data-id="${esc(d.id)}" ${F.sel.has(String(d.id)) ? 'checked' : ''} aria-label="Selecionar"></td>` : ''}
@@ -7133,22 +7155,22 @@ window.Financeiro = (function () {
           <td class="ds">${esc(descr(d)) || '<span class="muted">—</span>'}${d.km ? `<small>${km(n(d.km))}${k ? ' · ' + dec(k) + ' km/l' : ''}</small>` : ''}</td>
           <td class="vc">${v ? `<span class="placa">${esc(v.placa)}</span>` : '<span class="muted">—</span>'}</td><td class="fz">${f ? esc(f.nome) + (fzs.length > 1 ? ` <small class="muted" title="Rateada entre ${fzs.length} fazendas">+${fzs.length - 1}</small>` : '') : '<span class="muted">—</span>'}</td>
           ${adm ? `<td class="fu">${esc(nomePessoa(d.usuario))}</td>` : ''}<td class="sx"><span class="pill ${ST_CLS[st] || ''}">${esc(st)}</span></td>
-          <td class="r vl num"><b>${R$(d.valor)}</b></td><td class="cp">${d.comprovante ? `<button class="icon-btn fin-clip" data-f="foto" data-id="${esc(d.id)}" aria-label="Ver comprovante" title="${d.comprovante.pend ? 'Comprovante guardado no aparelho (a enviar)' : 'Ver comprovante'}">${svg(IC.clip)}${d.comprovante.pend ? '<i class="dotp"></i>' : ''}</button>` : ''}</td></tr>`;
-      }).join('') || `<tr><td colspan="${adm ? 10 : 8}" class="empty">Nenhuma despesa neste filtro.</td></tr>`}</tbody>
-      ${lista.length ? `<tfoot><tr><td colspan="${adm ? 8 : 6}">Total de ${I().fmtInt(lista.length)} lançamento(s)</td><td class="r num"><b>${R$(tot)}</b></td><td></td></tr></tfoot>` : ''}</table></div>
+          ${adm ? `<td class="r vl num"><b>${R$(d.valor)}</b></td>` : ''}<td class="cp">${d.comprovante ? `<button class="icon-btn fin-clip" data-f="foto" data-id="${esc(d.id)}" aria-label="Ver comprovante" title="${d.comprovante.pend ? 'Comprovante guardado no aparelho (a enviar)' : 'Ver comprovante'}">${svg(IC.clip)}${d.comprovante.pend ? '<i class="dotp"></i>' : ''}</button>` : ''}</td></tr>`;
+      }).join('') || `<tr><td colspan="${adm ? 10 : 7}" class="empty">Nenhuma despesa neste filtro.</td></tr>`}</tbody>
+      ${lista.length && adm ? `<tfoot><tr><td colspan="${adm ? 8 : 6}">Total de ${I().fmtInt(lista.length)} lançamento(s)</td><td class="r num"><b>${R$(tot)}</b></td><td></td></tr></tfoot>` : ''}</table></div>
       ${ord.length > mostra.length ? `<p style="text-align:center"><button class="btn small" data-f="mais">Mostrar mais (${I().fmtInt(ord.length - mostra.length)})</button></p>` : ''}`;
   }
 
   // ---------- Veículos ----------
   function htmlVeic(p, lista) {
-    const vs = veiculos(), ed = I().podeEditar();
-    return `<div class="fin-vh">${ed ? `<button class="btn" data-f="veic-novo">${svg(IC.mais)}Novo veículo</button>` : ''}<span class="muted">Valores do período escolhido. O consumo usa os abastecimentos com tanque cheio.</span></div>
+    const vs = veiculos(), ed = I().podeEditar(), adm = souAdmin();
+    return `<div class="fin-vh">${ed ? `<button class="btn" data-f="veic-novo">${svg(IC.mais)}Novo veículo</button>` : ''}<span class="muted">${adm ? 'Valores do período escolhido. O consumo usa os abastecimentos com tanque cheio.' : 'Escolha o veículo para lançar abastecimento ou manutenção.'}</span></div>
       <div class="fin-veics">${vs.map(v => {
         const s = statsVeic(v, p, lista), rv = revisao(v), ka = kmAtual(v);
         return `<article class="fin-vc${v.ativo === 'Não' ? ' off' : ''}">
           <header><span class="placa big">${esc(v.placa)}</span><div><b>${esc([v.marca, v.modelo].filter(Boolean).join(' ') || 'Veículo')}</b><small>${esc([v.ano, v.combustivel, v.responsavel ? nomePessoa(v.responsavel) : ''].filter(Boolean).join(' · '))}</small></div>${ed ? `<button class="lnk" data-f="veic-edit" data-id="${esc(v.id)}">Editar</button>` : ''}</header>
-          <dl><div><dt>Hodômetro</dt><dd class="num">${km(ka)}</dd></div><div><dt>Consumo</dt><dd class="num">${s.kml ? dec(s.kml) + ' km/l' : '—'}</dd></div><div><dt>Custo por km</dt><dd class="num">${s.cpk ? R$(s.cpk) : '—'}</dd></div>
-            <div><dt>Rodou</dt><dd class="num">${km(s.rod)}</dd></div><div><dt>Combustível</dt><dd class="num">${R0(s.comb)}</dd></div><div><dt>Manutenção</dt><dd class="num">${R0(s.man)}</dd></div></dl>
+          ${!adm ? `<dl><div><dt>Hodômetro</dt><dd class="num">${km(ka)}</dd></div></dl>` : `<dl><div><dt>Hodômetro</dt><dd class="num">${km(ka)}</dd></div><div><dt>Consumo</dt><dd class="num">${s.kml ? dec(s.kml) + ' km/l' : '—'}</dd></div><div><dt>Custo por km</dt><dd class="num">${s.cpk ? R$(s.cpk) : '—'}</dd></div>
+            <div><dt>Rodou</dt><dd class="num">${km(s.rod)}</dd></div><div><dt>Combustível</dt><dd class="num">${R0(s.comb)}</dd></div><div><dt>Manutenção</dt><dd class="num">${R0(s.man)}</dd></div></dl>`}
           <footer>${rv ? `<span class="pill ${rv.cls}">${esc(rv.txt)}</span>` : v.ativo === 'Não' ? '<span class="pill">Inativo</span>' : '<span></span>'}
             ${ed ? `<span class="fin-vb"><button class="btn small" data-f="novo" data-tipo="Combustível" data-veic="${esc(v.id)}">Abastecer</button><button class="btn small" data-f="novo" data-tipo="Manutenção" data-veic="${esc(v.id)}">Manutenção</button></span>` : ''}</footer></article>`;
       }).join('') || `<div class="fin-vazio">${svg(ICV)}<p><b>Nenhum veículo cadastrado.</b><br>Cadastre os carros e caminhonetes da equipe para acompanhar combustível, manutenção, consumo e custo por km.</p>${ed ? `<button class="btn primary" data-f="veic-novo">Cadastrar veículo</button>` : ''}</div>`}</div>`;
@@ -7181,8 +7203,8 @@ window.Financeiro = (function () {
         for (const id of ids) { const d = I().get('despesas', id); if (d && d.status !== b.dataset.st) { await I().Store.save('despesas', Object.assign({}, d, { status: b.dataset.st, status_por: meuEmail(), status_em: new Date().toISOString() })); k++; } }
         F.sel.clear(); I().toast(k ? k + ' despesa(s) marcada(s) como ' + b.dataset.st.toLowerCase() + '.' : 'Nada mudou.'); render(); break;
       }
-      case 'xlsx': baixarExcel(); break;
-      case 'ajustes': formAjustes(); break;
+      case 'xlsx': if (souAdmin()) baixarExcel(); break;
+      case 'ajustes': if (souAdmin()) formAjustes(); break;
       case 'conta-nova': formConta(null, { tipo: b.dataset.tipo || 'Receber' }); break;
       case 'conta': formConta(contas().find(c => String(c.id) === b.dataset.id)); break;
       case 'conta-baixa': { e.stopPropagation(); const c = contas().find(x => String(x.id) === b.dataset.id); if (c) { await I().Store.save('contas', Object.assign({}, c, { pago_em: I().today() })); I().toast(c.tipo === 'Receber' ? 'Marcada como recebida.' : 'Marcada como paga.'); } break; }
@@ -7190,7 +7212,7 @@ window.Financeiro = (function () {
       case 'reemb-pagar': { const em = b.dataset.id, l = despesas().filter(d => String(d.usuario).toLowerCase() === em && reembolsavel(d) && d.status === 'Aprovada'); if (!l.length || !confirm(`Marcar ${l.length} despesa(s) de ${nomePessoa(em)} como reembolsadas (${R$(l.reduce((a, d) => a + n(d.valor), 0))})?`)) break; for (const d of l) await I().Store.save('despesas', Object.assign({}, d, { status: 'Reembolsada', status_por: meuEmail(), status_em: new Date().toISOString(), reembolsado_em: I().today() })); I().toast('Reembolso registrado.'); break; }
       case 'reemb-recibo': reciboPDF(b.dataset.id); break;
       case 'lucro-cli': F.lucroAberto = F.lucroAberto === b.dataset.id ? '' : b.dataset.id; render(); break;
-      case 'pdf': baixarPDF(); break;
+      case 'pdf': if (souAdmin()) baixarPDF(); break;
     }
   }
   function dica(e) {
@@ -7571,7 +7593,7 @@ window.Financeiro = (function () {
   // ---------- Orçamento mensal por categoria ----------
   const mesAtual = () => I().today().slice(0, 7);
   function orcamento() {
-    const o = CFG().orcamento || {}, mes = mesAtual();
+    const o = ORC(), mes = mesAtual();
     const ds = despesas().filter(d => String(d.data || '').slice(0, 7) === mes && d.status !== 'Recusada');
     const gasto = somaTipo(ds), itens = [];
     for (const t of TIPOS) if (n(o[t]) > 0) itens.push({ k: t, nome: TIPO_INFO[t].plural, cls: TIPO_INFO[t].cls, lim: n(o[t]), gasto: gasto[t] });
@@ -7788,7 +7810,7 @@ window.Financeiro = (function () {
 
   // ---------- Ajustes (administrador): valores de diária e km, orçamento mensal ----------
   function formAjustes() {
-    const c = CFG(), o = c.orcamento || {};
+    const c = CFG(), o = ORC();
     const bg = document.createElement('div'); bg.className = 'modal-bg';
     bg.innerHTML = `<div class="modal fin-modal" role="dialog" aria-modal="true" aria-labelledby="fin-aj"><header><h2 id="fin-aj">Ajustes do financeiro</h2><button class="x" data-close aria-label="Fechar">×</button></header>
       <form novalidate>
@@ -7806,7 +7828,7 @@ window.Financeiro = (function () {
       const el = $('form', bg).elements, orc = {};
       for (const t of TIPOS) { const v = nn(el['orc_' + t].value); if (v) orc[t] = v; }
       const tt = nn(el.orc_total.value); if (tt) orc.total = tt;
-      try { await I().Store.save('config', Object.assign({}, c, { id: 'financeiro', valor_diaria: nn(el.valor_diaria.value), valor_km: nn(el.valor_km.value), orcamento: orc })); } catch (er) { return; }
+      try { const cc = Object.assign({}, c, { id: 'financeiro', valor_diaria: nn(el.valor_diaria.value), valor_km: nn(el.valor_km.value) }); delete cc.orcamento; await I().Store.save('config', cc); await I().Store.save('config', { id: 'financeiro_orcamento', orcamento: orc }); } catch (er) { return; }
       bg.remove(); I().toast('Ajustes salvos.');
     });
   }
