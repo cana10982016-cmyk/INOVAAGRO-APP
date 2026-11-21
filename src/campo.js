@@ -4,6 +4,20 @@
    histórico, notificações, feed, clima e sincronização. Usa os dados e o armazenamento do app (window.INOVA). */
 window.Campo = (function () {
   'use strict';
+  // iPhone: quando o teclado fecha, o iOS às vezes deixa a página rolada e o app fica deslocado. Volta para o lugar.
+  if (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+    // impede o zoom automático do iPhone ao tocar num campo (o zoom com dois dedos continua funcionando no iOS)
+    const vp = document.querySelector('meta[name=viewport]');
+    if (vp && !/maximum-scale/.test(vp.content)) vp.content += ', maximum-scale=1';
+    const ajeitar = () => setTimeout(() => {
+      const a = document.activeElement;
+      if (a && a.matches && a.matches('input, textarea, select, [contenteditable]')) return;
+      if (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; }
+    }, 150);
+    document.addEventListener('focusout', ajeitar);
+    window.addEventListener('orientationchange', ajeitar);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', ajeitar);
+  }
   const I = () => window.INOVA;
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];

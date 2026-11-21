@@ -1446,6 +1446,13 @@ td small, td .muted { color: var(--muted); font-size: 12px; }
 .cot-kpis { margin: 0 0 14px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
 @media (max-width: 640px) { .cot-kpis { grid-template-columns: repeat(2, 1fr); row-gap: 12px; } }
 
+/* Celular (tela de toque): campos com 16px evitam que o iPhone dê zoom ao tocar num campo e deixe a tela deslocada */
+@media (pointer: coarse) {
+  input, select, textarea { font-size: 16px !important; }
+  .cp-cnt input, .cp-pct input { font-size: 26px !important; }
+}
+html, body { overscroll-behavior: none; }
+
 /* ===== Modo campo (celular) — src/campo.js ===== */
 body.campo-on .nav, body.campo-on .topbar, body.campo-on .nav-scrim { display: none !important; }
 body.campo-on main { top: 0; left: 0; right: 0; bottom: 0; }
@@ -1593,9 +1600,9 @@ body.campo-on main { top: 0; left: 0; right: 0; bottom: 0; }
 .cp-gpsinfo[data-ok="1"]::before { content: "● "; color: var(--ok); }
 .cp-gpsinfo[data-ok="0"]::before { content: "● "; color: var(--warn); }
 .cp-h3 { margin: 4px 16px 0; font-size: 16px; }
-.cp-wps { display: flex; gap: 14px; overflow-x: auto; padding: 2px 16px 4px; scrollbar-width: none; }
-.cp-wps button { flex: none; border: 0; background: none; display: grid; justify-items: center; gap: 6px; font-size: 13px; width: 64px; }
-.cp-wps i { width: 60px; height: 60px; border-radius: 50%; background: var(--cp-dark); color: #fff; display: grid; place-items: center; }
+.cp-wps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; padding: 2px 12px 4px; }
+.cp-wps button { min-width: 0; border: 0; background: none; display: grid; justify-items: center; gap: 6px; font-size: 12.5px; padding: 0; }
+.cp-wps i { width: min(56px, 15vw); height: min(56px, 15vw); border-radius: 50%; background: var(--cp-dark); color: #fff; display: grid; place-items: center; }
 .cp-wps i .ic { width: 28px; height: 28px; }
 .cp-wps button:active i { background: var(--brand); }
 .cp-box { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; margin: 0 14px; padding: 12px 14px; display: grid; gap: 10px; }
@@ -5191,6 +5198,20 @@ window.CANA = (function () {
    histórico, notificações, feed, clima e sincronização. Usa os dados e o armazenamento do app (window.INOVA). */
 window.Campo = (function () {
   'use strict';
+  // iPhone: quando o teclado fecha, o iOS às vezes deixa a página rolada e o app fica deslocado. Volta para o lugar.
+  if (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+    // impede o zoom automático do iPhone ao tocar num campo (o zoom com dois dedos continua funcionando no iOS)
+    const vp = document.querySelector('meta[name=viewport]');
+    if (vp && !/maximum-scale/.test(vp.content)) vp.content += ', maximum-scale=1';
+    const ajeitar = () => setTimeout(() => {
+      const a = document.activeElement;
+      if (a && a.matches && a.matches('input, textarea, select, [contenteditable]')) return;
+      if (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; }
+    }, 150);
+    document.addEventListener('focusout', ajeitar);
+    window.addEventListener('orientationchange', ajeitar);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', ajeitar);
+  }
   const I = () => window.INOVA;
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];

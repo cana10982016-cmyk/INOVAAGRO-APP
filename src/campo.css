@@ -145,9 +145,9 @@ body.campo-on main { top: 0; left: 0; right: 0; bottom: 0; }
 .cp-gpsinfo[data-ok="1"]::before { content: "● "; color: var(--ok); }
 .cp-gpsinfo[data-ok="0"]::before { content: "● "; color: var(--warn); }
 .cp-h3 { margin: 4px 16px 0; font-size: 16px; }
-.cp-wps { display: flex; gap: 14px; overflow-x: auto; padding: 2px 16px 4px; scrollbar-width: none; }
-.cp-wps button { flex: none; border: 0; background: none; display: grid; justify-items: center; gap: 6px; font-size: 13px; width: 64px; }
-.cp-wps i { width: 60px; height: 60px; border-radius: 50%; background: var(--cp-dark); color: #fff; display: grid; place-items: center; }
+.cp-wps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; padding: 2px 12px 4px; }
+.cp-wps button { min-width: 0; border: 0; background: none; display: grid; justify-items: center; gap: 6px; font-size: 12.5px; padding: 0; }
+.cp-wps i { width: min(56px, 15vw); height: min(56px, 15vw); border-radius: 50%; background: var(--cp-dark); color: #fff; display: grid; place-items: center; }
 .cp-wps i .ic { width: 28px; height: 28px; }
 .cp-wps button:active i { background: var(--brand); }
 .cp-box { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; margin: 0 14px; padding: 12px 14px; display: grid; gap: 10px; }
