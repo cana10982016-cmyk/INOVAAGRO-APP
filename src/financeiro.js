@@ -36,6 +36,8 @@ window.Financeiro = (function () {
   const REEMB_PAG = 'Dinheiro / Pix próprio (reembolsar)';
   const reembolsavel = d => REEMB_TIPOS.includes(d.tipo) || d.forma_pagamento === REEMB_PAG;
   const CFG = () => I().get('config', 'financeiro') || {};
+  // O orçamento fica num registro separado, que só o administrador lê (ver supabase/04_financeiro.sql)
+  const ORC = () => (I().get('config', 'financeiro_orcamento') || {}).orcamento || CFG().orcamento || {};
   // Rateio: uma despesa pode ser dividida em partes iguais entre as fazendas visitadas
   const fazendasDe = d => (Array.isArray(d.fazenda_ids) && d.fazenda_ids.length ? d.fazenda_ids : d.fazenda_id ? [d.fazenda_id] : []).map(String);
   const partes = d => { const f = fazendasDe(d); return f.map(id => [id, n(d.valor) / f.length]); };
@@ -78,7 +80,7 @@ window.Financeiro = (function () {
       if (ativo()) render();
     } catch (e) { membrosOk = false; }
   }
-  const nomePessoa = em => { if (!em) return '—'; const m = membros[String(em).toLowerCase()]; return (m && m.nome) || (em === 'local' ? 'Este aparelho' : String(em).split('@')[0]); };
+  const nomePessoa = em => { if (!em) return '—'; const m = membros[String(em).toLowerCase()]; return (m && m.nome) || (S().nomes || {})[String(em).toLowerCase()] || (em === 'local' ? 'Este aparelho' : String(em).split('@')[0]); };
 
   // ---------- Período ----------
   const PER = { mes: 'Este mês', mes_ant: 'Mês passado', d30: 'Últimos 30 dias', d90: 'Últimos 90 dias', ano: 'Este ano', tudo: 'Tudo', custom: 'Escolher datas' };
@@ -289,6 +291,8 @@ window.Financeiro = (function () {
   function render() {
     if (!root) return;
     const p = periodo(), adm = souAdmin(), ed = I().podeEditar();
+    // Valores e relatórios são só do administrador; o técnico só lança e acompanha os próprios lançamentos
+    if (!adm && !['lanc', 'veic'].includes(F.aba)) F.aba = 'lanc';
     const lista = filtradas();
     const pessoas = [...new Set(despesas().map(d => String(d.usuario || '').toLowerCase()).filter(Boolean))].sort((a, b) => nomePessoa(a).localeCompare(nomePessoa(b), 'pt-BR'));
     const fazIds = [...new Set(despesas().flatMap(fazendasDe))];
@@ -296,26 +300,26 @@ window.Financeiro = (function () {
     const pend = adm ? despesas().filter(d => (d.status || 'Pendente') === 'Pendente') : [];
     const aviso = S().faltaFin ? `<div class="note"><b>Falta um passo para salvar na nuvem.</b> O administrador precisa rodar uma vez o arquivo <code>supabase/04_financeiro.sql</code> no editor SQL do Supabase. Até lá, o que for lançado fica guardado neste aparelho.</div>` : '';
     const avisoFoto = Env.semBucket ? '<div class="note">As fotos dos comprovantes estão guardadas no aparelho. Para enviá-las, o administrador precisa rodar o arquivo <code>supabase/04_financeiro.sql</code> no Supabase.</div>' : '';
-    const titulo = adm ? 'Despesas da equipe e custos dos veículos.' : 'Suas despesas de campo e os veículos que você usa.';
+    const titulo = adm ? 'Despesas da equipe e custos dos veículos.' : 'Lance aqui suas despesas de campo. Os valores e relatórios ficam com o administrador.';
     root.innerHTML = `<div class="page">
       <div class="page-head"><div><h2>Despesas e veículos</h2><p>${titulo}</p></div>
         <div class="head-acts">${adm ? `<button class="btn" data-f="ajustes">${I().icon('configuracao')} Ajustes</button>` : ''}${ed ? `<button class="btn primary" data-f="novo">${svg(IC.mais)}Lançar despesa</button>` : ''}
-          <button class="btn" data-f="xlsx">${I().icon('xls')} Excel</button><button class="btn" data-f="pdf">${I().icon('pdf')} PDF</button></div></div>
+          ${adm ? `<button class="btn" data-f="xlsx">${I().icon('xls')} Excel</button><button class="btn" data-f="pdf">${I().icon('pdf')} PDF</button>` : ''}</div></div>
       ${aviso}${avisoFoto}${htmlAvisos()}
       ${ed && F.aba !== 'contas' && F.aba !== 'lucro' ? `<div class="fin-quick" role="group" aria-label="Lançamento rápido">${TIPOS.map(t => `<button data-f="novo" data-tipo="${t}"><i class="fin-qi ${TIPO_INFO[t].cls}">${svg(TIPO_INFO[t].ic)}</i><span>${t === 'Outra' ? 'Outra despesa' : t}</span></button>`).join('')}</div>` : ''}
       <div class="fin-filtros">
         <select data-flt="per" aria-label="Período">${Object.entries(PER).map(([k, l]) => `<option value="${k}" ${F.per === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
         ${F.per === 'custom' ? `<input type="date" data-flt="de" value="${esc(F.de)}" aria-label="De"><input type="date" data-flt="ate" value="${esc(F.ate)}" aria-label="Até">` : ''}
         ${F.aba === 'contas' || F.aba === 'lucro' ? '' : `<select data-flt="veic" aria-label="Veículo"><option value="">Todos os veículos</option>${veiculos().map(v => `<option value="${esc(v.id)}" ${String(v.id) === F.veic ? 'selected' : ''}>${esc(v.placa)} · ${esc(v.modelo || '')}</option>`).join('')}</select>
-        ${adm || pessoas.length > 1 ? `<select data-flt="func" aria-label="Funcionário"><option value="">Toda a equipe</option>${pessoas.map(e => `<option value="${esc(e)}" ${e === F.func ? 'selected' : ''}>${esc(nomePessoa(e))}</option>`).join('')}</select>` : ''}
+        ${adm ? `<select data-flt="func" aria-label="Funcionário"><option value="">Toda a equipe</option>${pessoas.map(e => `<option value="${esc(e)}" ${e === F.func ? 'selected' : ''}>${esc(nomePessoa(e))}</option>`).join('')}</select>` : ''}
         <select data-flt="tipo" aria-label="Tipo"><option value="">Todos os tipos</option>${TIPOS.map(t => `<option value="${t}" ${t === F.tipo ? 'selected' : ''}>${TIPO_INFO[t].plural}</option>`).join('')}</select>
         ${fazendas.length ? `<select data-flt="faz" aria-label="Fazenda ou cliente"><option value="">Todas as fazendas</option>${fazendas.map(f => `<option value="${esc(f.id)}" ${String(f.id) === F.faz ? 'selected' : ''}>${esc(f.nome)}</option>`).join('')}</select>` : ''}
         <select data-flt="status" aria-label="Situação"><option value="">Qualquer situação</option>${STATUS.map(s => `<option ${s === F.status ? 'selected' : ''}>${s}</option>`).join('')}</select>
         ${F.veic || F.func || F.tipo || F.faz || F.status ? '<button class="lnk" data-f="limpar">Limpar filtros</button>' : ''}`}
       </div>
       ${pend.length && F.aba !== 'contas' && F.aba !== 'lucro' ? `<div class="fin-pend"><span><b>${I().fmtInt(pend.length)} despesa${pend.length > 1 ? 's' : ''} esperando aprovação</b> · ${R$(pend.reduce((a, d) => a + n(d.valor), 0))}</span><button class="btn small" data-f="ver-pend">Revisar</button></div>` : ''}
-      <div class="tabs" role="tablist">${[['resumo', 'Resumo'], ['lanc', 'Lançamentos'], ['veic', 'Veículos'], ['reemb', 'Reembolsos'], ...(adm ? [['contas', 'Contas a pagar e receber'], ['lucro', 'Lucro por cliente']] : [])].map(([k, l]) => `<button role="tab" data-f="aba" data-aba="${k}" aria-selected="${F.aba === k}">${l}${k === 'lanc' ? ` <span class="ct num">${I().fmtInt(lista.length)}</span>` : k === 'veic' ? ` <span class="ct num">${I().fmtInt(veiculos().length)}</span>` : ''}</button>`).join('')}</div>
-      <div class="fin-body">${F.aba === 'lanc' ? htmlLanc(lista) : F.aba === 'veic' ? htmlVeic(p, lista) : F.aba === 'reemb' ? htmlReemb(p) : F.aba === 'contas' && adm ? htmlContas(p) : F.aba === 'lucro' && adm ? htmlLucro(p) : htmlResumo(p, lista)}</div>
+      <div class="tabs" role="tablist">${(adm ? [['resumo', 'Resumo'], ['lanc', 'Lançamentos'], ['veic', 'Veículos'], ['reemb', 'Reembolsos'], ['contas', 'Contas a pagar e receber'], ['lucro', 'Lucro por cliente']] : [['lanc', 'Meus lançamentos'], ['veic', 'Veículos']]).map(([k, l]) => `<button role="tab" data-f="aba" data-aba="${k}" aria-selected="${F.aba === k}">${l}${k === 'lanc' ? ` <span class="ct num">${I().fmtInt(lista.length)}</span>` : k === 'veic' ? ` <span class="ct num">${I().fmtInt(veiculos().length)}</span>` : ''}</button>`).join('')}</div>
+      <div class="fin-body">${F.aba === 'lanc' ? htmlLanc(lista) : F.aba === 'veic' ? htmlVeic(p, lista) : !adm ? '' : F.aba === 'reemb' ? htmlReemb(p) : F.aba === 'contas' && adm ? htmlContas(p) : F.aba === 'lucro' && adm ? htmlLucro(p) : htmlResumo(p, lista)}</div>
       <div class="fin-tip" hidden></div></div>`;
   }
 
@@ -385,7 +389,7 @@ window.Financeiro = (function () {
     const mostra = ord.slice(0, F.lim), tot = lista.reduce((a, d) => a + n(d.valor), 0);
     const sel = [...F.sel].filter(id => I().get('despesas', id));
     return `${adm && sel.length ? `<div class="fin-bulk"><b>${sel.length} selecionada(s)</b><button class="btn small" data-f="bulk" data-st="Aprovada">${svg(IC.ok)}Aprovar</button><button class="btn small" data-f="bulk" data-st="Reembolsada">Marcar reembolsada</button><button class="btn small" data-f="bulk" data-st="Recusada">Recusar</button><button class="lnk" data-f="sel-limpar">Limpar seleção</button></div>` : ''}
-      <div class="table-wrap fin-tab"><table><thead><tr>${adm ? `<th class="ck"><input type="checkbox" data-f="sel-tudo" aria-label="Selecionar todas" ${mostra.length && mostra.every(d => F.sel.has(String(d.id))) ? 'checked' : ''}></th>` : ''}<th>Data</th><th>Tipo</th><th>Detalhe</th><th>Veículo</th><th>Fazenda</th>${adm ? '<th>Funcionário</th>' : ''}<th>Situação</th><th class="r">Valor</th><th aria-label="Comprovante"></th></tr></thead>
+      <div class="table-wrap fin-tab"><table><thead><tr>${adm ? `<th class="ck"><input type="checkbox" data-f="sel-tudo" aria-label="Selecionar todas" ${mostra.length && mostra.every(d => F.sel.has(String(d.id))) ? 'checked' : ''}></th>` : ''}<th>Data</th><th>Tipo</th><th>Detalhe</th><th>Veículo</th><th>Fazenda</th>${adm ? '<th>Funcionário</th>' : ''}<th>Situação</th>${adm ? '<th class="r">Valor</th>' : ''}<th aria-label="Comprovante"></th></tr></thead>
       <tbody>${mostra.map(d => {
         const v = veic(d.veiculo_id), fzs = fazendasDe(d), f = I().get('fazendas', fzs[0]), ti = TIPO_INFO[d.tipo] || TIPO_INFO['Outra'], st = d.status || 'Pendente', k = kmlPor.get(String(d.id));
         return `<tr class="click" data-f="abrir" data-id="${esc(d.id)}">${adm ? `<td class="ck"><input type="checkbox" data-f="sel" data-id="${esc(d.id)}" ${F.sel.has(String(d.id)) ? 'checked' : ''} aria-label="Selecionar"></td>` : ''}
@@ -393,22 +397,22 @@ window.Financeiro = (function () {
           <td class="ds">${esc(descr(d)) || '<span class="muted">—</span>'}${d.km ? `<small>${km(n(d.km))}${k ? ' · ' + dec(k) + ' km/l' : ''}</small>` : ''}</td>
           <td class="vc">${v ? `<span class="placa">${esc(v.placa)}</span>` : '<span class="muted">—</span>'}</td><td class="fz">${f ? esc(f.nome) + (fzs.length > 1 ? ` <small class="muted" title="Rateada entre ${fzs.length} fazendas">+${fzs.length - 1}</small>` : '') : '<span class="muted">—</span>'}</td>
           ${adm ? `<td class="fu">${esc(nomePessoa(d.usuario))}</td>` : ''}<td class="sx"><span class="pill ${ST_CLS[st] || ''}">${esc(st)}</span></td>
-          <td class="r vl num"><b>${R$(d.valor)}</b></td><td class="cp">${d.comprovante ? `<button class="icon-btn fin-clip" data-f="foto" data-id="${esc(d.id)}" aria-label="Ver comprovante" title="${d.comprovante.pend ? 'Comprovante guardado no aparelho (a enviar)' : 'Ver comprovante'}">${svg(IC.clip)}${d.comprovante.pend ? '<i class="dotp"></i>' : ''}</button>` : ''}</td></tr>`;
-      }).join('') || `<tr><td colspan="${adm ? 10 : 8}" class="empty">Nenhuma despesa neste filtro.</td></tr>`}</tbody>
-      ${lista.length ? `<tfoot><tr><td colspan="${adm ? 8 : 6}">Total de ${I().fmtInt(lista.length)} lançamento(s)</td><td class="r num"><b>${R$(tot)}</b></td><td></td></tr></tfoot>` : ''}</table></div>
+          ${adm ? `<td class="r vl num"><b>${R$(d.valor)}</b></td>` : ''}<td class="cp">${d.comprovante ? `<button class="icon-btn fin-clip" data-f="foto" data-id="${esc(d.id)}" aria-label="Ver comprovante" title="${d.comprovante.pend ? 'Comprovante guardado no aparelho (a enviar)' : 'Ver comprovante'}">${svg(IC.clip)}${d.comprovante.pend ? '<i class="dotp"></i>' : ''}</button>` : ''}</td></tr>`;
+      }).join('') || `<tr><td colspan="${adm ? 10 : 7}" class="empty">Nenhuma despesa neste filtro.</td></tr>`}</tbody>
+      ${lista.length && adm ? `<tfoot><tr><td colspan="${adm ? 8 : 6}">Total de ${I().fmtInt(lista.length)} lançamento(s)</td><td class="r num"><b>${R$(tot)}</b></td><td></td></tr></tfoot>` : ''}</table></div>
       ${ord.length > mostra.length ? `<p style="text-align:center"><button class="btn small" data-f="mais">Mostrar mais (${I().fmtInt(ord.length - mostra.length)})</button></p>` : ''}`;
   }
 
   // ---------- Veículos ----------
   function htmlVeic(p, lista) {
-    const vs = veiculos(), ed = I().podeEditar();
-    return `<div class="fin-vh">${ed ? `<button class="btn" data-f="veic-novo">${svg(IC.mais)}Novo veículo</button>` : ''}<span class="muted">Valores do período escolhido. O consumo usa os abastecimentos com tanque cheio.</span></div>
+    const vs = veiculos(), ed = I().podeEditar(), adm = souAdmin();
+    return `<div class="fin-vh">${ed ? `<button class="btn" data-f="veic-novo">${svg(IC.mais)}Novo veículo</button>` : ''}<span class="muted">${adm ? 'Valores do período escolhido. O consumo usa os abastecimentos com tanque cheio.' : 'Escolha o veículo para lançar abastecimento ou manutenção.'}</span></div>
       <div class="fin-veics">${vs.map(v => {
         const s = statsVeic(v, p, lista), rv = revisao(v), ka = kmAtual(v);
         return `<article class="fin-vc${v.ativo === 'Não' ? ' off' : ''}">
           <header><span class="placa big">${esc(v.placa)}</span><div><b>${esc([v.marca, v.modelo].filter(Boolean).join(' ') || 'Veículo')}</b><small>${esc([v.ano, v.combustivel, v.responsavel ? nomePessoa(v.responsavel) : ''].filter(Boolean).join(' · '))}</small></div>${ed ? `<button class="lnk" data-f="veic-edit" data-id="${esc(v.id)}">Editar</button>` : ''}</header>
-          <dl><div><dt>Hodômetro</dt><dd class="num">${km(ka)}</dd></div><div><dt>Consumo</dt><dd class="num">${s.kml ? dec(s.kml) + ' km/l' : '—'}</dd></div><div><dt>Custo por km</dt><dd class="num">${s.cpk ? R$(s.cpk) : '—'}</dd></div>
-            <div><dt>Rodou</dt><dd class="num">${km(s.rod)}</dd></div><div><dt>Combustível</dt><dd class="num">${R0(s.comb)}</dd></div><div><dt>Manutenção</dt><dd class="num">${R0(s.man)}</dd></div></dl>
+          ${!adm ? `<dl><div><dt>Hodômetro</dt><dd class="num">${km(ka)}</dd></div></dl>` : `<dl><div><dt>Hodômetro</dt><dd class="num">${km(ka)}</dd></div><div><dt>Consumo</dt><dd class="num">${s.kml ? dec(s.kml) + ' km/l' : '—'}</dd></div><div><dt>Custo por km</dt><dd class="num">${s.cpk ? R$(s.cpk) : '—'}</dd></div>
+            <div><dt>Rodou</dt><dd class="num">${km(s.rod)}</dd></div><div><dt>Combustível</dt><dd class="num">${R0(s.comb)}</dd></div><div><dt>Manutenção</dt><dd class="num">${R0(s.man)}</dd></div></dl>`}
           <footer>${rv ? `<span class="pill ${rv.cls}">${esc(rv.txt)}</span>` : v.ativo === 'Não' ? '<span class="pill">Inativo</span>' : '<span></span>'}
             ${ed ? `<span class="fin-vb"><button class="btn small" data-f="novo" data-tipo="Combustível" data-veic="${esc(v.id)}">Abastecer</button><button class="btn small" data-f="novo" data-tipo="Manutenção" data-veic="${esc(v.id)}">Manutenção</button></span>` : ''}</footer></article>`;
       }).join('') || `<div class="fin-vazio">${svg(ICV)}<p><b>Nenhum veículo cadastrado.</b><br>Cadastre os carros e caminhonetes da equipe para acompanhar combustível, manutenção, consumo e custo por km.</p>${ed ? `<button class="btn primary" data-f="veic-novo">Cadastrar veículo</button>` : ''}</div>`}</div>`;
@@ -441,8 +445,8 @@ window.Financeiro = (function () {
         for (const id of ids) { const d = I().get('despesas', id); if (d && d.status !== b.dataset.st) { await I().Store.save('despesas', Object.assign({}, d, { status: b.dataset.st, status_por: meuEmail(), status_em: new Date().toISOString() })); k++; } }
         F.sel.clear(); I().toast(k ? k + ' despesa(s) marcada(s) como ' + b.dataset.st.toLowerCase() + '.' : 'Nada mudou.'); render(); break;
       }
-      case 'xlsx': baixarExcel(); break;
-      case 'ajustes': formAjustes(); break;
+      case 'xlsx': if (souAdmin()) baixarExcel(); break;
+      case 'ajustes': if (souAdmin()) formAjustes(); break;
       case 'conta-nova': formConta(null, { tipo: b.dataset.tipo || 'Receber' }); break;
       case 'conta': formConta(contas().find(c => String(c.id) === b.dataset.id)); break;
       case 'conta-baixa': { e.stopPropagation(); const c = contas().find(x => String(x.id) === b.dataset.id); if (c) { await I().Store.save('contas', Object.assign({}, c, { pago_em: I().today() })); I().toast(c.tipo === 'Receber' ? 'Marcada como recebida.' : 'Marcada como paga.'); } break; }
@@ -450,7 +454,7 @@ window.Financeiro = (function () {
       case 'reemb-pagar': { const em = b.dataset.id, l = despesas().filter(d => String(d.usuario).toLowerCase() === em && reembolsavel(d) && d.status === 'Aprovada'); if (!l.length || !confirm(`Marcar ${l.length} despesa(s) de ${nomePessoa(em)} como reembolsadas (${R$(l.reduce((a, d) => a + n(d.valor), 0))})?`)) break; for (const d of l) await I().Store.save('despesas', Object.assign({}, d, { status: 'Reembolsada', status_por: meuEmail(), status_em: new Date().toISOString(), reembolsado_em: I().today() })); I().toast('Reembolso registrado.'); break; }
       case 'reemb-recibo': reciboPDF(b.dataset.id); break;
       case 'lucro-cli': F.lucroAberto = F.lucroAberto === b.dataset.id ? '' : b.dataset.id; render(); break;
-      case 'pdf': baixarPDF(); break;
+      case 'pdf': if (souAdmin()) baixarPDF(); break;
     }
   }
   function dica(e) {
@@ -831,7 +835,7 @@ window.Financeiro = (function () {
   // ---------- Orçamento mensal por categoria ----------
   const mesAtual = () => I().today().slice(0, 7);
   function orcamento() {
-    const o = CFG().orcamento || {}, mes = mesAtual();
+    const o = ORC(), mes = mesAtual();
     const ds = despesas().filter(d => String(d.data || '').slice(0, 7) === mes && d.status !== 'Recusada');
     const gasto = somaTipo(ds), itens = [];
     for (const t of TIPOS) if (n(o[t]) > 0) itens.push({ k: t, nome: TIPO_INFO[t].plural, cls: TIPO_INFO[t].cls, lim: n(o[t]), gasto: gasto[t] });
@@ -1048,7 +1052,7 @@ window.Financeiro = (function () {
 
   // ---------- Ajustes (administrador): valores de diária e km, orçamento mensal ----------
   function formAjustes() {
-    const c = CFG(), o = c.orcamento || {};
+    const c = CFG(), o = ORC();
     const bg = document.createElement('div'); bg.className = 'modal-bg';
     bg.innerHTML = `<div class="modal fin-modal" role="dialog" aria-modal="true" aria-labelledby="fin-aj"><header><h2 id="fin-aj">Ajustes do financeiro</h2><button class="x" data-close aria-label="Fechar">×</button></header>
       <form novalidate>
@@ -1066,7 +1070,7 @@ window.Financeiro = (function () {
       const el = $('form', bg).elements, orc = {};
       for (const t of TIPOS) { const v = nn(el['orc_' + t].value); if (v) orc[t] = v; }
       const tt = nn(el.orc_total.value); if (tt) orc.total = tt;
-      try { await I().Store.save('config', Object.assign({}, c, { id: 'financeiro', valor_diaria: nn(el.valor_diaria.value), valor_km: nn(el.valor_km.value), orcamento: orc })); } catch (er) { return; }
+      try { const cc = Object.assign({}, c, { id: 'financeiro', valor_diaria: nn(el.valor_diaria.value), valor_km: nn(el.valor_km.value) }); delete cc.orcamento; await I().Store.save('config', cc); await I().Store.save('config', { id: 'financeiro_orcamento', orcamento: orc }); } catch (er) { return; }
       bg.remove(); I().toast('Ajustes salvos.');
     });
   }

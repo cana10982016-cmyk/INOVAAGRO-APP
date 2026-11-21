@@ -1,6 +1,6 @@
 /* INOVAAGRO: service worker. Guarda o app no celular para abrir sem internet.
    Dados do banco NÃO passam por aqui (ficam no IndexedDB, ver src/offline.js). */
-const VERSAO = 'inovaagro-app-v9';
+const VERSAO = 'inovaagro-app-v10';
 const MAPA = 'inovaagro-mapa';
 const ESSENCIAIS = [
   './', './index.html', './config.js', './manifest.webmanifest',
