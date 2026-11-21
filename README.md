@@ -14,6 +14,13 @@ Painel (resumo de área, safra, ordens pendentes e atrasadas, monitoramentos), M
 
 Para ativar, rode uma vez `supabase/02_atualizacao.sql` no editor SQL do Supabase (a tela Equipe tem o botão "Copiar comando"). Ele também garante que sempre existe um administrador ativo.
 
+## Despesas e veículos (Financeiro)
+- Menu **Financeiro → Despesas e veículos** (no celular: menu do modo campo). Código em `src/financeiro.js` e `src/financeiro.css`.
+- Cadastro de veículos (placa, modelo, hodômetro, próxima revisão) e lançamentos de combustível, manutenção, alimentação e outras despesas, com foto do comprovante, fazenda/cliente visitado e situação (Pendente, Aprovada, Reembolsada, Recusada).
+- Calcula consumo km/l (entre tanques cheios), km rodados e custo por km; filtros por período, veículo, funcionário, tipo e fazenda; gráficos; Excel e PDF.
+- Funciona sem internet: lançamentos entram na fila e as fotos ficam no aparelho até enviar.
+- Para ativar no banco, rode uma vez `supabase/04_financeiro.sql` no editor SQL do Supabase. Técnico vê e lança só as próprias despesas; administrador vê tudo e aprova. Comprovantes ficam numa área privada.
+
 ## Estrutura
 - `assets/` logo e ícones da InovaAgro.
 - `src/` código-fonte (HTML, CSS, JavaScript puro + Leaflet). Sem etapa de compilação além de `tools/build.py`.

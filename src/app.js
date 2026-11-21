@@ -10,7 +10,8 @@
   const NIVEL_CLS = { 'Baixo': 'ok', 'Médio': 'warn', 'Alto': 'bad' };
   const KINDS_BASE = ['produtores', 'fazendas', 'talhoes', 'safras', 'monitoramentos', 'ordens'];
   const KINDS_NOVOS = ['insumos', 'maquinas', 'aplicadores', 'depositos', 'silobolsas', 'avancos', 'controles', 'armadilhas', 'pluviometros', 'chuvas', 'etiquetas', 'config', 'tipos_trabalho'];
-  const KINDS = [...KINDS_BASE, ...KINDS_NOVOS];
+  const KINDS_FIN = ['veiculos', 'despesas']; // módulo financeiro (src/financeiro.js)
+  const KINDS = [...KINDS_BASE, ...KINDS_NOVOS, ...KINDS_FIN];
   const NOME = { produtores: 'produtor', fazendas: 'fazenda', talhoes: 'talhão', safras: 'plantio', monitoramentos: 'monitoramento', ordens: 'ordem de trabalho',
     insumos: 'insumo', maquinas: 'máquina', aplicadores: 'aplicador', depositos: 'depósito', silobolsas: 'silobolsa', avancos: 'avanço', controles: 'controle', armadilhas: 'armadilha', pluviometros: 'pluviômetro', chuvas: 'registro de chuva', etiquetas: 'etiqueta', config: 'cadastro', tipos_trabalho: 'tipo de trabalho' };
   const NOVA = { ordens: 1, fazendas: 1, safras: 0, tipos_trabalho: 0, maquinas: 1, silobolsas: 1, armadilhas: 1, etiquetas: 1 };
@@ -443,6 +444,7 @@
         const rows = []; let from = 0;
         for (;;) {
           const { data, error } = await this.cli.from(k).select('id,dados').range(from, from + 999);
+          if (error && KINDS_FIN.includes(k) && !Off.erroDeRede(error)) { S.faltaFin = true; break; } // banco ainda sem o módulo financeiro
           if (error && KINDS_NOVOS.includes(k) && !Off.erroDeRede(error)) { S.faltaTabela = true; break; } // banco ainda sem a atualização
           if (error) throw error;
           if (!data) break;
@@ -549,6 +551,7 @@
     comparar: '<path d="M4 20V9M9 20V4M15 20v-8M20 20V7"/><path d="M2 20h20"/>',
     whats: '<path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.4z"/><path d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1-1.6-2-1-1 .8a4.5 4.5 0 0 1-2.3-2.3l.8-1-1-2z"/>',
     sugestao: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>',
+    financeiro: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/><circle cx="16.5" cy="15" r="1.2"/>',
     print: '<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>',
   };
   const icon = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n] || IC[ORD_ICON[n]] || IC.ordens}</svg>`;
@@ -562,6 +565,7 @@
     'Imagens satelitais', ['satelite', 'NDVI e cor real'],
     'Harvest', ['harvest', 'Previsão de colheita'],
     'Silo bag', ['silobolsas', 'Silobolsas'], ['depositos', 'Depósitos'],
+    'Financeiro', ['financeiro', 'Despesas e veículos'],
   ];
   const TITULO = Object.fromEntries(NAV.filter(Array.isArray));
   const GRUPO = {}; { let g = ''; for (const n of NAV) if (Array.isArray(n)) GRUPO[n[0]] = g; else g = n; }
