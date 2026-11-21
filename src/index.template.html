@@ -50,10 +50,11 @@
             <button data-base="sat" aria-pressed="true">Satélite</button><button data-base="hib" aria-pressed="false">Satélite + nomes</button><button data-base="ruas" aria-pressed="false">Mapa</button>
           </div>
           <label class="color-by"><span>Colorir por</span><select id="color-by" aria-label="Colorir talhões por">
-            <option value="atividade">Atividade (últimos 15 dias)</option><option value="produtor">Produtor</option><option value="situacao">Situação</option><option value="condicao">Condição (último monitoramento)</option><option value="variedade">Variedade</option><option value="cultura">Cultura</option>
+            <option value="atividade">Atividade (últimos 15 dias)</option><option value="produtor">Produtor</option><option value="situacao">Situação</option><option value="condicao">Condição (último monitoramento)</option><option value="variedade">Variedade</option><option value="cultura">Cultura</option><option value="vigor">Vigor por satélite (NDVI)</option>
           </select></label>
           <label class="tg" hidden><input type="checkbox" id="tg-pontos"> Pontos e fotos dos monitoramentos</label>
           <div class="legend" id="legend"></div>
+          <div class="vg-mapa" id="vg-mapa" hidden></div>
         </div>
         <div class="map-tools"><button class="btn small" data-act="fit-all">Ver tudo</button><button class="btn small" data-act="export">Exportar dados</button><button class="btn small" data-act="gps">Onde estou</button><button class="btn small" data-act="baixar-mapa" title="Guarda a imagem de satélite da área que está na tela para usar sem internet">Salvar mapa offline</button></div>
         <div class="map-note" id="mapnote" hidden>A imagem de satélite não carregou. Os contornos dos talhões estão corretos; verifique a internet.</div>
