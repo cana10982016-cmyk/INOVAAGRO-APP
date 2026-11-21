@@ -17,11 +17,14 @@ window.Financeiro = (function () {
   const fd = d => I().fmtDate(d);
 
   // ---------- Cadastros ----------
-  const TIPOS = ['Combustível', 'Manutenção', 'Alimentação', 'Outra'];
+  const TIPOS = ['Combustível', 'Manutenção', 'Alimentação', 'Diária', 'Km rodado', 'Outra'];
+  const REEMB_TIPOS = ['Diária', 'Km rodado']; // sempre reembolsados ao funcionário
   const TIPO_INFO = {
     'Combustível': { cls: 'fk1', ic: '<path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M4 10h11"/><path d="M15 8h2a2 2 0 0 1 2 2v7a1.5 1.5 0 0 0 3 0V8l-3-3"/>', plural: 'Combustível' },
     'Manutenção': { cls: 'fk2', ic: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8 6.2 21l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.5-.6-.6-2.5z"/>', plural: 'Manutenção' },
     'Alimentação': { cls: 'fk3', ic: '<path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 21V3c-2.2 0-4 2.5-4 6v4h4"/>', plural: 'Alimentação' },
+    'Diária': { cls: 'fk5', ic: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="m9 15 2 2 4-4"/>', plural: 'Diárias' },
+    'Km rodado': { cls: 'fk6', ic: '<path d="M7 21 10 3M17 21 14 3"/><path d="M12 6v2M12 11v2M12 16v3"/>', plural: 'Km rodado (carro próprio)' },
     'Outra': { cls: 'fk4', ic: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M8 15h3"/>', plural: 'Outras' },
   };
   const COMBUST = ['Gasolina', 'Etanol', 'Diesel S10', 'Diesel S500', 'GNV'];
@@ -30,6 +33,12 @@ window.Financeiro = (function () {
   const OUTRAS = ['Pedágio', 'Estacionamento', 'Hospedagem', 'Material de campo', 'Telefone / internet', 'Outro'];
   const PAGTO = ['Cartão da empresa', 'Dinheiro / Pix próprio (reembolsar)', 'Faturado / boleto', 'Outro'];
   const STATUS = ['Pendente', 'Aprovada', 'Reembolsada', 'Recusada'];
+  const REEMB_PAG = 'Dinheiro / Pix próprio (reembolsar)';
+  const reembolsavel = d => REEMB_TIPOS.includes(d.tipo) || d.forma_pagamento === REEMB_PAG;
+  const CFG = () => I().get('config', 'financeiro') || {};
+  // Rateio: uma despesa pode ser dividida em partes iguais entre as fazendas visitadas
+  const fazendasDe = d => (Array.isArray(d.fazenda_ids) && d.fazenda_ids.length ? d.fazenda_ids : d.fazenda_id ? [d.fazenda_id] : []).map(String);
+  const partes = d => { const f = fazendasDe(d); return f.map(id => [id, n(d.valor) / f.length]); };
   const ST_CLS = { 'Pendente': 'warn', 'Aprovada': 'info', 'Reembolsada': 'ok', 'Recusada': 'bad' };
   const ICV = '<path d="M3 13l2-6a2 2 0 0 1 1.9-1.4h10.2A2 2 0 0 1 19 7l2 6v5h-2.5M5.5 18H3v-5h18"/><circle cx="7.5" cy="17.5" r="1.8"/><circle cx="16.5" cy="17.5" r="1.8"/><path d="M9.3 17.5h5.4"/>';
   const svg = (p, c = '') => `<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
@@ -42,13 +51,14 @@ window.Financeiro = (function () {
 
   // ---------- Estado e preferências ----------
   const LS = 'inovaagro.financeiro.v1';
-  const F = { aba: 'resumo', per: 'mes', de: '', ate: '', veic: '', func: '', tipo: '', faz: '', status: '', lim: 80, sel: new Set(), ultVeic: '' };
+  const F = { aba: 'resumo', per: 'mes', de: '', ate: '', veic: '', func: '', tipo: '', faz: '', status: '', lim: 80, sel: new Set(), ultVeic: '', cf: 'abertas', lucroAberto: '' };
   try { Object.assign(F, JSON.parse(localStorage.getItem(LS) || '{}'), { sel: new Set(), lim: 80 }); } catch (e) { }
   const salvarPref = () => { try { localStorage.setItem(LS, JSON.stringify({ aba: F.aba, per: F.per, de: F.de, ate: F.ate, veic: F.veic, func: F.func, tipo: F.tipo, faz: F.faz, status: F.status, ultVeic: F.ultVeic })); } catch (e) { } };
 
   const S = () => I().S;
   const veiculos = () => (S().data.veiculos || []).slice().sort((a, b) => String(a.placa || '').localeCompare(String(b.placa || '')));
   const despesas = () => S().data.despesas || [];
+  const contas = () => S().data.contas || [];
   const veic = id => I().get('veiculos', id);
   const meuEmail = () => (I().SB.user && I().SB.user.email) || 'local';
   const souAdmin = () => S().papel === 'admin';
@@ -89,7 +99,7 @@ window.Financeiro = (function () {
   function filtradas(semPeriodo) {
     const p = periodo();
     return despesas().filter(d => (semPeriodo || noPer(d.data, p)) && (!F.veic || String(d.veiculo_id) === F.veic) && (!F.func || String(d.usuario).toLowerCase() === F.func)
-      && (!F.tipo || d.tipo === F.tipo) && (!F.faz || String(d.fazenda_id) === F.faz) && (!F.status || (d.status || 'Pendente') === F.status));
+      && (!F.tipo || d.tipo === F.tipo) && (!F.faz || fazendasDe(d).includes(F.faz)) && (!F.status || (d.status || 'Pendente') === F.status));
   }
 
   // ---------- Cálculos por veículo ----------
@@ -205,6 +215,61 @@ window.Financeiro = (function () {
     document.body.appendChild(bg);
   }
 
+  // ---------- Leitura do comprovante pela foto (OCR no próprio aparelho, sem serviço pago) ----------
+  // Usa o Tesseract.js (código aberto). Na primeira vez baixa o leitor e o dicionário em português (cerca de 10 MB); depois fica guardado no navegador.
+  const OCR = {
+    worker: null,
+    async ler(blob, progresso) {
+      if (!window.Tesseract) await new Promise((ok, falha) => { const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js'; s.onload = ok; s.onerror = falha; document.head.appendChild(s); });
+      if (!this.worker) this.worker = window.Tesseract.createWorker('por', 1, { logger: m => { if (m.status === 'recognizing text' && progresso) progresso(m.progress || 0); } });
+      const w = await this.worker;
+      const r = await w.recognize(blob);
+      return OCR.interpretar(r.data.text || '');
+    },
+    // Transforma o texto do cupom/nota em campos
+    interpretar(txt) {
+      const sem = t => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+      const linhas = sem(txt).split(/\r?\n/).map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
+      const dinheiro = l => [...l.matchAll(/(?:R\$\s*)?(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})(?!\d)/g)].map(m => Number(m[1].replace(/\./g, '').replace(',', '.')));
+      const out = {};
+      // valor total: linha de total (não subtotal, não "total de itens", não tributos)
+      const ruim = /SUBTOTAL|SUB-TOTAL|ITENS|TRIBUT|IMPOSTO|DESCONTO|ACRESC|TROCO|LEI 12|APROX/;
+      const pref = [/VALOR TOTAL|TOTAL A PAGAR|VALOR A PAGAR|TOTAL GERAL/, /^TOTAL\b|\bTOTAL R\$|\bTOTAL:/, /VALOR PAGO|CARTAO|CREDITO|DEBITO|PIX/];
+      for (const re of pref) {
+        for (let i = 0; i < linhas.length && out.valor == null; i++) {
+          const l = linhas[i]; if (!re.test(l) || ruim.test(l)) continue;
+          const v = dinheiro(l).filter(x => x > 0); if (v.length) out.valor = v[v.length - 1];
+          else if (linhas[i + 1]) { const v2 = dinheiro(linhas[i + 1]); if (v2.length) out.valor = v2[v2.length - 1]; }
+        }
+        if (out.valor != null) break;
+      }
+      if (out.valor == null) { const vs = linhas.filter(l => !/TROCO|DINHEIRO|CNPJ|CPF/.test(l)).flatMap(dinheiro).filter(x => x < 100000); if (vs.length) out.valor = Math.max(...vs); }
+      // data (dd/mm/aaaa) plausível
+      for (const l of linhas) {
+        const m = l.match(/\b(\d{2})[\/.-](\d{2})[\/.-](\d{4}|\d{2})\b/); if (!m) continue;
+        let [, dd, mm, aa] = m; if (aa.length === 2) aa = '20' + aa;
+        if (+mm >= 1 && +mm <= 12 && +dd >= 1 && +dd <= 31 && +aa >= 2015 && +aa <= 2099) { out.data = `${aa}-${mm}-${dd}`; break; }
+      }
+      // combustível: linha do produto com quantidade (3 casas) e preço unitário
+      const COMB = [[/DIESEL\s*S?-?\s*10\b|S10/, 'Diesel S10'], [/DIESEL\s*S?-?\s*500|S500/, 'Diesel S500'], [/DIESEL/, 'Diesel S10'], [/ETANOL|ALCOOL/, 'Etanol'], [/GASOLINA|\bGAS\b/, 'Gasolina'], [/\bGNV\b/, 'GNV']];
+      for (const l of linhas) {
+        const c = COMB.find(([re]) => re.test(l)); if (!c || /TOTAL|TRIBUT/.test(l)) continue;
+        out.combustivel = c[1];
+        const nums = [...l.matchAll(/(\d{1,3}(?:\.\d{3})*,\d{2,3}|\d+,\d{2,3})(?!\d)/g)].map(m => ({ s: m[1], v: Number(m[1].replace(/\./g, '').replace(',', '.')) }));
+        const q = nums.find(x => /,\d{3}$/.test(x.s) && x.v > 1 && x.v < 2000) || nums.find(x => x.v > 8 && x.v < 2000);
+        if (q) { out.litros = q.v; const pr = nums.find(x => x !== q && x.v >= 2 && x.v <= 15); if (pr) out.preco_litro = pr.v; }
+        break;
+      }
+      if (out.litros == null) { const m = linhas.join(' ').match(/(\d+,\d{2,3})\s*(?:L|LT|LTS|LITROS)\b/); if (m) out.litros = Number(m[1].replace(',', '.')); }
+      if (out.litros && !out.preco_litro && out.valor) out.preco_litro = Math.round(out.valor / out.litros * 1000) / 1000;
+      const km = linhas.join(' ').match(/\b(?:KM|HODOMETRO|ODOMETRO)[:.\s]*(\d{1,3}(?:\.\d{3})+|\d{3,7})\b/); if (km) out.km = Number(km[1].replace(/\./g, ''));
+      // nome do estabelecimento: primeira linha com texto que não seja cabeçalho fiscal
+      const nome = linhas.slice(0, 6).find(l => /[A-Z]{3,}/.test(l) && !/CNPJ|CPF|INSCR|\bIE\b|DOCUMENTO|NOTA FISCAL|CUPOM|DANFE|NFC|CONSUMIDOR|EXTRATO|^RUA|^AV|^ROD|ENDERECO|TEL|FONE|SAT\b/.test(l) && l.replace(/[^A-Z]/g, '').length >= 4);
+      if (nome) out.nome = nome.replace(/\s*(LTDA|EIRELI|ME|EPP|S\/?A)\.?$/g, '').toLowerCase().replace(/(^|\s)\S/g, x => x.toUpperCase()).slice(0, 60);
+      return out;
+    },
+  };
+
   // ---------- Tela ----------
   let root = null;
   const ativo = () => root && document.body.contains(root) && !root.hidden;
@@ -226,7 +291,7 @@ window.Financeiro = (function () {
     const p = periodo(), adm = souAdmin(), ed = I().podeEditar();
     const lista = filtradas();
     const pessoas = [...new Set(despesas().map(d => String(d.usuario || '').toLowerCase()).filter(Boolean))].sort((a, b) => nomePessoa(a).localeCompare(nomePessoa(b), 'pt-BR'));
-    const fazIds = [...new Set(despesas().map(d => d.fazenda_id).filter(Boolean).map(String))];
+    const fazIds = [...new Set(despesas().flatMap(fazendasDe))];
     const fazendas = fazIds.map(id => I().get('fazendas', id)).filter(Boolean).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
     const pend = adm ? despesas().filter(d => (d.status || 'Pendente') === 'Pendente') : [];
     const aviso = S().faltaFin ? `<div class="note"><b>Falta um passo para salvar na nuvem.</b> O administrador precisa rodar uma vez o arquivo <code>supabase/04_financeiro.sql</code> no editor SQL do Supabase. Até lá, o que for lançado fica guardado neste aparelho.</div>` : '';
@@ -234,23 +299,23 @@ window.Financeiro = (function () {
     const titulo = adm ? 'Despesas da equipe e custos dos veículos.' : 'Suas despesas de campo e os veículos que você usa.';
     root.innerHTML = `<div class="page">
       <div class="page-head"><div><h2>Despesas e veículos</h2><p>${titulo}</p></div>
-        <div class="head-acts">${ed ? `<button class="btn primary" data-f="novo">${svg(IC.mais)}Lançar despesa</button>` : ''}
+        <div class="head-acts">${adm ? `<button class="btn" data-f="ajustes">${I().icon('configuracao')} Ajustes</button>` : ''}${ed ? `<button class="btn primary" data-f="novo">${svg(IC.mais)}Lançar despesa</button>` : ''}
           <button class="btn" data-f="xlsx">${I().icon('xls')} Excel</button><button class="btn" data-f="pdf">${I().icon('pdf')} PDF</button></div></div>
-      ${aviso}${avisoFoto}
-      ${ed ? `<div class="fin-quick" role="group" aria-label="Lançamento rápido">${TIPOS.map(t => `<button data-f="novo" data-tipo="${t}"><i class="fin-qi ${TIPO_INFO[t].cls}">${svg(TIPO_INFO[t].ic)}</i><span>${t === 'Outra' ? 'Outra despesa' : t}</span></button>`).join('')}</div>` : ''}
+      ${aviso}${avisoFoto}${htmlAvisos()}
+      ${ed && F.aba !== 'contas' && F.aba !== 'lucro' ? `<div class="fin-quick" role="group" aria-label="Lançamento rápido">${TIPOS.map(t => `<button data-f="novo" data-tipo="${t}"><i class="fin-qi ${TIPO_INFO[t].cls}">${svg(TIPO_INFO[t].ic)}</i><span>${t === 'Outra' ? 'Outra despesa' : t}</span></button>`).join('')}</div>` : ''}
       <div class="fin-filtros">
         <select data-flt="per" aria-label="Período">${Object.entries(PER).map(([k, l]) => `<option value="${k}" ${F.per === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
         ${F.per === 'custom' ? `<input type="date" data-flt="de" value="${esc(F.de)}" aria-label="De"><input type="date" data-flt="ate" value="${esc(F.ate)}" aria-label="Até">` : ''}
-        <select data-flt="veic" aria-label="Veículo"><option value="">Todos os veículos</option>${veiculos().map(v => `<option value="${esc(v.id)}" ${String(v.id) === F.veic ? 'selected' : ''}>${esc(v.placa)} · ${esc(v.modelo || '')}</option>`).join('')}</select>
+        ${F.aba === 'contas' || F.aba === 'lucro' ? '' : `<select data-flt="veic" aria-label="Veículo"><option value="">Todos os veículos</option>${veiculos().map(v => `<option value="${esc(v.id)}" ${String(v.id) === F.veic ? 'selected' : ''}>${esc(v.placa)} · ${esc(v.modelo || '')}</option>`).join('')}</select>
         ${adm || pessoas.length > 1 ? `<select data-flt="func" aria-label="Funcionário"><option value="">Toda a equipe</option>${pessoas.map(e => `<option value="${esc(e)}" ${e === F.func ? 'selected' : ''}>${esc(nomePessoa(e))}</option>`).join('')}</select>` : ''}
         <select data-flt="tipo" aria-label="Tipo"><option value="">Todos os tipos</option>${TIPOS.map(t => `<option value="${t}" ${t === F.tipo ? 'selected' : ''}>${TIPO_INFO[t].plural}</option>`).join('')}</select>
         ${fazendas.length ? `<select data-flt="faz" aria-label="Fazenda ou cliente"><option value="">Todas as fazendas</option>${fazendas.map(f => `<option value="${esc(f.id)}" ${String(f.id) === F.faz ? 'selected' : ''}>${esc(f.nome)}</option>`).join('')}</select>` : ''}
         <select data-flt="status" aria-label="Situação"><option value="">Qualquer situação</option>${STATUS.map(s => `<option ${s === F.status ? 'selected' : ''}>${s}</option>`).join('')}</select>
-        ${F.veic || F.func || F.tipo || F.faz || F.status ? '<button class="lnk" data-f="limpar">Limpar filtros</button>' : ''}
+        ${F.veic || F.func || F.tipo || F.faz || F.status ? '<button class="lnk" data-f="limpar">Limpar filtros</button>' : ''}`}
       </div>
-      ${pend.length ? `<div class="fin-pend"><span><b>${I().fmtInt(pend.length)} despesa${pend.length > 1 ? 's' : ''} esperando aprovação</b> · ${R$(pend.reduce((a, d) => a + n(d.valor), 0))}</span><button class="btn small" data-f="ver-pend">Revisar</button></div>` : ''}
-      <div class="tabs" role="tablist">${[['resumo', 'Resumo'], ['lanc', 'Lançamentos'], ['veic', 'Veículos']].map(([k, l]) => `<button role="tab" data-f="aba" data-aba="${k}" aria-selected="${F.aba === k}">${l}${k === 'lanc' ? ` <span class="ct num">${I().fmtInt(lista.length)}</span>` : k === 'veic' ? ` <span class="ct num">${I().fmtInt(veiculos().length)}</span>` : ''}</button>`).join('')}</div>
-      <div class="fin-body">${F.aba === 'lanc' ? htmlLanc(lista) : F.aba === 'veic' ? htmlVeic(p, lista) : htmlResumo(p, lista)}</div>
+      ${pend.length && F.aba !== 'contas' && F.aba !== 'lucro' ? `<div class="fin-pend"><span><b>${I().fmtInt(pend.length)} despesa${pend.length > 1 ? 's' : ''} esperando aprovação</b> · ${R$(pend.reduce((a, d) => a + n(d.valor), 0))}</span><button class="btn small" data-f="ver-pend">Revisar</button></div>` : ''}
+      <div class="tabs" role="tablist">${[['resumo', 'Resumo'], ['lanc', 'Lançamentos'], ['veic', 'Veículos'], ['reemb', 'Reembolsos'], ...(adm ? [['contas', 'Contas a pagar e receber'], ['lucro', 'Lucro por cliente']] : [])].map(([k, l]) => `<button role="tab" data-f="aba" data-aba="${k}" aria-selected="${F.aba === k}">${l}${k === 'lanc' ? ` <span class="ct num">${I().fmtInt(lista.length)}</span>` : k === 'veic' ? ` <span class="ct num">${I().fmtInt(veiculos().length)}</span>` : ''}</button>`).join('')}</div>
+      <div class="fin-body">${F.aba === 'lanc' ? htmlLanc(lista) : F.aba === 'veic' ? htmlVeic(p, lista) : F.aba === 'reemb' ? htmlReemb(p) : F.aba === 'contas' && adm ? htmlContas(p) : F.aba === 'lucro' && adm ? htmlLucro(p) : htmlResumo(p, lista)}</div>
       <div class="fin-tip" hidden></div></div>`;
   }
 
@@ -291,9 +356,10 @@ window.Financeiro = (function () {
     const porVeic = vs.filter(x => x.s.n).map(x => ({ nome: x.v.placa, sub: [x.v.modelo, x.s.kml ? dec(x.s.kml) + ' km/l' : '', x.s.cpk ? R$(x.s.cpk) + '/km' : ''].filter(Boolean).join(' · '), o: somaTipo(lista.filter(d => String(d.veiculo_id) === String(x.v.id))), go: ['veic-ver', x.v.id] })).sort((a, b) => b.o.tot - a.o.tot);
     const agrupa = (f, nome) => { const m = new Map(); for (const d of lista) { const k = f(d); if (!k) continue; if (!m.has(k)) m.set(k, []); m.get(k).push(d); } return [...m.entries()].map(([k, l]) => ({ k, nome: nome(k), o: somaTipo(l) })).sort((a, b) => b.o.tot - a.o.tot); };
     const porPessoa = agrupa(d => String(d.usuario || '').toLowerCase(), nomePessoa).map(x => Object.assign(x, { go: ['func-ver', x.k] }));
-    const porFaz = agrupa(d => d.fazenda_id ? String(d.fazenda_id) : null, id => (I().get('fazendas', id) || {}).nome || 'Fazenda removida').slice(0, 12);
-    const semFaz = lista.filter(d => !d.fazenda_id).reduce((a, d) => a + n(d.valor), 0);
-    return `<div class="tiles fin-tiles">${tiles.map(([l, v, s, c]) => `<div class="tile ${c ? 'fin-t ' + c : ''}"><span class="lbl">${l}</span><span class="val num">${v}</span><span class="sub">${s}</span></div>`).join('')}</div>
+    const mf = new Map(); for (const d of lista) for (const [fid, v] of partes(d)) { if (!mf.has(fid)) mf.set(fid, []); mf.get(fid).push(Object.assign({}, d, { valor: v })); }
+    const porFaz = [...mf.entries()].map(([k, l]) => ({ k, nome: (I().get('fazendas', k) || {}).nome || 'Fazenda removida', o: somaTipo(l) })).sort((a, b) => b.o.tot - a.o.tot).slice(0, 12);
+    const semFaz = lista.filter(d => !fazendasDe(d).length).reduce((a, d) => a + n(d.valor), 0);
+    return `${htmlOrcamento()}<div class="tiles fin-tiles">${tiles.map(([l, v, s, c]) => `<div class="tile ${c ? 'fin-t ' + c : ''}"><span class="lbl">${l}</span><span class="val num">${v}</span><span class="sub">${s}</span></div>`).join('')}</div>
       <section class="card-box fin-chart"><h3>Despesas por mês <small>últimos 12 meses${F.per !== 'tudo' ? ' · período escolhido em destaque' : ''}</small></h3>${legenda()}${colunas}</section>
       <div class="fin-2">
         <section class="card-box"><h3>Por veículo <small>consumo e custo por km no período</small></h3>${barras(porVeic, veiculos().length ? 'Nenhuma despesa de veículo no período.' : 'Nenhum veículo cadastrado. Cadastre na aba Veículos.')}</section>
@@ -308,6 +374,8 @@ window.Financeiro = (function () {
     if (d.tipo === 'Combustível') return [d.litros ? dec(n(d.litros), 2) + ' L' + (d.combustivel ? ' de ' + (/^(Gasolina|Etanol)$/.test(d.combustivel) ? d.combustivel.toLowerCase() : d.combustivel) : '') : d.combustivel, d.posto].filter(Boolean).join(' · ');
     if (d.tipo === 'Manutenção') return [d.manutencao, d.oficina].filter(Boolean).join(' · ');
     if (d.tipo === 'Alimentação') return [d.refeicao, n(d.pessoas) > 1 ? d.pessoas + ' pessoas' : '', d.local].filter(Boolean).join(' · ');
+    if (d.tipo === 'Diária') return [n(d.dias) ? dec(n(d.dias), n(d.dias) % 1 ? 1 : 0) + (n(d.dias) === 1 ? ' diária' : ' diárias') : '', d.descricao].filter(Boolean).join(' · ');
+    if (d.tipo === 'Km rodado') return [n(d.km_rodado) ? Math.round(n(d.km_rodado)).toLocaleString('pt-BR') + ' km' + (n(d.valor_km) ? ' × ' + R$(d.valor_km) : '') : '', d.descricao].filter(Boolean).join(' · ');
     return [d.categoria, d.descricao].filter(Boolean).join(' · ');
   }
   function htmlLanc(lista) {
@@ -319,11 +387,11 @@ window.Financeiro = (function () {
     return `${adm && sel.length ? `<div class="fin-bulk"><b>${sel.length} selecionada(s)</b><button class="btn small" data-f="bulk" data-st="Aprovada">${svg(IC.ok)}Aprovar</button><button class="btn small" data-f="bulk" data-st="Reembolsada">Marcar reembolsada</button><button class="btn small" data-f="bulk" data-st="Recusada">Recusar</button><button class="lnk" data-f="sel-limpar">Limpar seleção</button></div>` : ''}
       <div class="table-wrap fin-tab"><table><thead><tr>${adm ? `<th class="ck"><input type="checkbox" data-f="sel-tudo" aria-label="Selecionar todas" ${mostra.length && mostra.every(d => F.sel.has(String(d.id))) ? 'checked' : ''}></th>` : ''}<th>Data</th><th>Tipo</th><th>Detalhe</th><th>Veículo</th><th>Fazenda</th>${adm ? '<th>Funcionário</th>' : ''}<th>Situação</th><th class="r">Valor</th><th aria-label="Comprovante"></th></tr></thead>
       <tbody>${mostra.map(d => {
-        const v = veic(d.veiculo_id), f = I().get('fazendas', d.fazenda_id), ti = TIPO_INFO[d.tipo] || TIPO_INFO['Outra'], st = d.status || 'Pendente', k = kmlPor.get(String(d.id));
+        const v = veic(d.veiculo_id), fzs = fazendasDe(d), f = I().get('fazendas', fzs[0]), ti = TIPO_INFO[d.tipo] || TIPO_INFO['Outra'], st = d.status || 'Pendente', k = kmlPor.get(String(d.id));
         return `<tr class="click" data-f="abrir" data-id="${esc(d.id)}">${adm ? `<td class="ck"><input type="checkbox" data-f="sel" data-id="${esc(d.id)}" ${F.sel.has(String(d.id)) ? 'checked' : ''} aria-label="Selecionar"></td>` : ''}
           <td class="dt">${fd(d.data)}</td><td class="tp"><span class="fin-tipo"><i class="sw ${ti.cls}"></i>${esc(d.tipo || 'Outra')}</span></td>
           <td class="ds">${esc(descr(d)) || '<span class="muted">—</span>'}${d.km ? `<small>${km(n(d.km))}${k ? ' · ' + dec(k) + ' km/l' : ''}</small>` : ''}</td>
-          <td class="vc">${v ? `<span class="placa">${esc(v.placa)}</span>` : '<span class="muted">—</span>'}</td><td class="fz">${f ? esc(f.nome) : '<span class="muted">—</span>'}</td>
+          <td class="vc">${v ? `<span class="placa">${esc(v.placa)}</span>` : '<span class="muted">—</span>'}</td><td class="fz">${f ? esc(f.nome) + (fzs.length > 1 ? ` <small class="muted" title="Rateada entre ${fzs.length} fazendas">+${fzs.length - 1}</small>` : '') : '<span class="muted">—</span>'}</td>
           ${adm ? `<td class="fu">${esc(nomePessoa(d.usuario))}</td>` : ''}<td class="sx"><span class="pill ${ST_CLS[st] || ''}">${esc(st)}</span></td>
           <td class="r vl num"><b>${R$(d.valor)}</b></td><td class="cp">${d.comprovante ? `<button class="icon-btn fin-clip" data-f="foto" data-id="${esc(d.id)}" aria-label="Ver comprovante" title="${d.comprovante.pend ? 'Comprovante guardado no aparelho (a enviar)' : 'Ver comprovante'}">${svg(IC.clip)}${d.comprovante.pend ? '<i class="dotp"></i>' : ''}</button>` : ''}</td></tr>`;
       }).join('') || `<tr><td colspan="${adm ? 10 : 8}" class="empty">Nenhuma despesa neste filtro.</td></tr>`}</tbody>
@@ -374,6 +442,14 @@ window.Financeiro = (function () {
         F.sel.clear(); I().toast(k ? k + ' despesa(s) marcada(s) como ' + b.dataset.st.toLowerCase() + '.' : 'Nada mudou.'); render(); break;
       }
       case 'xlsx': baixarExcel(); break;
+      case 'ajustes': formAjustes(); break;
+      case 'conta-nova': formConta(null, { tipo: b.dataset.tipo || 'Receber' }); break;
+      case 'conta': formConta(contas().find(c => String(c.id) === b.dataset.id)); break;
+      case 'conta-baixa': { e.stopPropagation(); const c = contas().find(x => String(x.id) === b.dataset.id); if (c) { await I().Store.save('contas', Object.assign({}, c, { pago_em: I().today() })); I().toast(c.tipo === 'Receber' ? 'Marcada como recebida.' : 'Marcada como paga.'); } break; }
+      case 'contas-flt': F.cf = b.dataset.v; render(); break;
+      case 'reemb-pagar': { const em = b.dataset.id, l = despesas().filter(d => String(d.usuario).toLowerCase() === em && reembolsavel(d) && d.status === 'Aprovada'); if (!l.length || !confirm(`Marcar ${l.length} despesa(s) de ${nomePessoa(em)} como reembolsadas (${R$(l.reduce((a, d) => a + n(d.valor), 0))})?`)) break; for (const d of l) await I().Store.save('despesas', Object.assign({}, d, { status: 'Reembolsada', status_por: meuEmail(), status_em: new Date().toISOString(), reembolsado_em: I().today() })); I().toast('Reembolso registrado.'); break; }
+      case 'reemb-recibo': reciboPDF(b.dataset.id); break;
+      case 'lucro-cli': F.lucroAberto = F.lucroAberto === b.dataset.id ? '' : b.dataset.id; render(); break;
       case 'pdf': baixarPDF(); break;
     }
   }
@@ -410,6 +486,10 @@ window.Financeiro = (function () {
     const d = Object.assign({ data: I().today(), tanque_cheio: 'Sim', forma_pagamento: PAGTO[0] }, def || {}, rec || {});
     if (novo && !d.veiculo_id && (d.tipo === 'Combustível' || d.tipo === 'Manutenção')) d.veiculo_id = veicPadrao();
     if (novo && d.veiculo_id && !d.combustivel) d.combustivel = (veic(d.veiculo_id) || {}).combustivel || '';
+    const padraoReemb = () => { if (novo && REEMB_TIPOS.includes(d.tipo)) { d.forma_pagamento = REEMB_PAG; if (d.tipo === 'Diária') { d.dias = d.dias ?? 1; d.valor_dia = d.valor_dia ?? nn(CFG().valor_diaria); } if (d.tipo === 'Km rodado') d.valor_km = d.valor_km ?? nn(CFG().valor_km); } };
+    padraoReemb();
+    let fazSel = fazendasDe(d); // rateio entre fazendas
+    let ocrMsg = '';
     let foto = null; // { blob, mime, nome } escolhida agora
     let fotoRemovida = false;
     const bg = document.createElement('div'); bg.className = 'modal-bg';
@@ -442,23 +522,76 @@ window.Financeiro = (function () {
       } else if (t === 'Alimentação') {
         h += campo('Refeição', sel('refeicao', REFEICAO, d.refeicao)) + campo('Quantas pessoas', numInp('pessoas', d.pessoas ?? 1, 'step="1" min="1"'))
           + campo('Pessoa ou equipe', inp('pessoa', d.pessoa, 'placeholder="Ex.: Equipe de levantamento"')) + campo('Restaurante / local', inp('local', d.local));
+      } else if (t === 'Diária') {
+        h += campo('Quantidade de diárias', numInp('dias', d.dias, 'step="0.5" min="0.5" required')) + campo('Valor da diária (R$)', numInp('valor_dia', d.valor_dia, 'required'))
+          + campo('Motivo / viagem', inp('descricao', d.descricao, 'placeholder="Ex.: Levantamento de broca na região de Jaú"'), 'full');
+      } else if (t === 'Km rodado') {
+        h += campo('Km inicial (opcional)', numInp('km_ini', d.km_ini)) + campo('Km final (opcional)', numInp('km_fim', d.km_fim))
+          + campo('Km rodados', numInp('km_rodado', d.km_rodado, 'required')) + campo('Valor por km (R$)', numInp('valor_km', d.valor_km, 'required'))
+          + campo('Trajeto', inp('descricao', d.descricao, 'placeholder="Ex.: Escritório → Fazenda Boa Vista → Escritório"'), 'full')
+          + '<p class="full fin-calc fin-dica">Use para o carro do próprio funcionário. O valor é km rodados × valor por km e entra no reembolso.</p>';
       } else {
         h += campo('Categoria', sel('categoria', OUTRAS, d.categoria, 'Selecione…', 'required')) + campo('Veículo (se tiver)', sel('veiculo_id', vs, d.veiculo_id, 'Nenhum'))
           + campo('Descrição', inp('descricao', d.descricao), 'full');
       }
-      h += campo('Fazenda / cliente visitado', sel('fazenda_id', fz, d.fazenda_id, 'Nenhuma (despesa geral)'), 'full')
-        + campo('Pagamento', sel('forma_pagamento', PAGTO, d.forma_pagamento, null));
+      h += `<div class="field full"><span>Fazenda / cliente visitado <small class="muted">(com mais de uma, o valor é dividido em partes iguais)</small></span><div class="fin-fazs" id="fin-fazs"></div></div>`
+        + (REEMB_TIPOS.includes(t) ? `<div class="field"><span>Pagamento</span><span class="pill info" style="justify-self:start;margin-top:6px">Reembolso ao funcionário</span><input type="hidden" name="forma_pagamento" value="${esc(REEMB_PAG)}"></div>` : campo('Pagamento', sel('forma_pagamento', PAGTO, d.forma_pagamento, null)));
       if (adm) h += campo('Funcionário', sel('usuario', pessoas, String(d.usuario || meuEmail()).toLowerCase(), null)) + campo('Situação', sel('status', STATUS, st0, null)) + `<label class="field full fin-mot" ${st0 === 'Recusada' ? '' : 'hidden'}><span>Motivo da recusa</span>${inp('motivo', d.motivo)}</label>`;
       else h += `<div class="field"><span>Situação</span><span class="pill ${ST_CLS[st0]}" style="justify-self:start;margin-top:6px">${esc(st0)}</span></div>`;
       h += `<div class="field full"><span>Comprovante (foto da nota ou cupom)</span><div class="fin-comp" id="fin-comp"></div></div>` + campo('Observações', `<textarea name="obs">${esc(d.obs || '')}</textarea>`, 'full');
       form.innerHTML = h;
-      desenharFoto(); calc();
+      desenharFoto(); desenharFazs(); calc('init');
+    }
+    // Fazendas da despesa (rateio) + sugestão: fazendas das visitas feitas no mesmo dia por quem lançou
+    function visitadasNoDia() {
+      const dia = (form.elements.data && form.elements.data.value) || d.data, quem = String((form.elements.usuario && form.elements.usuario.value) || d.usuario || meuEmail()).toLowerCase(), nome = nomePessoa(quem).toLowerCase();
+      const ids = new Set();
+      for (const m of S().data.monitoramentos || []) {
+        if (String(m.data || '').slice(0, 10) !== dia) continue;
+        const autor = String(m.criado_por || '').toLowerCase(), resp = String(m.responsavel || '').toLowerCase();
+        if (quem !== 'local' && autor !== quem && !(resp && nome && resp.includes(nome.split(' ')[0]))) continue;
+        const t = I().get('talhoes', m.talhao_id); if (t && t.fazenda_id) ids.add(String(t.fazenda_id));
+      }
+      for (const o of S().data.ordens || []) if ((o.data_conclusao || '') === dia && String(o.criado_por || '').toLowerCase() === quem && o.fazenda_id) ids.add(String(o.fazenda_id));
+      return [...ids];
+    }
+    function desenharFazs() {
+      const box = $('#fin-fazs', form); if (!box) return;
+      const nomeF = id => (I().get('fazendas', id) || {}).nome || 'Fazenda removida';
+      const resto = S().data.fazendas.filter(f => !fazSel.includes(String(f.id))).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+      const vis = visitadasNoDia().filter(id => !fazSel.includes(id));
+      const v = nn(form.elements.valor && form.elements.valor.value);
+      box.innerHTML = `${fazSel.map(id => `<span class="fin-chip">${esc(nomeF(id))}${fazSel.length > 1 && v ? ` <small>${R$(v / fazSel.length)}</small>` : ''}<button type="button" data-faz-tirar="${esc(id)}" aria-label="Tirar ${esc(nomeF(id))}">×</button></span>`).join('')}
+        <select data-faz-add aria-label="Adicionar fazenda"><option value="">${fazSel.length ? '+ Adicionar outra fazenda' : 'Nenhuma (despesa geral) · escolher fazenda'}</option>${resto.map(f => `<option value="${esc(f.id)}">${esc(f.nome)}</option>`).join('')}</select>
+        ${vis.length ? `<button type="button" class="btn small" data-faz-vis>Fazendas visitadas neste dia (${vis.length})</button>` : ''}`;
     }
     function desenharFoto() {
       const box = $('#fin-comp', form); if (!box) return;
       const tem = foto || (d.comprovante && !fotoRemovida);
       box.innerHTML = `${tem ? `<span class="fin-thumb">${foto && /^image/.test(foto.mime) ? `<img src="${esc(foto.prev)}" alt="Prévia do comprovante">` : svg(IC.clip)}<span>${foto ? 'Foto pronta para salvar' : d.comprovante.pend ? 'Guardado no aparelho (a enviar)' : 'Comprovante anexado'}</span>${!foto ? '<button type="button" class="btn small" data-ver>Ver</button>' : ''}<button type="button" class="lnk" data-tirar>Remover</button></span>` : ''}
-        <label class="btn fin-up">${svg(IC.foto)}${tem ? 'Trocar foto' : 'Tirar foto ou escolher arquivo'}<input type="file" accept="image/*,application/pdf" hidden data-file></label>`;
+        <label class="btn fin-up">${svg(IC.foto)}${tem ? 'Trocar foto' : 'Tirar foto ou escolher arquivo'}<input type="file" accept="image/*,application/pdf" hidden data-file></label>
+        <p class="fin-ocr" id="fin-ocr" ${ocrMsg ? '' : 'hidden'}>${ocrMsg}</p>`;
+    }
+    // Lê o comprovante pela foto (no próprio aparelho) e preenche só os campos vazios
+    async function lerFoto(blob) {
+      const msg = h => { ocrMsg = h; const el = $('#fin-ocr', form); if (el) { el.innerHTML = h; el.hidden = !h; } };
+      msg(`<span class="fin-spin"></span>Lendo o comprovante…`);
+      let r;
+      try { r = await OCR.ler(blob, p => msg(`<span class="fin-spin"></span>Lendo o comprovante… ${Math.round(p * 100)}%`)); }
+      catch (e) { msg(navigator.onLine ? 'Não consegui ler a foto. Preencha os campos à mão.' : 'Para ler a foto é preciso internet na primeira vez. Preencha à mão ou tente depois.'); return; }
+      if (!document.body.contains(bg)) return;
+      const el = form.elements, feito = [];
+      const por = (nome, v, rot) => { if (v == null || v === '' || !el[nome] || el[nome].value) return; el[nome].value = v; feito.push(rot); };
+      if (r.data) por('data', r.data, 'data');
+      if (d.tipo === 'Combustível') {
+        por('litros', r.litros, 'litros'); por('preco_litro', r.preco_litro, 'preço por litro'); por('posto', r.nome, 'posto'); por('km', r.km, 'km');
+        if (r.combustivel && el.combustivel && !el.combustivel.value) { el.combustivel.value = r.combustivel; feito.push('combustível'); }
+      } else if (d.tipo === 'Manutenção') por('oficina', r.nome, 'oficina');
+      else if (d.tipo === 'Alimentação') por('local', r.nome, 'local');
+      else if (d.tipo === 'Outra') por('descricao', r.nome, 'descrição');
+      por('valor', r.valor != null ? r.valor.toFixed(2) : null, 'valor');
+      calc('litros'); desenharFazs();
+      msg(feito.length ? `${svg(IC.ok)} Preenchido pela foto: <b>${feito.join(', ')}</b>. Confira antes de salvar.` : 'Li a foto, mas não achei valores claros. Preencha à mão. <button type="button" class="lnk" data-ocr>Tentar de novo</button>');
     }
     // Combustível: litros × preço = valor (preenche o que faltar); mostra km rodados e consumo desde o último tanque cheio
     let ultimo = 'valor';
@@ -470,6 +603,12 @@ window.Financeiro = (function () {
         if (src === 'litros' || src === 'preco_litro') { if (L && P) el.valor.value = (L * P).toFixed(2); else if (L && V) el.preco_litro.value = (V / L).toFixed(3); }
         else if (src === 'valor') { if (L && V) el.preco_litro.value = (V / L).toFixed(3); else if (P && V) el.litros.value = (V / P).toFixed(2); }
       }
+      if (d.tipo === 'Diária' && el.dias && (src === 'dias' || src === 'valor_dia' || src === 'init')) { const a = nn(el.dias.value), b = nn(el.valor_dia.value); if (a && b) el.valor.value = (a * b).toFixed(2); }
+      if (d.tipo === 'Km rodado' && el.km_rodado) {
+        if (src === 'km_ini' || src === 'km_fim') { const a = nn(el.km_ini.value), b = nn(el.km_fim.value); if (a != null && b != null && b > a) el.km_rodado.value = b - a; }
+        if (['km_ini', 'km_fim', 'km_rodado', 'valor_km', 'init'].includes(src)) { const k = nn(el.km_rodado.value), t = nn(el.valor_km.value); if (k && t) el.valor.value = (k * t).toFixed(2); }
+      }
+      if (src === 'valor' || src === 'litros' || src === 'preco_litro') desenharFazs();
       if (!box) return;
       const vid = el.veiculo_id && el.veiculo_id.value, K = el.km ? nn(el.km.value) : null, v = veic(vid);
       if (!v) { box.innerHTML = ''; return; }
@@ -495,23 +634,29 @@ window.Financeiro = (function () {
     // Admin sem nomes carregados: tenta carregar e redesenha a lista de pessoas
     if (adm && !Object.keys(membros).length) carregarMembros().then(() => { if (document.body.contains(bg)) { Object.assign(d, ler()); montar(); } });
 
-    bg.addEventListener('input', e => { if (['litros', 'valor', 'preco_litro'].includes(e.target.name)) calc(e.target.name); else if (e.target.name === 'km') calc(); });
+    bg.addEventListener('input', e => { if (['litros', 'valor', 'preco_litro', 'dias', 'valor_dia', 'km_ini', 'km_fim', 'km_rodado', 'valor_km'].includes(e.target.name)) calc(e.target.name); else if (e.target.name === 'km') calc(); });
     bg.addEventListener('change', async e => {
       const t = e.target;
       if (t.name === 'veiculo_id') { const v = veic(t.value); if (v && form.elements.combustivel && !form.elements.combustivel.value && v.combustivel) form.elements.combustivel.value = v.combustivel; calc(); }
       if (t.name === 'tanque_cheio') calc();
+      if (t.name === 'data' || t.name === 'usuario') desenharFazs();
+      if (t.matches('[data-faz-add]') && t.value) { fazSel.push(t.value); desenharFazs(); return; }
       if (t.name === 'status') { const m = $('.fin-mot', form); if (m) m.hidden = t.value !== 'Recusada'; }
       if (t.matches('[data-file]') && t.files[0]) {
         const f = t.files[0];
         if (f.size > 25 * 1024 * 1024) { I().toast('Arquivo grande demais (máximo 25 MB).'); return; }
         foto = await reduzir(f); foto.prev = /^image/.test(foto.mime) ? URL.createObjectURL(foto.blob) : null; fotoRemovida = false; desenharFoto();
+        if (/^image/.test(foto.mime)) lerFoto(foto.blob);
       }
     });
     bg.addEventListener('click', async e => {
       if (e.target === bg || e.target.closest('[data-close]')) return bg.remove();
       const tb = e.target.closest('.fin-seg [data-tipo]');
-      if (tb && !travada) { Object.assign(d, ler(), { tipo: tb.dataset.tipo }); if ((d.tipo === 'Combustível' || d.tipo === 'Manutenção') && !d.veiculo_id) d.veiculo_id = veicPadrao(); $$('.fin-seg [data-tipo]', bg).forEach(x => x.setAttribute('aria-checked', x === tb)); montar(); return; }
+      if (tb && !travada) { Object.assign(d, ler(), { tipo: tb.dataset.tipo }); padraoReemb(); if (!REEMB_TIPOS.includes(d.tipo) && d.forma_pagamento === REEMB_PAG && novo) d.forma_pagamento = PAGTO[0]; if ((d.tipo === 'Combustível' || d.tipo === 'Manutenção') && !d.veiculo_id) d.veiculo_id = veicPadrao(); $$('.fin-seg [data-tipo]', bg).forEach(x => x.setAttribute('aria-checked', x === tb)); montar(); return; }
       if (e.target.closest('[data-ver]')) { verComprovante(d); return; }
+      const ft = e.target.closest('[data-faz-tirar]'); if (ft) { fazSel = fazSel.filter(x => x !== ft.dataset.fazTirar); desenharFazs(); return; }
+      if (e.target.closest('[data-faz-vis]')) { for (const id of visitadasNoDia()) if (!fazSel.includes(id)) fazSel.push(id); desenharFazs(); return; }
+      if (e.target.closest('[data-ocr]')) { if (foto) lerFoto(foto.blob); return; }
       if (e.target.closest('[data-tirar]')) { foto = null; fotoRemovida = true; desenharFoto(); return; }
       if (e.target.closest('[data-del]')) {
         if (!confirm('Excluir esta despesa?')) return;
@@ -526,12 +671,15 @@ window.Financeiro = (function () {
         if (!(nn(v.valor) > 0)) faltam.push('valor');
         if ((d.tipo === 'Combustível' || d.tipo === 'Manutenção') && !v.veiculo_id) faltam.push('veículo');
         if (d.tipo === 'Combustível' && !(nn(v.litros) > 0)) faltam.push('litros');
+        if (d.tipo === 'Km rodado' && !(nn(v.km_rodado) > 0)) faltam.push('km rodados');
         if (faltam.length) { I().toast('Preencha: ' + faltam.join(', ') + '.'); const el = form.elements[{ data: 'data', valor: 'valor', 'veículo': 'veiculo_id', litros: 'litros' }[faltam[0]]]; if (el) el.focus(); return; }
         const obj = Object.assign({}, rec || {}, { id: rec ? rec.id : I().newId(), tipo: d.tipo });
-        for (const [k, x] of Object.entries(v)) obj[k] = ['valor', 'litros', 'preco_litro', 'km', 'pessoas'].includes(k) ? nn(x) : x || null;
+        for (const [k, x] of Object.entries(v)) obj[k] = ['valor', 'litros', 'preco_litro', 'km', 'pessoas', 'dias', 'valor_dia', 'km_ini', 'km_fim', 'km_rodado', 'valor_km'].includes(k) ? nn(x) : x || null;
+        obj.fazenda_ids = fazSel.slice(); obj.fazenda_id = fazSel[0] || null;
+        if (ocrMsg) obj.lido_da_foto = true;
         // campos que não pertencem ao tipo escolhido saem do registro
-        const DO_TIPO = { 'Combustível': ['veiculo_id', 'km', 'combustivel', 'litros', 'preco_litro', 'tanque_cheio', 'posto'], 'Manutenção': ['veiculo_id', 'km', 'manutencao', 'oficina'], 'Alimentação': ['refeicao', 'pessoas', 'pessoa', 'local'], 'Outra': ['categoria', 'veiculo_id', 'descricao'] };
-        for (const k of ['veiculo_id', 'km', 'combustivel', 'litros', 'preco_litro', 'tanque_cheio', 'posto', 'manutencao', 'oficina', 'refeicao', 'pessoas', 'pessoa', 'local', 'categoria', 'descricao']) if (!DO_TIPO[d.tipo].includes(k)) delete obj[k];
+        const DO_TIPO = { 'Combustível': ['veiculo_id', 'km', 'combustivel', 'litros', 'preco_litro', 'tanque_cheio', 'posto'], 'Manutenção': ['veiculo_id', 'km', 'manutencao', 'oficina'], 'Alimentação': ['refeicao', 'pessoas', 'pessoa', 'local'], 'Diária': ['dias', 'valor_dia', 'descricao'], 'Km rodado': ['km_ini', 'km_fim', 'km_rodado', 'valor_km', 'descricao'], 'Outra': ['categoria', 'veiculo_id', 'descricao'] };
+        for (const k of ['veiculo_id', 'km', 'combustivel', 'litros', 'preco_litro', 'tanque_cheio', 'posto', 'manutencao', 'oficina', 'refeicao', 'pessoas', 'pessoa', 'local', 'categoria', 'descricao', 'dias', 'valor_dia', 'km_ini', 'km_fim', 'km_rodado', 'valor_km']) if (!DO_TIPO[d.tipo].includes(k)) delete obj[k];
         if (!adm) { obj.usuario = rec ? rec.usuario : meuEmail().toLowerCase(); obj.status = 'Pendente'; delete obj.motivo; }
         else { obj.usuario = v.usuario || meuEmail().toLowerCase(); if (obj.status !== st0) { obj.status_por = meuEmail(); obj.status_em = new Date().toISOString(); } if (obj.status !== 'Recusada') delete obj.motivo; }
         if (fotoRemovida && !foto) { if (rec && rec.comprovante && rec.comprovante.pend) tirar(rec.comprovante.pend); obj.comprovante = null; }
@@ -631,7 +779,12 @@ window.Financeiro = (function () {
     X.utils.book_append_sheet(wb, X.utils.json_to_sheet(linhas(lista)), 'Lançamentos');
     const pv = porVeiculo(p, lista); if (pv.length) X.utils.book_append_sheet(wb, X.utils.json_to_sheet(pv), 'Por veículo');
     X.utils.book_append_sheet(wb, X.utils.json_to_sheet(porGrupo(lista, d => String(d.usuario || '').toLowerCase(), nomePessoa, 'Funcionário')), 'Por funcionário');
-    X.utils.book_append_sheet(wb, X.utils.json_to_sheet(porGrupo(lista, d => d.fazenda_id, id => id ? (I().get('fazendas', id) || {}).nome || '' : 'Sem fazenda', 'Fazenda')), 'Por fazenda');
+    X.utils.book_append_sheet(wb, X.utils.json_to_sheet(porGrupo(lista.flatMap(d => partes(d).length ? partes(d).map(([fid, v]) => Object.assign({}, d, { fazenda_id: fid, valor: v })) : [d]), d => d.fazenda_id, id => id ? (I().get('fazendas', id) || {}).nome || '' : 'Sem fazenda', 'Fazenda')), 'Por fazenda');
+    if (souAdmin()) {
+      const ct = contas().filter(c => noPer(c.vencimento, p));
+      if (ct.length) X.utils.book_append_sheet(wb, X.utils.json_to_sheet(ct.sort((a, b) => String(a.vencimento).localeCompare(String(b.vencimento))).map(c => ({ Tipo: c.tipo === 'Receber' ? 'A receber' : 'A pagar', 'Descrição': c.descricao || '', Categoria: c.categoria || '', 'Cliente / fornecedor': c.tipo === 'Receber' ? ((I().get('produtores', c.produtor_id) || {}).nome || '') : (c.fornecedor || ''), Fazenda: (I().get('fazendas', c.fazenda_id) || {}).nome || '', Vencimento: fd(c.vencimento), 'Pago/recebido em': c.pago_em ? fd(c.pago_em) : '', 'Situação': situacaoConta(c).l, 'Valor (R$)': r2(n(c.valor)) }))), 'Contas');
+      const lu = lucroDados(p); X.utils.book_append_sheet(wb, X.utils.json_to_sheet(lu.linhas.map(x => ({ Cliente: x.nome, 'Receitas (R$)': r2(x.rec), 'Despesas da equipe (R$)': r2(x.desp), 'Contas a pagar (R$)': r2(x.pag), 'Lucro (R$)': r2(x.rec - x.desp - x.pag), 'Margem (%)': x.rec ? Math.round((x.rec - x.desp - x.pag) / x.rec * 1000) / 10 : null }))), 'Lucro por cliente');
+    }
     X.writeFile(wb, nomeArq('xlsx')); I().toast('Planilha gerada.');
   }
   function logo() {
@@ -675,6 +828,249 @@ window.Financeiro = (function () {
     doc.save(nomeArq('pdf')); I().toast('PDF gerado.');
   }
 
+  // ---------- Orçamento mensal por categoria ----------
+  const mesAtual = () => I().today().slice(0, 7);
+  function orcamento() {
+    const o = CFG().orcamento || {}, mes = mesAtual();
+    const ds = despesas().filter(d => String(d.data || '').slice(0, 7) === mes && d.status !== 'Recusada');
+    const gasto = somaTipo(ds), itens = [];
+    for (const t of TIPOS) if (n(o[t]) > 0) itens.push({ k: t, nome: TIPO_INFO[t].plural, cls: TIPO_INFO[t].cls, lim: n(o[t]), gasto: gasto[t] });
+    if (n(o.total) > 0) itens.push({ k: 'total', nome: 'Total do mês', cls: '', lim: n(o.total), gasto: gasto.tot });
+    for (const x of itens) { x.pct = x.gasto / x.lim * 100; x.st = x.pct > 100 ? 'bad' : x.pct >= 80 ? 'warn' : 'ok'; }
+    return itens;
+  }
+  function htmlOrcamento() {
+    const it = orcamento(), adm = souAdmin();
+    if (!it.length) return adm ? `<div class="fin-orc-vazio"><span>Defina um orçamento mensal por categoria para receber alerta quando passar do limite.</span><button class="btn small" data-f="ajustes">Definir orçamento</button></div>` : '';
+    const nomeMes = new Date(mesAtual() + '-15T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    return `<section class="card-box fin-orc"><h3>Orçamento de ${esc(nomeMes)} <small>${adm ? '<button class="lnk" data-f="ajustes">Alterar limites</button>' : 'gasto da equipe no mês'}</small></h3>
+      <div class="fin-orc-l">${it.map(x => `<div class="fin-orc-i ${x.st}"><span class="nm">${x.cls ? `<i class="sw ${x.cls}"></i>` : ''}${esc(x.nome)}</span>
+        <span class="tr" role="img" aria-label="${esc(x.nome)}: ${Math.round(x.pct)}% do orçamento"><i style="width:${Math.min(100, x.pct).toFixed(1)}%"></i></span>
+        <span class="v num">${R0(x.gasto)} <small>de ${R0(x.lim)}</small></span><span class="pill ${x.st}">${Math.round(x.pct) + '%'}${x.st === 'bad' ? ' · passou' : ''}</span></div>`).join('')}</div></section>`;
+  }
+
+  // ---------- Avisos (aparecem nas Notificações do app e no topo desta tela) ----------
+  function avisos() {
+    if (!window.INOVA || !S().data.despesas) return [];
+    const out = [], hoje = I().today(), adm = souAdmin();
+    if (adm) {
+      for (const x of orcamento()) if (x.st !== 'ok') out.push({ id: 'orc-' + mesAtual() + '-' + x.k + '-' + x.st, tipo: 'atividades', data: hoje, cor: x.st === 'bad' ? '#d03b3b' : '#ec835a', t: x.st === 'bad' ? `Orçamento estourado: ${x.nome}` : `Orçamento perto do limite: ${x.nome}`, d: `${R0(x.gasto)} de ${R0(x.lim)} (${Math.round(x.pct)}%)`, go: 'fin:resumo' });
+      for (const c of contas()) {
+        if (c.pago_em || !c.vencimento) continue;
+        const dias = Math.round((new Date(c.vencimento + 'T12:00:00') - new Date(hoje + 'T12:00:00')) / 864e5);
+        if (dias > 3) continue;
+        const o = c.tipo === 'Receber' ? 'a receber' : 'a pagar';
+        out.push({ id: 'cta-' + c.id + '-' + (dias < 0 ? 'v' : dias), tipo: 'atividades', data: c.vencimento, cor: dias < 0 ? '#d03b3b' : '#ec835a', t: dias < 0 ? `Conta ${o} vencida: ${c.descricao || ''}` : `Conta ${o} vence ${dias === 0 ? 'hoje' : dias === 1 ? 'amanhã' : 'em ' + dias + ' dias'}: ${c.descricao || ''}`, d: R$(c.valor) + (c.tipo === 'Receber' ? ' · ' + ((I().get('produtores', c.produtor_id) || {}).nome || '') : c.fornecedor ? ' · ' + c.fornecedor : ''), go: 'fin:contas' });
+      }
+      const pend = despesas().filter(d => (d.status || 'Pendente') === 'Pendente');
+      if (pend.length) out.push({ id: 'dpend-' + pend.length + '-' + pend.map(d => d.id).sort().slice(-1), tipo: 'atividades', data: pend.map(d => d.data || '').sort().pop(), cor: '#2a78d6', t: `${pend.length} despesa(s) esperando aprovação`, d: R$(pend.reduce((a, d) => a + n(d.valor), 0)), go: 'fin:lanc' });
+    } else {
+      for (const d of despesas()) if (d.status === 'Recusada' && String(d.usuario).toLowerCase() === meuEmail().toLowerCase()) out.push({ id: 'drec-' + d.id + (d.status_em || ''), tipo: 'atividades', data: (d.status_em || d.data || '').slice(0, 10), cor: '#d03b3b', t: `Despesa recusada: ${d.tipo} de ${R$(d.valor)}`, d: d.motivo || 'Abra para corrigir e enviar de novo.', go: 'fin:lanc' });
+    }
+    return out;
+  }
+  function htmlAvisos() {
+    if (!souAdmin()) return '';
+    const l = avisos().filter(a => a.id.startsWith('cta-') || a.id.startsWith('orc-'));
+    if (!l.length) return '';
+    return `<div class="fin-avisos">${l.slice(0, 4).map(a => `<button class="fin-aviso" data-f="aba" data-aba="${a.go.split(':')[1]}"><i class="dot" style="background:${a.cor}"></i><span><b>${esc(a.t)}</b><small>${esc(a.d)}</small></span></button>`).join('')}${l.length > 4 ? `<span class="muted">e mais ${l.length - 4}</span>` : ''}</div>`;
+  }
+  function abrir(aba) { if (aba) { F.aba = aba; if (aba === 'lanc' && souAdmin()) { F.status = 'Pendente'; F.per = 'tudo'; } salvarPref(); } if (location.hash === '#campo') { celular(); return; } if (location.hash !== '#financeiro') location.hash = 'financeiro'; else render(); }
+
+  // ---------- Reembolsos (gastos com dinheiro próprio, diárias e km rodado) ----------
+  function htmlReemb(p) {
+    const adm = souAdmin(), c = CFG();
+    const pessoas = new Map();
+    for (const d of despesas()) {
+      if (!reembolsavel(d) || d.status === 'Recusada') continue;
+      const em = String(d.usuario || '').toLowerCase();
+      if (!adm && em !== meuEmail().toLowerCase() && em !== 'local') continue;
+      if (!pessoas.has(em)) pessoas.set(em, { em, apagar: [], pend: [], pago: [] });
+      const x = pessoas.get(em), st = d.status || 'Pendente';
+      if (st === 'Aprovada') x.apagar.push(d); else if (st === 'Pendente') x.pend.push(d); else if (st === 'Reembolsada' && noPer(d.reembolsado_em || d.data, p)) x.pago.push(d);
+    }
+    const soma = l => l.reduce((a, d) => a + n(d.valor), 0);
+    const ls = [...pessoas.values()].filter(x => x.apagar.length || x.pend.length || x.pago.length).sort((a, b) => soma(b.apagar) - soma(a.apagar));
+    const tot = ls.reduce((a, x) => a + soma(x.apagar), 0), totP = ls.reduce((a, x) => a + soma(x.pend), 0), totR = ls.reduce((a, x) => a + soma(x.pago), 0);
+    const comp = l => { const o = { 'Diária': 0, 'Km rodado': 0, gasto: 0 }; for (const d of l) { if (d.tipo === 'Diária') o['Diária'] += n(d.valor); else if (d.tipo === 'Km rodado') o['Km rodado'] += n(d.valor); else o.gasto += n(d.valor); } return o; };
+    return `<div class="tiles fin-tiles"><div class="tile"><span class="lbl">A reembolsar (aprovado)</span><span class="val num">${R$(tot)}</span><span class="sub">${I().fmtInt(ls.filter(x => x.apagar.length).length)} pessoa(s)</span></div>
+        <div class="tile"><span class="lbl">Aguardando aprovação</span><span class="val num">${R$(totP)}</span><span class="sub">entra no reembolso depois de aprovado</span></div>
+        <div class="tile"><span class="lbl">Reembolsado no período</span><span class="val num">${R$(totR)}</span><span class="sub">${esc(filtroTxt().split(' · ')[0])}</span></div>
+        <div class="tile"><span class="lbl">Valores combinados</span><span class="val num fin-val-s">${c.valor_diaria ? R$(c.valor_diaria) + '<small>/diária</small>' : '—'}<br>${c.valor_km ? R$(c.valor_km) + '<small>/km</small>' : '—'}</span><span class="sub">${adm ? '<button class="lnk" data-f="ajustes">Alterar</button>' : 'definidos pelo administrador'}</span></div></div>
+      <p class="muted fin-p">Entram no reembolso as diárias, o km rodado com carro próprio e as despesas pagas com <b>dinheiro ou Pix próprio</b>. Depois de aprovadas pelo administrador, aparecem aqui como "a reembolsar".</p>
+      <div class="fin-reembs">${ls.map(x => { const a = comp(x.apagar); return `<article class="fin-rb">
+        <header><span class="avatar sm">${esc(nomePessoa(x.em).slice(0, 2).toUpperCase())}</span><b>${esc(nomePessoa(x.em))}</b><span class="v num">${R$(soma(x.apagar))}</span></header>
+        <dl><div><dt>Diárias</dt><dd>${R0(a['Diária'])}</dd></div><div><dt>Km rodado</dt><dd>${R0(a['Km rodado'])}</dd></div><div><dt>Gastos próprios</dt><dd>${R0(a.gasto)}</dd></div><div><dt>Aguardando</dt><dd>${R0(soma(x.pend))}</dd></div></dl>
+        <footer><span class="muted">${x.apagar.length} item(ns) aprovado(s) · reembolsado no período ${R0(soma(x.pago))}</span><span class="fin-vb"><button class="btn small" data-f="reemb-recibo" data-id="${esc(x.em)}">${I().icon('pdf')} Recibo</button>${adm && x.apagar.length ? `<button class="btn small primary" data-f="reemb-pagar" data-id="${esc(x.em)}">Marcar como pago</button>` : ''}</span></footer></article>`; }).join('') || '<p class="empty">Nenhum reembolso pendente. Lance diárias, km rodado ou despesas pagas com dinheiro próprio.</p>'}</div>`;
+  }
+  async function reciboPDF(em) {
+    try { await lib('jspdf'); await lib('autotable'); } catch (e) { I().toast('Não foi possível gerar o PDF. Verifique a internet.'); return; }
+    const p = periodo();
+    let l = despesas().filter(d => String(d.usuario || '').toLowerCase() === em && reembolsavel(d) && d.status === 'Aprovada'), titulo = 'Recibo de reembolso (a pagar)';
+    if (!l.length) { l = despesas().filter(d => String(d.usuario || '').toLowerCase() === em && reembolsavel(d) && d.status === 'Reembolsada' && noPer(d.reembolsado_em || d.data, p)); titulo = 'Recibo de reembolso (pago)'; }
+    if (!l.length) { I().toast('Nada para reembolsar.'); return; }
+    l.sort((a, b) => String(a.data).localeCompare(String(b.data)));
+    const { jsPDF } = window.jspdf, doc = new jsPDF({ unit: 'mm', format: 'a4' }), W = doc.internal.pageSize.getWidth(), M = 14;
+    const lg = logo(); if (lg) doc.addImage(lg.url, 'PNG', M, M, 48, 48 * lg.h / lg.w);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(32, 30, 30); doc.text(titulo, W - M, M + 5, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(100, 106, 95); doc.text(nomePessoa(em) + ' · emitido em ' + fd(I().today()), W - M, M + 10, { align: 'right' });
+    doc.setDrawColor(94, 129, 69); doc.setLineWidth(0.7); doc.line(M, M + 15, W - M, M + 15);
+    const tot = l.reduce((a, d) => a + n(d.valor), 0);
+    doc.autoTable({ startY: M + 20, margin: { left: M, right: M }, head: [['Data', 'Tipo', 'Detalhe', 'Fazenda', 'Valor']], body: l.map(d => [fd(d.data), d.tipo, descr(d), fazendasDe(d).map(id => (I().get('fazendas', id) || {}).nome || '').join(', '), R$(d.valor)]).concat([['', '', '', 'Total', R$(tot)]]),
+      styles: { fontSize: 8.5, cellPadding: 1.6 }, headStyles: { fillColor: [94, 129, 69] }, columnStyles: { 4: { halign: 'right' } } });
+    let y = doc.lastAutoTable.finalY + 14;
+    doc.setFontSize(10); doc.setTextColor(32, 30, 30);
+    doc.text(doc.splitTextToSize(`Declaro ${titulo.includes('pago') ? 'que recebi' : 'que tenho a receber'} da InovaAgro Consultoria Agrícola o valor de ${R$(tot)} referente às despesas acima.`, W - 2 * M), M, y);
+    y += 26; doc.line(M, y, M + 80, y); doc.line(W - M - 80, y, W - M, y);
+    doc.setFontSize(8.5); doc.setTextColor(100, 106, 95); doc.text(nomePessoa(em), M, y + 5); doc.text('InovaAgro Consultoria Agrícola', W - M - 80, y + 5);
+    doc.save(('recibo-reembolso-' + nomePessoa(em) + '-' + I().today()).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').toLowerCase() + '.pdf');
+  }
+
+  // ---------- Contas a pagar e a receber (honorários dos clientes) ----------
+  const CAT_REC = ['Honorários de consultoria', 'Visita técnica avulsa', 'Projeto / laudo / receituário', 'Análises de solo ou folha', 'Outra receita'];
+  const CAT_PAG = ['Salários e encargos', 'Aluguel', 'Impostos', 'Seguro', 'IPVA / licenciamento', 'Financiamento de veículo', 'Software e assinaturas', 'Telefone e internet', 'Fornecedor', 'Outra despesa fixa'];
+  function situacaoConta(c) {
+    if (c.pago_em) return { l: c.tipo === 'Receber' ? 'Recebida' : 'Paga', cls: 'ok' };
+    if (!c.vencimento) return { l: 'Em aberto', cls: 'info' };
+    const dias = Math.round((new Date(c.vencimento + 'T12:00:00') - new Date(I().today() + 'T12:00:00')) / 864e5);
+    if (dias < 0) return { l: 'Vencida há ' + -dias + (dias === -1 ? ' dia' : ' dias'), cls: 'bad', venc: true };
+    if (dias <= 3) return { l: dias === 0 ? 'Vence hoje' : 'Vence em ' + dias + (dias === 1 ? ' dia' : ' dias'), cls: 'warn' };
+    return { l: 'Em aberto', cls: 'info' };
+  }
+  function htmlContas(p) {
+    const cf = F.cf || 'abertas', todas = contas();
+    const l = todas.filter(c => cf === 'abertas' ? !c.pago_em : cf === 'receber' ? c.tipo === 'Receber' && noPer(c.vencimento, p) : cf === 'pagar' ? c.tipo === 'Pagar' && noPer(c.vencimento, p) : noPer(c.vencimento, p))
+      .sort((a, b) => String(a.vencimento || '').localeCompare(String(b.vencimento || '')));
+    const soma = f => todas.filter(f).reduce((a, c) => a + n(c.valor), 0);
+    const recA = soma(c => c.tipo === 'Receber' && !c.pago_em), pagA = soma(c => c.tipo === 'Pagar' && !c.pago_em);
+    const recV = todas.filter(c => c.tipo === 'Receber' && situacaoConta(c).venc), pagV = todas.filter(c => c.tipo === 'Pagar' && situacaoConta(c).venc);
+    const recP = soma(c => c.tipo === 'Receber' && c.pago_em && noPer(c.pago_em, p)), pagP = soma(c => c.tipo === 'Pagar' && c.pago_em && noPer(c.pago_em, p));
+    const quem = c => c.tipo === 'Receber' ? ((I().get('produtores', c.produtor_id) || {}).nome || (I().get('fazendas', c.fazenda_id) || {}).nome || '—') : (c.fornecedor || '—');
+    return `<div class="fin-vh"><button class="btn primary" data-f="conta-nova" data-tipo="Receber">${svg(IC.mais)}Conta a receber</button><button class="btn" data-f="conta-nova" data-tipo="Pagar">${svg(IC.mais)}Conta a pagar</button><span class="muted">Honorários e outras receitas dos clientes, e custos fixos da empresa (aluguel, salários, impostos). Gastos de campo da equipe ficam em Lançamentos.</span></div>
+      <div class="tiles fin-tiles">
+        <div class="tile fin-t ok"><span class="lbl">A receber em aberto</span><span class="val num">${R$(recA)}</span><span class="sub">${recV.length ? `<b class="fin-bad">${recV.length} vencida(s) · ${R0(recV.reduce((a, c) => a + n(c.valor), 0))}</b>` : 'nenhuma vencida'}</span></div>
+        <div class="tile fin-t ok"><span class="lbl">Recebido no período</span><span class="val num">${R$(recP)}</span><span class="sub">${esc(filtroTxt().split(' · ')[0])}</span></div>
+        <div class="tile fin-t bad"><span class="lbl">A pagar em aberto</span><span class="val num">${R$(pagA)}</span><span class="sub">${pagV.length ? `<b class="fin-bad">${pagV.length} vencida(s)</b>` : 'nenhuma vencida'}</span></div>
+        <div class="tile fin-t bad"><span class="lbl">Pago no período</span><span class="val num">${R$(pagP)}</span><span class="sub">contas a pagar quitadas</span></div>
+        <div class="tile"><span class="lbl">Saldo previsto</span><span class="val num">${R$(recA - pagA)}</span><span class="sub">a receber − a pagar em aberto</span></div></div>
+      <div class="seg fin-cf" role="group" aria-label="Mostrar">${[['abertas', 'Em aberto'], ['todas', 'Vencimento no período'], ['receber', 'A receber'], ['pagar', 'A pagar']].map(([k, t]) => `<button data-f="contas-flt" data-v="${k}" aria-pressed="${cf === k}">${t}</button>`).join('')}</div>
+      <div class="table-wrap fin-tab fin-ctab"><table><thead><tr><th>Vencimento</th><th>Tipo</th><th>Descrição</th><th>Cliente / fornecedor</th><th>Situação</th><th class="r">Valor</th><th></th></tr></thead><tbody>
+      ${l.map(c => { const st = situacaoConta(c); return `<tr class="click" data-f="conta" data-id="${esc(c.id)}"><td class="dt">${fd(c.vencimento)}</td><td class="tp"><span class="pill ${c.tipo === 'Receber' ? 'ok' : ''}">${c.tipo === 'Receber' ? 'A receber' : 'A pagar'}</span></td>
+        <td class="ds">${esc(c.descricao || '')}<small>${esc([c.categoria, c.parcela].filter(Boolean).join(' · '))}</small></td><td class="fz">${esc(quem(c))}</td><td class="sx"><span class="pill ${st.cls}">${esc(st.l)}</span>${c.pago_em ? `<small class="muted"> em ${fd(c.pago_em)}</small>` : ''}</td>
+        <td class="r vl num"><b class="${c.tipo === 'Receber' ? '' : 'fin-neg'}">${c.tipo === 'Receber' ? '' : '− '}${R$(c.valor)}</b></td><td class="cp">${c.pago_em ? '' : `<button class="btn small" data-f="conta-baixa" data-id="${esc(c.id)}">${c.tipo === 'Receber' ? 'Recebi' : 'Paguei'}</button>`}</td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">Nenhuma conta neste filtro.</td></tr>'}
+      </tbody></table></div>`;
+  }
+  function formConta(rec, def) {
+    const novo = !rec;
+    const c = Object.assign({ vencimento: I().today() }, def || {}, rec || {});
+    const prods = S().data.produtores.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR')).map(x => [x.id, x.nome]);
+    const bg = document.createElement('div'); bg.className = 'modal-bg';
+    const montar = () => {
+      const rc = c.tipo === 'Receber', fz = S().data.fazendas.filter(f => !rc || !c.produtor_id || String(f.produtor_id) === String(c.produtor_id)).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).map(f => [f.id, f.nome]);
+      return `<div class="modal fin-modal" role="dialog" aria-modal="true" aria-labelledby="fin-ct"><header><h2 id="fin-ct">${novo ? (rc ? 'Nova conta a receber' : 'Nova conta a pagar') : (rc ? 'Conta a receber' : 'Conta a pagar')}</h2><button class="x" data-close aria-label="Fechar">×</button></header>
+        <div class="fin-seg fin-seg2" role="radiogroup" aria-label="Tipo de conta">${[['Receber', 'A receber', 'fk3'], ['Pagar', 'A pagar', 'fk2']].map(([k, l, cl]) => `<button type="button" role="radio" data-ctipo="${k}" aria-checked="${c.tipo === k}"><i class="fin-qi ${cl}">${svg(k === 'Receber' ? '<path d="M12 19V5M5 12l7 7 7-7"/>' : '<path d="M12 5v14M5 12l7-7 7 7"/>')}</i>${l}</button>`).join('')}</div>
+        <form novalidate>
+          ${campo('Descrição', inp('descricao', c.descricao, `required placeholder="${rc ? 'Ex.: Honorários de consultoria — novembro' : 'Ex.: Aluguel do escritório'}"`), 'full')}
+          ${campo('Categoria', sel('categoria', rc ? CAT_REC : CAT_PAG, c.categoria))}${campo('Valor (R$)', numInp('valor', c.valor, 'required'), 'fin-valor')}
+          ${rc ? campo('Cliente (produtor)', sel('produtor_id', prods, c.produtor_id, 'Selecione…')) : campo('Fornecedor / favorecido', inp('fornecedor', c.fornecedor))}
+          ${campo(rc ? 'Fazenda (opcional)' : 'Ligada a cliente / fazenda (opcional)', sel('fazenda_id', rc ? fz : S().data.fazendas.slice().sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).map(f => [f.id, f.nome]), c.fazenda_id, 'Nenhuma'))}
+          ${campo('Vencimento', `<input type="date" name="vencimento" value="${esc(c.vencimento || '')}" required>`)}${campo(rc ? 'Recebido em' : 'Pago em', `<input type="date" name="pago_em" value="${esc(c.pago_em || '')}">`)}
+          ${campo('Forma', sel('forma', ['Pix', 'Boleto', 'Transferência', 'Dinheiro', 'Cartão', 'Cheque'], c.forma))}
+          ${novo ? campo('Repetir todo mês', sel('repetir', [['1', 'Não repetir'], ['3', '3 meses'], ['6', '6 meses'], ['12', '12 meses'], ['24', '24 meses']], '1', null)) : ''}
+          ${campo('Observações', `<textarea name="obs">${esc(c.obs || '')}</textarea>`, 'full')}
+        </form>
+        <footer>${novo ? '' : '<button class="btn danger" data-del>Excluir</button>'}<div class="right"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-save>Salvar</button></div></footer></div>`;
+    };
+    const ler = () => { const o = {}; for (const el of $('form', bg).elements) if (el.name) o[el.name] = el.value; return o; };
+    bg.innerHTML = montar(); document.body.appendChild(bg);
+    bg.addEventListener('change', e => { if (e.target.name === 'produtor_id') { Object.assign(c, ler()); bg.innerHTML = montar(); } });
+    bg.addEventListener('click', async e => {
+      if (e.target === bg || e.target.closest('[data-close]')) return bg.remove();
+      const tb = e.target.closest('[data-ctipo]'); if (tb) { Object.assign(c, ler(), { tipo: tb.dataset.ctipo, categoria: '' }); bg.innerHTML = montar(); return; }
+      if (e.target.closest('[data-del]')) { if (!confirm('Excluir esta conta?')) return; await I().Store.remove('contas', rec.id).then(() => { I().toast('Conta excluída.'); bg.remove(); }).catch(() => {}); return; }
+      if (e.target.closest('[data-save]')) {
+        const v = ler();
+        if (!v.descricao || !(nn(v.valor) > 0) || !v.vencimento) { I().toast('Preencha descrição, valor e vencimento.'); return; }
+        const base = Object.assign({}, rec || {}, { tipo: c.tipo });
+        for (const [k, x] of Object.entries(v)) if (k !== 'repetir') base[k] = k === 'valor' ? nn(x) : x || null;
+        if (base.tipo === 'Receber') delete base.fornecedor; else delete base.produtor_id;
+        if (base.fazenda_id && !base.produtor_id && base.tipo === 'Receber') base.produtor_id = (I().get('fazendas', base.fazenda_id) || {}).produtor_id || null;
+        const vezes = novo ? Math.max(1, Number(v.repetir) || 1) : 1, grupo = vezes > 1 ? I().newId() : null;
+        try {
+          for (let i = 0; i < vezes; i++) {
+            const o = Object.assign({}, base, { id: novo ? I().newId() : rec.id });
+            if (vezes > 1) { const [y, m, dd] = v.vencimento.split('-').map(Number); const dt = new Date(y, m - 1 + i, 1), ult = new Date(y, m + i, 0).getDate(); o.vencimento = iso(new Date(dt.getFullYear(), dt.getMonth(), Math.min(dd, ult))); o.parcela = `${i + 1}/${vezes}`; o.grupo = grupo; if (i > 0) o.pago_em = null; }
+            await I().Store.save('contas', o);
+          }
+        } catch (er) { return; }
+        bg.remove(); I().toast(vezes > 1 ? `${vezes} contas criadas (uma por mês).` : 'Conta salva.');
+      }
+    });
+  }
+
+  // ---------- Lucro por cliente e por fazenda ----------
+  // Receitas: contas a receber com vencimento no período. Despesas: gastos da equipe (rateados por fazenda) + contas a pagar ligadas ao cliente.
+  function lucroDados(p) {
+    const cli = new Map(), get = id => { const k = id || '_geral'; if (!cli.has(k)) cli.set(k, { id: k, nome: id ? ((I().get('produtores', id) || {}).nome || 'Cliente removido') : 'Geral da empresa (sem cliente)', rec: 0, desp: 0, pag: 0, faz: new Map() }); return cli.get(k); };
+    const gf = (x, fid) => { if (!x.faz.has(fid)) x.faz.set(fid, { id: fid, nome: (I().get('fazendas', fid) || {}).nome || 'Fazenda removida', rec: 0, desp: 0, pag: 0 }); return x.faz.get(fid); };
+    const prodDe = fid => { const f = I().get('fazendas', fid); return f ? f.produtor_id : null; };
+    for (const c of contas()) {
+      if (!noPer(c.vencimento, p)) continue;
+      const pid = c.produtor_id || (c.fazenda_id ? prodDe(c.fazenda_id) : null), x = get(pid), k = c.tipo === 'Receber' ? 'rec' : 'pag';
+      x[k] += n(c.valor); if (c.fazenda_id) gf(x, String(c.fazenda_id))[k] += n(c.valor);
+    }
+    for (const d of despesas()) {
+      if (!noPer(d.data, p) || d.status === 'Recusada') continue;
+      const ps = partes(d);
+      if (!ps.length) { get(null).desp += n(d.valor); continue; }
+      for (const [fid, v] of ps) { const x = get(prodDe(fid)); x.desp += v; gf(x, fid).desp += v; }
+    }
+    const linhas = [...cli.values()].filter(x => x.id !== '_geral').sort((a, b) => (b.rec - b.desp - b.pag) - (a.rec - a.desp - a.pag));
+    const geral = cli.get('_geral') || { id: '_geral', nome: 'Geral da empresa (sem cliente)', rec: 0, desp: 0, pag: 0, faz: new Map() };
+    const tot = [...cli.values()].reduce((a, x) => ({ rec: a.rec + x.rec, desp: a.desp + x.desp, pag: a.pag + x.pag }), { rec: 0, desp: 0, pag: 0 });
+    return { linhas: geral.rec || geral.desp || geral.pag ? linhas.concat([geral]) : linhas, tot };
+  }
+  function htmlLucro(p) {
+    const { linhas, tot } = lucroDados(p), res = tot.rec - tot.desp - tot.pag;
+    const mx = Math.max(1, ...linhas.map(x => Math.abs(x.rec - x.desp - x.pag)));
+    const margem = (r, l) => r ? `<span class="pill ${l >= 0 ? 'ok' : 'bad'}">${dec(l / r * 100, 0)}%</span>` : '<span class="muted">—</span>';
+    const barra = l => `<span class="fin-div"><i class="${l >= 0 ? 'pos' : 'neg'}" style="width:${(Math.abs(l) / mx * 50).toFixed(1)}%"></i></span>`;
+    const linha = (x, sub) => { const l = x.rec - x.desp - x.pag; return `<tr class="${sub ? 'fin-sub' : 'click'}" ${sub ? '' : `data-f="lucro-cli" data-id="${esc(x.id)}"`}><td>${sub ? '' : `<span class="fin-car ${F.lucroAberto === x.id ? 'on' : ''}">›</span>`}${esc(x.nome)}</td><td class="r num">${x.rec ? R$(x.rec) : '—'}</td><td class="r num">${x.desp ? R$(x.desp) : '—'}</td><td class="r num">${x.pag ? R$(x.pag) : '—'}</td><td class="r num"><b class="${l < 0 ? 'fin-neg' : ''}">${R$(l)}</b></td><td>${barra(l)}</td><td class="r">${margem(x.rec, l)}</td></tr>`; };
+    return `<div class="tiles fin-tiles">
+        <div class="tile fin-t ok"><span class="lbl">Receitas</span><span class="val num">${R$(tot.rec)}</span><span class="sub">contas a receber no período</span></div>
+        <div class="tile fin-t bad"><span class="lbl">Despesas</span><span class="val num">${R$(tot.desp + tot.pag)}</span><span class="sub">equipe ${R0(tot.desp)} · contas ${R0(tot.pag)}</span></div>
+        <div class="tile"><span class="lbl">Resultado</span><span class="val num ${res < 0 ? 'fin-neg' : ''}">${R$(res)}</span><span class="sub">${tot.rec ? 'margem ' + dec(res / tot.rec * 100, 0) + '%' : 'sem receitas no período'}</span></div></div>
+      <p class="muted fin-p">Receitas: contas a receber com vencimento no período. Despesas da equipe: lançamentos do período, divididos entre as fazendas visitadas. Clique no cliente para ver por fazenda. Despesas sem fazenda ficam em "Geral da empresa".</p>
+      <div class="table-wrap fin-lucro"><table><thead><tr><th>Cliente</th><th class="r">Receitas</th><th class="r">Despesas da equipe</th><th class="r">Contas a pagar</th><th class="r">Lucro</th><th aria-label="Gráfico do lucro"></th><th class="r">Margem</th></tr></thead><tbody>
+      ${linhas.map(x => linha(x) + (F.lucroAberto === x.id ? [...x.faz.values()].sort((a, b) => b.desp - a.desp).map(f => linha(f, true)).join('') || '<tr class="fin-sub"><td colspan="7" class="muted">Sem fazendas ligadas.</td></tr>' : '')).join('') || '<tr><td colspan="7" class="empty">Nada no período. Cadastre os honorários em "Contas a pagar e receber" e ligue as despesas às fazendas.</td></tr>'}
+      </tbody>${linhas.length ? `<tfoot><tr><td>Total</td><td class="r num">${R$(tot.rec)}</td><td class="r num">${R$(tot.desp)}</td><td class="r num">${R$(tot.pag)}</td><td class="r num"><b>${R$(res)}</b></td><td></td><td class="r">${margem(tot.rec, res)}</td></tr></tfoot>` : ''}</table></div>`;
+  }
+
+  // ---------- Ajustes (administrador): valores de diária e km, orçamento mensal ----------
+  function formAjustes() {
+    const c = CFG(), o = c.orcamento || {};
+    const bg = document.createElement('div'); bg.className = 'modal-bg';
+    bg.innerHTML = `<div class="modal fin-modal" role="dialog" aria-modal="true" aria-labelledby="fin-aj"><header><h2 id="fin-aj">Ajustes do financeiro</h2><button class="x" data-close aria-label="Fechar">×</button></header>
+      <form novalidate>
+        <p class="full fin-h4">Reembolso do funcionário</p>
+        ${campo('Valor da diária (R$)', numInp('valor_diaria', c.valor_diaria, 'placeholder="Ex.: 80"'))}${campo('Valor por km com carro próprio (R$)', numInp('valor_km', c.valor_km, 'placeholder="Ex.: 1,20"'))}
+        <p class="full fin-h4">Orçamento mensal <small class="muted">(deixe vazio para não acompanhar)</small></p>
+        ${TIPOS.map(t => campo(TIPO_INFO[t].plural + ' (R$/mês)', numInp('orc_' + t, o[t]))).join('')}
+        ${campo('Total do mês (R$)', numInp('orc_total', o.total), 'full')}
+      </form>
+      <footer><div class="right"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-save>Salvar</button></div></footer></div>`;
+    document.body.appendChild(bg);
+    bg.addEventListener('click', async e => {
+      if (e.target === bg || e.target.closest('[data-close]')) return bg.remove();
+      if (!e.target.closest('[data-save]')) return;
+      const el = $('form', bg).elements, orc = {};
+      for (const t of TIPOS) { const v = nn(el['orc_' + t].value); if (v) orc[t] = v; }
+      const tt = nn(el.orc_total.value); if (tt) orc.total = tt;
+      try { await I().Store.save('config', Object.assign({}, c, { id: 'financeiro', valor_diaria: nn(el.valor_diaria.value), valor_km: nn(el.valor_km.value), orcamento: orc })); } catch (er) { return; }
+      bg.remove(); I().toast('Ajustes salvos.');
+    });
+  }
+
   // ---------- No celular (modo campo): abre a mesma tela em tela cheia ----------
   let cel = null, celPai = null;
   function celular() {
@@ -698,5 +1094,5 @@ window.Financeiro = (function () {
     document.addEventListener('inova:pronto', () => { contarPend().then(() => { if (Env.n) enviarComprovantes(); }); });
     setInterval(() => { if (Env.n) enviarComprovantes(); }, 90000);
   }
-  return { view, celular, fecharCelular, enviarComprovantes };
+  return { view, celular, fecharCelular, enviarComprovantes, avisos, abrir, OCR };
 })();

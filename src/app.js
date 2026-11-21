@@ -10,7 +10,7 @@
   const NIVEL_CLS = { 'Baixo': 'ok', 'Médio': 'warn', 'Alto': 'bad' };
   const KINDS_BASE = ['produtores', 'fazendas', 'talhoes', 'safras', 'monitoramentos', 'ordens'];
   const KINDS_NOVOS = ['insumos', 'maquinas', 'aplicadores', 'depositos', 'silobolsas', 'avancos', 'controles', 'armadilhas', 'pluviometros', 'chuvas', 'etiquetas', 'config', 'tipos_trabalho'];
-  const KINDS_FIN = ['veiculos', 'despesas']; // módulo financeiro (src/financeiro.js)
+  const KINDS_FIN = ['veiculos', 'despesas', 'contas']; // módulo financeiro (src/financeiro.js)
   const KINDS = [...KINDS_BASE, ...KINDS_NOVOS, ...KINDS_FIN];
   const NOME = { produtores: 'produtor', fazendas: 'fazenda', talhoes: 'talhão', safras: 'plantio', monitoramentos: 'monitoramento', ordens: 'ordem de trabalho',
     insumos: 'insumo', maquinas: 'máquina', aplicadores: 'aplicador', depositos: 'depósito', silobolsas: 'silobolsa', avancos: 'avanço', controles: 'controle', armadilhas: 'armadilha', pluviometros: 'pluviômetro', chuvas: 'registro de chuva', etiquetas: 'etiqueta', config: 'cadastro', tipos_trabalho: 'tipo de trabalho' };
@@ -1920,6 +1920,7 @@
     for (const sb of S.data.silobolsas || []) { if (sb.situacao === 'Extraída') continue; const m = ultSilo(sb); if (m && (m.estado === 'Danificado' || m.estado === 'Rompido')) out.push({ id: 'sb-' + sb.id + m.data, tipo: 'atividades', data: m.data, cor: '#d03b3b', t: 'Silobolsa ' + (sb.codigo || '') + ': ' + m.estado.toLowerCase(), d: fazNome(sb.fazenda_id), go: 'silobolsas:' + sb.id }); else if (!m || diasDesde(m.data) > 30) out.push({ id: 'sbm-' + sb.id + (m ? m.data : ''), tipo: 'atividades', data: m ? m.data : sb.data_enchimento || today(), cor: '#eda100', t: 'Silobolsa ' + (sb.codigo || '') + ' sem monitoramento há mais de 30 dias', d: fazNome(sb.fazenda_id), go: 'silobolsas:' + sb.id }); }
     for (const c of S.data.chuvas) { const ev = [c.granizo === 'Sim' && 'granizo', c.geada === 'Sim' && 'geada', c.vento_forte === 'Sim' && 'dano por vento'].filter(Boolean); if (ev.length && diasDesde(c.data) <= 15) out.push({ id: 'cev-' + c.id, tipo: 'atividades', data: c.data, cor: '#d03b3b', t: 'Alerta de clima: ' + ev.join(', '), d: nomeRef('pluviometros', c.pluviometro_id), go: 'chuvas:' + c.id }); }
     for (const c of S.data.chuvas) if (diasDesde(c.data) <= 7) out.push({ id: 'chu-' + c.id, tipo: 'atividades', data: c.data, cor: '#2a78d6', t: `Chuva registrada: ${String(c.mm).replace('.', ',')} mm`, d: nomeRef('pluviometros', c.pluviometro_id), go: 'chuvas:' + c.id });
+    if (window.Financeiro) try { out.push(...window.Financeiro.avisos()); } catch (e) { console.warn(e); } // despesas, orçamento e contas
     return out.sort((a, b) => (b.data || '').localeCompare(a.data || ''));
   }
   function viewNotificacoes() {
@@ -3076,7 +3077,7 @@
     const ce = e.target.closest('[data-cfg-edit]'); if (ce) { const id = ce.dataset.cfgEdit; openForm('config', Object.assign({ id }, conf(id)), null, { fields: CFG_FIELDS[id] }); return; }
     const no = e.target.closest('[data-new-ord]'); if (no) { openForm('ordens', null, { status: 'Planejada', tipo: no.dataset.newOrd || undefined, data_prevista: today(), data_emissao: today(), vazao_l_ha: conf('preferencias').vazao_padrao ?? undefined, carencia_dias: conf('preferencias').carencia_padrao ?? undefined }); return; }
     const n = e.target.closest('[data-new]'); if (n) { openForm(n.dataset.new, null, n.dataset.new === 'monitoramentos' ? { data: today() } : n.dataset.new === 'ordens' ? { status: 'Planejada' } : {}); return; }
-    const ed = e.target.closest('[data-edit]'); if (ed) { const [k, id] = ed.dataset.edit.split(':'); openForm(k, get(k, id)); return; }
+    const ed = e.target.closest('[data-edit]'); if (ed) { const [k, id] = ed.dataset.edit.split(':'); if (k === 'fin') { if (window.Financeiro) window.Financeiro.abrir(id); return; } openForm(k, get(k, id)); return; }
     const mf = e.target.closest('[data-map-faz]'); if (mf) { e.stopPropagation(); location.hash = 'mapa'; setTimeout(() => selectFazenda(mf.dataset.mapFaz, true), 60); return; }
     const rf = e.target.closest('[data-rep-faz]'); if (rf) { const f = get('fazendas', rf.dataset.repFaz); R.prod = key(f?.produtor_id || ''); R.faz = rf.dataset.repFaz; location.hash = 'relatorios'; return; }
     const bs = e.target.closest('[data-base]'); if (bs) { setBase(bs.dataset.base); return; }
