@@ -188,7 +188,8 @@ body.campo-on main { top: 0; left: 0; right: 0; bottom: 0; }
 .cp-ajuda summary { font-weight: 700; font-size: 15px; }
 .cp-ajuda p { color: var(--muted); line-height: 1.5; margin: 8px 0 0; }
 /* Mapa: rótulos, pluviômetros e pontos */
-.cp-lbl span { display: inline-block; transform: translate(-50%, -50%); color: #fff; font-size: 11px; font-weight: 700; text-shadow: 0 0 3px #000, 0 0 2px #000; white-space: nowrap; }
+.cp-lbl span { display: inline-block; transform: translate(-50%, -50%); color: #fff; font-size: 12px; font-weight: 700; text-shadow: 0 0 3px #000, 0 0 2px #000; white-space: nowrap; }
+.cp-flbl span { padding: 3px 9px; border-radius: 999px; background: rgba(20,24,18,.72); font-size: 12px; text-shadow: none; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
 .cp-pluv { width: 30px !important; height: 30px !important; border-radius: 50%; background: #fff; color: var(--info); display: grid !important; place-items: center; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
 .cp-pluv .ic { width: 18px; height: 18px; }
 .cp-wpm span { width: 24px; height: 24px; border-radius: 50%; background: #fab219; color: #201e1e; border: 2px solid #fff; display: grid; place-items: center; font-size: 11px; font-weight: 800; box-shadow: 0 1px 4px rgba(0,0,0,.4); box-sizing: border-box; }

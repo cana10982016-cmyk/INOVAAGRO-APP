@@ -147,7 +147,9 @@ details[open] > summary .chev { transform: rotate(90deg); }
 .map-tools .btn { box-shadow: var(--shadow); }
 .map-note { position: absolute; left: 12px; bottom: 34px; z-index: 500; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 12px; color: var(--muted); max-width: min(360px, calc(100% - 24px)); }
 .leaflet-tooltip.lbl { background: var(--surface); color: var(--fg); border: 1px solid var(--line); box-shadow: none; font-weight: 600; }
-.tal-lbl { color: #fff; font-weight: 700; font-size: 11px; text-shadow: 0 0 3px #000, 0 0 2px #000; white-space: nowrap; text-align: center; pointer-events: none; transform: translate(-50%, -50%); }
+.tal-lbl { color: #fff; font-weight: 700; font-size: 12px; text-shadow: 0 0 3px #000, 0 0 2px #000; white-space: nowrap; text-align: center; pointer-events: none; transform: translate(-50%, -50%); }
+.tal-lbl.fora { opacity: .55; }
+.faz-lbl { transform: translate(-50%, calc(-100% - 10px)); white-space: nowrap; pointer-events: none; padding: 2px 8px; border-radius: 999px; background: rgba(20,24,18,.72); color: #fff; font-weight: 700; font-size: 12px; letter-spacing: .01em; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
 
 /* Ficha do talhão */
 .sheet { position: absolute; top: 12px; right: 12px; bottom: 12px; width: 350px; max-width: calc(100% - 24px); z-index: 900; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 28px rgba(0,0,0,.22); display: flex; flex-direction: column; min-height: 0; }
