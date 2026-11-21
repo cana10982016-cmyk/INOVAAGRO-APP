@@ -41,6 +41,7 @@ window.Campo = (function () {
     hoje: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.6" fill="currentColor" stroke="none"/>',
     mapa: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>',
     busca: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    agenda: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17.5h2"/>',
     rota: '<circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><path d="M8.2 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.8"/>',
     cotesia: '<ellipse cx="12" cy="14.5" rx="3" ry="5"/><circle cx="12" cy="7" r="2"/><path d="M9.5 11.5 4 8.5M14.5 11.5l5.5-3M9 15H5M15 15h4M12 19.5V22"/>',
     semaforo: '<rect x="8" y="2.5" width="8" height="19" rx="3"/><circle cx="12" cy="7" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="17" r="1.6"/>',
@@ -444,6 +445,7 @@ window.Campo = (function () {
       <nav class="cp-mlinks">
         <button data-acab="buscar">${ic('busca')}Buscar fazenda, talhão ou visita</button>
         <button data-cp="opcoes">${ic('opcoes')}Opções</button>
+        ${window.Agenda ? `<button data-cp="agenda">${ic('agenda')}Agenda de visitas${(n => n ? `<b class="cp-mbadge" aria-label="${n} para hoje ou atrasadas">${n}</b>` : '')(window.Agenda.contarMeu())}</button>` : ''}
         <button data-cp="rota">${ic('rota')}Rota de visitas do dia</button>
         <button data-cp="cot-lista">${ic('cotesia')}Liberações de Cotesia</button>
         ${window.Financeiro ? `<button data-cp="financeiro">${ic('nota')}Despesas e veículos</button>` : ''}
@@ -621,8 +623,14 @@ window.Campo = (function () {
   function rotaCalcular() {
     const S = I().S, dias = pref.rotaDias || 15, hoje = I().today();
     const ts = (pref.faz ? (S.talPorFaz.get(String(pref.faz)) || []) : S.data.talhoes).filter(t => t.geometry);
-    const cand = [];
+    const cand = [], daAgenda = new Set();
+    // Visitas da Agenda (minhas, de hoje e atrasadas) entram primeiro
+    for (const a of window.Agenda ? window.Agenda.paraRota(pref.faz) : []) {
+      const k = String(a.t.id), c = centroTal(a.t); if (daAgenda.has(k) || !c) continue;
+      daAgenda.add(k); cand.push({ t: a.t, c, v: ultimaVisita(a.t), m: { p: -1, txt: a.txt, cl: a.cl } });
+    }
     for (const t of ts) {
+      if (daAgenda.has(String(t.id))) continue;
       const v = ultimaVisita(t), c = centroTal(t); if (!c) continue;
       let m = null;
       if (v && v.data === hoje) continue; // já visitado hoje
@@ -635,7 +643,7 @@ window.Campo = (function () {
     // urgentes primeiro; dentro de cada grupo, sempre o talhão mais perto do anterior
     let pos = gps.pos ? L.latLng(gps.pos.lat, gps.pos.lng) : (fazAtual() && centroFaz(fazAtual())) || (cand[0] && cand[0].c);
     const ini = pos, out = [];
-    for (const p of [0, 1, 2, 3]) {
+    for (const p of [-1, 0, 1, 2, 3]) {
       const g = cand.filter(x => x.m.p === p);
       while (g.length && out.length < 25) {
         let bi = 0; for (let i = 1; i < g.length; i++) if (pos.distanceTo(g[i].c) < pos.distanceTo(g[bi].c)) bi = i;
@@ -648,7 +656,7 @@ window.Campo = (function () {
     fecharSheet(); fecharMenu(); ligarGps(false);
     const R = rotaAtual = rotaCalcular(), km = R.paradas.reduce((a, x) => a + x.km, 0);
     const el = tela(`<header class="cp-bar"><button class="cp-ib" data-cp="voltar" aria-label="Voltar">${ic('voltar')}</button><h1>Rota do dia</h1><span></span></header>
-      <div class="cp-ctx">${pref.faz ? `<b>${esc(fazAtual()?.nome || '')}</b>` : '<b>Todas as fazendas</b> · escolha uma fazenda no mapa para uma rota menor'}<br>Talhões em vermelho primeiro, depois amarelo e depois os sem visita recente, sempre indo para o mais perto.</div>
+      <div class="cp-ctx">${pref.faz ? `<b>${esc(fazAtual()?.nome || '')}</b>` : '<b>Todas as fazendas</b> · escolha uma fazenda no mapa para uma rota menor'}<br>${R.paradas.some(x => x.m.p === -1) ? 'Primeiro as visitas da sua <b>agenda</b> (azul as de hoje, roxo as atrasadas); depois talhões em vermelho, amarelo e os sem visita recente, sempre indo para o mais perto.' : 'Talhões em vermelho primeiro, depois amarelo e depois os sem visita recente, sempre indo para o mais perto.'}</div>
       <div class="cp-rf">
         <label class="cp-f"><span>Sem visita há mais de</span><select data-cp-rota="dias">${[7, 15, 30, 60].map(d => `<option value="${d}" ${pref.rotaDias === d ? 'selected' : ''}>${d} dias</option>`).join('')}</select></label>
         <label class="cp-rtg"><input type="checkbox" data-cp-rota="nunca" ${pref.rotaNunca ? 'checked' : ''}><span>Incluir talhões nunca visitados</span></label>
@@ -725,10 +733,11 @@ window.Campo = (function () {
 
   // ---------- Visita ----------
   let V = null; // visita aberta: { m, salva, el, map, ly }
-  function novaVisita(t) {
+  function novaVisita(t, extra) {
     if (!exigeEditar()) return;
     const c = I().culturaAtual(t);
     const m = { id: I().newId(), data: I().today(), hora: agoraISO().slice(11, 16), talhao_id: t.id, tipo: 'Outro', responsavel: email(), safra: c ? c.safra : undefined, pontos: [], amostras_detalhe: [], criado_por: email(), criado_em: new Date().toISOString() };
+    if (extra) Object.assign(m, extra); // ex.: agenda_id quando a visita vem da Agenda
     abrirVisita(m, true);
   }
   function abrirVisita(m, nova) {
@@ -1365,6 +1374,7 @@ window.Campo = (function () {
       case 'rota-ir': navegar(tal(b.dataset.id)); break;
       case 'rota-visita': { const t = tal(b.dataset.id); if (t) novaVisita(t); break; }
       case 'cot-lista': cotesiaLista(); break;
+      case 'agenda': fecharMenu(); if (window.Agenda) window.Agenda.celular(); break;
       case 'financeiro': fecharMenu(); if (window.Financeiro) window.Financeiro.celular(); break;
       case 'pluv-lista': pluvLista(); break;
       case 'pv-novo': pluvNovo(); break;
@@ -1444,5 +1454,7 @@ window.Campo = (function () {
   // usados pela busca rápida e pelo resumo do dia (src/acabamento.js)
   function irTalhao(id) { const t = tal(id); if (!t) return; fecharSheet(); fecharMenu(); fecharTelas(); abrirPane('inicio'); setTimeout(() => selecionar(t, true), 40); }
   function irFazenda(id) { fecharSheet(); fecharMenu(); fecharTelas(); pref.faz = id; salvarPref(); selTal = null; abrirPane('inicio'); setTimeout(() => { estilos(); desenharPontos(); desenharCard(); topo(); const f = fazAtual(); if (f) enquadrarFaz(f); }, 40); }
-  return { view, Midia, abrirVisita: m => { fecharMenu(); abrirVisita(m); }, irTalhao, irFazenda, fazAtual: () => fazAtual() };
+  // usado pela Agenda (src/agenda.js) para abrir as telas dela dentro do modo campo
+  const ui = { tela, voltarTela, sheet, fecharSheet, fecharMenu, ic, novaVisita, navegar, rota };
+  return { view, Midia, abrirVisita: m => { fecharMenu(); abrirVisita(m); }, irTalhao, irFazenda, fazAtual: () => fazAtual(), ui };
 })();

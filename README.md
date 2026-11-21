@@ -37,6 +37,13 @@ Para ativar, rode uma vez `supabase/02_atualizacao.sql` no editor SQL do Supabas
 - **Busca rápida**: Ctrl K no computador ou a lupa no celular; acha fazenda, talhão, visita, ordem e produtor digitando poucas letras (sem acento).
 - **Ditado por voz**: botão "Falar" em todo campo de observação. Precisa de internet; sem sinal, use o microfone do teclado do celular.
 
+## Agenda da equipe
+- Menu **Atividades → Agenda da equipe** (no celular: menu do modo campo → Agenda de visitas). Código em `src/agenda.js` e `src/agenda.css`.
+- Visitas planejadas por técnico e por semana (data, hora, fazenda, talhões, objetivo, repetir toda semana/quinzena/mês). Arraste o cartão para mudar o dia ou o técnico.
+- A visita agendada vira **feita** sozinha quando o técnico registra uma visita naquela fazenda (ou nos talhões escolhidos) a partir de 3 dias antes da data; também dá para marcar à mão. Passou da data sem visita: **atrasada** (aviso em Notificações e no menu).
+- No celular: "Iniciar visita" já liga a visita à agenda; as visitas de hoje e atrasadas entram primeiro na Rota do dia. Funciona sem internet.
+- Para ativar no banco, rode uma vez `supabase/06_agenda.sql`. Administrador vê e planeja a agenda de todos; técnico só a própria.
+
 ## Estrutura
 - `assets/` logo e ícones da InovaAgro.
 - `src/` código-fonte (HTML, CSS, JavaScript puro + Leaflet). Sem etapa de compilação além de `tools/build.py`.

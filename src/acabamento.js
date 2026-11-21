@@ -32,6 +32,7 @@ window.Acab = (function () {
     relogio: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
     ok: '<circle cx="12" cy="12" r="8.5"/><path d="m8.5 12 2.5 2.5 4.5-5"/>',
     mais: '<path d="M12 5v14M5 12h14"/>',
+    agenda: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17.5h2"/>',
   };
 
   // =====================================================================
@@ -141,7 +142,15 @@ window.Acab = (function () {
       const soma = (l, t) => l.filter(c => !t || c.tipo === t).reduce((a, c) => a + (Number(c.valor) || 0), 0);
       contas = { venc, hj, sem, recV: soma(venc, 'Receber'), pagV: soma(venc, 'Pagar'), recH: soma([...hj, ...sem], 'Receber'), pagH: soma([...hj, ...sem], 'Pagar') };
     }
-    return { hoje, vis, minhas, alertas, semVisita, ordHoje, ordAtr, chHoje, chOntem, maxH: maxMm(chHoje), maxO: maxMm(chOntem), contas, fazCampo };
+    // agenda da equipe (src/agenda.js): no celular só as minhas; no site, todas as que a pessoa enxerga
+    let agenda = null;
+    if (window.Agenda && S.data.agenda) {
+      const l = S.data.agenda.filter(x => (!emCampo() || !eu || x.tecnico === eu) && (!fazCampo || String(x.fazenda_id) === String(fazCampo.id)));
+      let h = 0, feitas = 0, atr = 0;
+      for (const x of l) { const st = window.Agenda.situacao(x); if (x.data === hoje && st.k !== 'cancelada') { h++; if (st.k === 'feita') feitas++; } if (st.k === 'atrasada') atr++; }
+      agenda = { h, feitas, atr };
+    }
+    return { agenda, hoje, vis, minhas, alertas, semVisita, ordHoje, ordAtr, chHoje, chOntem, maxH: maxMm(chHoje), maxO: maxMm(chOntem), contas, fazCampo };
   }
   // fazenda usada para a previsão do tempo: a do modo campo, ou a da visita mais recente
   function fazPrevisao(D) {
@@ -182,6 +191,7 @@ window.Acab = (function () {
       <div class="acab-hgrid ${D.contas ? 'c4' : 'c3'}">
         ${card(IC.visita, 'Visitas', `<div class="acab-big"><b class="num">${D.vis.length}</b><span>${D.vis.length === 1 ? 'visita hoje' : 'visitas hoje'}</span></div>
           <ul class="acab-mini">${D.vis.slice(0, 2).map(m => `<li><button data-acab-vis="${esc(m.id)}"><span>${esc(I().nomeTal(I().get('talhoes', m.talhao_id)) || 'Talhão')}</span><small>${esc(nomeFaz((I().get('talhoes', m.talhao_id) || {}).fazenda_id))}</small></button></li>`).join('')}
+          ${D.agenda && (D.agenda.h || D.agenda.atr) ? `<li class="acab-nota">${svg(IC.agenda)}<span>Agenda: <b>${D.agenda.feitas} de ${D.agenda.h}</b> feitas hoje${D.agenda.atr ? ` · <b class="acab-v">${D.agenda.atr}</b> ${D.agenda.atr === 1 ? 'atrasada' : 'atrasadas'}` : ''} · <a href="#agenda">abrir</a></span></li>` : ''}
           ${D.semVisita ? `<li class="acab-nota">${svg(IC.relogio)}<span><b>${D.semVisita}</b> talhões com cana sem visita há mais de 15 dias</span></li>` : ''}</ul>`)}
         ${card(IC.alerta, 'Alertas de praga', D.alertas.length ? `<div class="acab-big"><b class="num">${D.alertas.length}</b><span>talhões em alerta${nv ? ` · <em class="acab-v">${nv} no vermelho</em>` : ''}</span></div>
           <ul class="acab-mini">${al.map(a => `<li><button data-acab-tal="${esc(a.t.id)}"><i class="acab-dot" style="background:${corSem(a.s)}"></i><span>${esc(a.t.nome)}${a.v.alvo ? ' · ' + esc(a.v.alvo) : ''}</span><small>${esc(nomeFaz(a.t.fazenda_id))} · ${quando(a.d)}</small></button></li>`).join('')}</ul>`
@@ -218,6 +228,7 @@ window.Acab = (function () {
           <button data-cp="rota"><b class="num">${D.semVisita}</b><span>sem visita há 15+ dias</span></button>
         </div>
         <div class="acab-acts"><button class="cp-btn pri" data-cp="visita-nova">${svg(IC.mais)}Nova visita</button><button class="cp-btn" data-cp="rota">${svg(IC.rota)}Rota do dia</button></div>
+        ${D.agenda ? `<button class="acab-agenda" data-cp="agenda">${svg(IC.agenda)}<span><b>Agenda de hoje</b><small>${D.agenda.h ? `${D.agenda.feitas} de ${D.agenda.h} ${D.agenda.h === 1 ? 'visita feita' : 'visitas feitas'}` : 'Nenhuma visita agendada para hoje'}</small></span>${D.agenda.atr ? `<em>${D.agenda.atr} ${D.agenda.atr === 1 ? 'atrasada' : 'atrasadas'}</em>` : ''}${svg(IC.seta, 'acab-chev')}</button>` : ''}
         <section class="acab-cc" id="acab-alertas"><h2>${svg(IC.alerta)}Alertas de praga<small>últimos 15 dias</small></h2>
           ${al.length ? `<ul class="acab-clist">${al.map(a => `<li><button data-acab-tal="${esc(a.t.id)}"><i class="acab-sem" style="background:${corSem(a.s)}"></i><span><b>${esc(a.t.nome)}</b><small>${esc(nomeFaz(a.t.fazenda_id))}${a.v.alvo ? ' · ' + esc(a.v.alvo) : ''}</small></span><em>${quando(a.d)}</em>${svg(IC.seta, 'acab-chev')}</button></li>`).join('')}</ul>${D.alertas.length > al.length ? `<p class="acab-mais">e mais ${D.alertas.length - al.length} no mapa de calor</p>` : ''}`
           : `<div class="acab-okbox">${svg(IC.ok)}<span>Nenhum talhão em alerta. Tudo no verde.</span></div>`}

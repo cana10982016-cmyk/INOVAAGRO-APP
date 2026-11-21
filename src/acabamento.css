@@ -170,6 +170,12 @@ html { background: var(--bg); }
 .acab-cc .acab-big b { font-size: 26px; }
 .acab-cc .acab-prev-t b { font-size: 22px; }
 
+a.acab-lnk, .acab-nota a { color: var(--brand); font-weight: 500; }
+.acab-agenda { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); text-align: left; box-shadow: var(--shadow); }
+.acab-agenda > svg:first-child { width: 22px; height: 22px; color: var(--brand); flex: none; }
+.acab-agenda span { flex: 1; display: grid; min-width: 0; } .acab-agenda b { font-size: 15px; } .acab-agenda small { font-size: 13px; color: var(--muted); }
+.acab-agenda em { font-style: normal; font-size: 12.5px; font-weight: 700; color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent); padding: 3px 8px; border-radius: 99px; white-space: nowrap; }
+
 /* ---------- Busca rápida ---------- */
 .acab-busca-bg { position: fixed; inset: 0; z-index: 2500; background: rgba(15,18,13,.38); backdrop-filter: blur(2px); display: flex; justify-content: center; align-items: flex-start; padding: 12vh 16px 16px; opacity: 0; transition: opacity .16s ease; }
 .acab-busca-bg.on { opacity: 1; }
