@@ -191,9 +191,12 @@ window.Campo = (function () {
     map = L.map('cp-map', { zoomControl: false, preferCanvas: true, attributionControl: true, wheelPxPerZoomLevel: 90, bounceAtZoomLimits: false });
     map.attributionControl.setPrefix('');
     const img = L.tileLayer(ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Esri', ...TILE });
-    const nomes = L.tileLayer(ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, ...TILE });
+    // Nomes de cidades e estradas numa camada própria, por cima do satélite e dos talhões (antes iam para baixo da foto e sumiam).
+    map.createPane('ref'); map.getPane('ref').style.zIndex = 450; map.getPane('ref').style.pointerEvents = 'none';
+    const nomes = L.tileLayer(ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, pane: 'ref', ...TILE });
+    const estradas = L.tileLayer(ESRI + 'Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, pane: 'ref', ...TILE });
     const ruas = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap', ...TILE });
-    bases = { sat: [img], hib: [img, nomes], ruas: [ruas] };
+    bases = { sat: [img], hib: [img, estradas, nomes], ruas: [ruas] };
     lyTal = L.featureGroup().addTo(map);
     lyCalor = L.layerGroup().addTo(map);
     lyLbl = L.layerGroup().addTo(map);
@@ -208,11 +211,14 @@ window.Campo = (function () {
     const f = fazAtual();
     if (f) enquadrarFaz(f); else enquadrarTudo();
   }
-  function setBase(b) {
+  function setBase(b, manual) {
     if (!bases[b]) b = 'sat';
     if (baseAtual) for (const l of bases[baseAtual]) map.removeLayer(l);
-    for (const l of bases[b]) l.addTo(map).bringToBack();
-    baseAtual = b; pref.base = b; salvarPref();
+    for (const l of bases[b]) { l.addTo(map); if (l.options.pane !== 'ref') l.bringToBack(); }
+    baseAtual = b; pref.base = b;
+    // "Satélite + nomes" também liga os nomes dos talhões e das fazendas
+    if (manual && b === 'hib' && !pref.nomes) { pref.nomes = true; const c = document.querySelector('[data-cp="tg"][data-k="nomes"]'); if (c) c.checked = true; rotulos(); }
+    salvarPref();
   }
   function estilo(t) {
     const sel = selTal && String(selTal) === String(t.id);
@@ -275,21 +281,47 @@ window.Campo = (function () {
     if (!map || !map._loaded || lblPedido) return;
     lblPedido = requestAnimationFrame(() => { lblPedido = 0; rotulosAgora(); });
   }
+  // Fazendas de longe (zoom 10 a 13) e talhões de perto (zoom 14 em diante). Nomes que ficariam encavalados são pulados.
   function rotulosAgora() {
     if (!map || !map._loaded) return;
-    const quer = new Map();
-    if (pref.nomes && map.getZoom() >= 14 && !(rotaAtual && lyRota.getLayers().length)) {
+    const quer = new Map(), z = map.getZoom(), usados = [];
+    const cabe = (lat, lng, txt, h) => {
+      const p = map.latLngToContainerPoint([lat, lng]), w = txt.length * 6.6 + 10, r = [p.x - w / 2, p.y - h / 2, p.x + w / 2, p.y + h / 2];
+      if (usados.some(u => r[0] < u[2] && r[2] > u[0] && r[1] < u[3] && r[3] > u[1])) return false;
+      usados.push(r); return true;
+    };
+    if (pref.nomes && z >= 10 && !(rotaAtual && lyRota.getLayers().length)) {
       const b = map.getBounds().pad(0.15), s = b.getSouth(), n = b.getNorth(), w = b.getWest(), e = b.getEast();
-      for (const t of I().S.data.talhoes) {
-        if (!camadaTal.has(String(t.id))) continue;
-        const c = caixa(t); if (!c || c.vazio || c.lat < s || c.lat > n || c.lng < w || c.lng > e) continue;
-        quer.set(String(t.id) + '|' + t.nome, c);
-        if (quer.size >= 250) break;
+      const dentro = c => c && !c.vazio && c.lat >= s && c.lat <= n && c.lng >= w && c.lng <= e;
+      if (z < 14) {
+        const fz = new Map();
+        for (const t of I().S.data.talhoes) {
+          if (!camadaTal.has(String(t.id))) continue;
+          const c = caixa(t); if (!c || c.vazio) continue;
+          const k = String(t.fazenda_id), a = fz.get(k);
+          if (!a) fz.set(k, { x0: c.x0, y0: c.y0, x1: c.x1, y1: c.y1 }); else { a.x0 = Math.min(a.x0, c.x0); a.y0 = Math.min(a.y0, c.y0); a.x1 = Math.max(a.x1, c.x1); a.y1 = Math.max(a.y1, c.y1); }
+        }
+        for (const [id, a] of fz) {
+          const f = faz(id), c = { lat: (a.y0 + a.y1) / 2, lng: (a.x0 + a.x1) / 2 };
+          if (!f || !f.nome || !dentro(c) || !cabe(c.lat, c.lng, f.nome, 26)) continue;
+          quer.set('faz:' + id + '|' + f.nome, c);
+        }
+      } else {
+        const l = [];
+        for (const t of I().S.data.talhoes) {
+          if (!camadaTal.has(String(t.id))) continue;
+          const c = caixa(t); if (dentro(c)) l.push([t, c, (c.x1 - c.x0) * (c.y1 - c.y0)]);
+        }
+        l.sort((a, b) => b[2] - a[2]);
+        for (const [t, c] of l) {
+          if (quer.size >= 250) break;
+          if (cabe(c.lat, c.lng, String(t.nome || ''), 16)) quer.set(String(t.id) + '|' + t.nome, c);
+        }
       }
     }
     for (const [k, m] of lblTal) if (!quer.has(k)) { lyLbl.removeLayer(m); lblTal.delete(k); }
     for (const [k, c] of quer) if (!lblTal.has(k)) {
-      const m = L.marker([c.lat, c.lng], { interactive: false, keyboard: false, icon: L.divIcon({ className: 'cp-lbl', html: `<span>${esc(k.slice(k.indexOf('|') + 1))}</span>`, iconSize: null }) }).addTo(lyLbl);
+      const m = L.marker([c.lat, c.lng], { interactive: false, keyboard: false, icon: L.divIcon({ className: k.startsWith('faz:') ? 'cp-lbl cp-flbl' : 'cp-lbl', html: `<span>${esc(k.slice(k.indexOf('|') + 1))}</span>`, iconSize: null }) }).addTo(lyLbl);
       lblTal.set(k, m);
     }
   }
@@ -505,7 +537,7 @@ window.Campo = (function () {
   function camadas() {
     sheet(`<header class="cp-sh-h"><h2>Camadas</h2><button class="cp-ib" data-cp="fechar-sheet" aria-label="Fechar">${ic('fechar')}</button></header>
       <div class="cp-bases">${[['sat', 'Satélite'], ['hib', 'Satélite + nomes'], ['ruas', 'Mapa']].map(([k, l]) => `<button data-cp="base" data-b="${k}" aria-pressed="${pref.base === k}"><i class="cp-bthumb cp-b-${k}"></i>${l}</button>`).join('')}</div>
-      <div class="cp-tg">${[['nomes', 'Nomes dos talhões'], ['pontos', 'Pontos das visitas'], ['pluv', 'Pluviômetros']].map(([k, l]) => `<label><span>${l}</span><input type="checkbox" role="switch" data-cp="tg" data-k="${k}" ${pref[k] ? 'checked' : ''}></label>`).join('')}</div>
+      <div class="cp-tg">${[['nomes', 'Nomes dos talhões e fazendas'], ['pontos', 'Pontos das visitas'], ['pluv', 'Pluviômetros']].map(([k, l]) => `<label><span>${l}</span><input type="checkbox" role="switch" data-cp="tg" data-k="${k}" ${pref[k] ? 'checked' : ''}></label>`).join('')}</div>
       <h3 class="cp-h3 cp-h3s">Mapa de calor da cana</h3>
       <div class="cp-fs">
         <label class="cp-f cp-full"><span>Mostrar no mapa</span><select data-cp-calor="praga"><option value="">Desligado</option><option value="todas" ${pref.calor === 'todas' ? 'selected' : ''}>Semáforo das visitas (todas as pragas)</option>${CN() ? CN().GRUPOS.map(g => `<optgroup label="${g}">${CN().itens.filter(x => x.g === g).map(x => `<option value="${x.id}" ${pref.calor === x.id ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</optgroup>`).join('') : ''}</select></label>
@@ -1344,7 +1376,7 @@ window.Campo = (function () {
       case 'pick-tal': { const t = tal(b.dataset.id); if (!t) break; if (pickCb) { const cb = pickCb; pickCb = null; selecionar(t, true); cb(t); } else { fecharSheet(); selecionar(t, true); } break; }
       case 'gps': ligarGps(true); if (gps.pos) { irParaGps(); const t = talhaoEm(L.latLng(gps.pos.lat, gps.pos.lng)); if (t) selecionar(t, false); } else I().toast('Procurando sua localização…'); break;
       case 'camadas': camadas(); break;
-      case 'base': setBase(b.dataset.b); $$('[data-cp="base"]', root).forEach(x => x.setAttribute('aria-pressed', x.dataset.b === pref.base)); break;
+      case 'base': setBase(b.dataset.b, true); $$('[data-cp="base"]', root).forEach(x => x.setAttribute('aria-pressed', x.dataset.b === pref.base)); break;
       case 'navegar': navegar(); break;
       case 'chuva': chuva(); break;
       case 'fechar-card': selTal = null; estilos(); desenharCard(); topo(); break;
