@@ -280,3 +280,15 @@ body.campo-on .toast { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); ma
 .cp-rbar { position: absolute; z-index: 550; left: 12px; right: 76px; top: calc(var(--cp-top) + 72px); display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; background: var(--surface); border-radius: 14px; box-shadow: 0 2px 10px #0003; font-size: 14px; }
 .cp-rbar > span { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cp-rbar .ic { width: 18px; height: 18px; flex: none; }
+
+/* Fluidez no celular: toque sem atraso, rolagem presa à tela certa e camadas próprias para o que anima */
+#v-campo button, #v-campo a, #v-campo label, #v-campo summary, #v-campo [data-cp] { touch-action: manipulation; }
+#v-campo .cp-tela, #v-campo .cp-sheet, #v-campo .cp-drawer, #v-campo .cp-pane { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+#v-campo .cp-drawer, #v-campo .cp-sheet { will-change: transform; }
+#v-campo .cp-hist li { content-visibility: auto; contain-intrinsic-size: auto 64px; }
+#v-campo .feed > .post { content-visibility: auto; contain-intrinsic-size: auto 360px; }
+#v-campo .leaflet-container { touch-action: none; }
+#v-campo .cp-lbl { pointer-events: none; }
+.cp-prop { display: grid; gap: 12px; }
+.cp-propr { display: flex; align-items: baseline; justify-content: space-between; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); }
+.cp-propr span { color: var(--muted); font-weight: 600; } .cp-propr b { font-size: 28px; font-variant-numeric: tabular-nums; }
