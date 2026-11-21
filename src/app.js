@@ -667,9 +667,12 @@
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     L.control.scale({ position: 'bottomleft', imperial: false }).addTo(map);
     const img = L.tileLayer(ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Imagem: Esri, Maxar' });
-    const nomes = L.tileLayer(ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
+    // Nomes de cidades e estradas ficam numa camada própria, por cima das cores dos talhões (antes ficavam por baixo e sumiam).
+    map.createPane('ref'); map.getPane('ref').style.zIndex = 450; map.getPane('ref').style.pointerEvents = 'none';
+    const nomes = L.tileLayer(ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, pane: 'ref' });
+    const estradas = L.tileLayer(ESRI + 'Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, pane: 'ref' });
     const ruas = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' });
-    baseLayers = { sat: [img], hib: [img, nomes], ruas: [ruas] };
+    baseLayers = { sat: [img], hib: [img, estradas, nomes], ruas: [ruas] };
     let tileErrors = 0, tileOk = 0;
     img.on('tileerror', () => {
       if (!navigator.onLine) { const n = $('#mapnote'); n.textContent = 'Sem internet: a imagem de satélite aparece só nas áreas guardadas com "Salvar mapa offline". Os contornos dos talhões aparecem sempre.'; n.hidden = false; return; }
@@ -683,17 +686,21 @@
     layerLbl = L.layerGroup().addTo(map);
     layerPts = L.layerGroup();
     layerPluv = L.layerGroup().addTo(map);
+    S.nomesTal = (() => { try { return localStorage.getItem('inovaagro.nomesTal') !== '0'; } catch (e) { return true; } })();
     map.on('zoomend', syncFazMarkers);
     map.on('moveend', syncLabels);
     map.on('click', () => { if (S.sel.talhao) { S.sel.talhao = null; drawSheet(); styleAll(); renderTree(); } });
     $('#color-by').value = S.colorBy;
     $('#tg-pontos').addEventListener('change', e => { if (e.target.checked) layerPts.addTo(map); else map.removeLayer(layerPts); });
+    $('#tg-nomes').checked = S.nomesTal;
+    $('#tg-nomes').addEventListener('change', e => { S.nomesTal = e.target.checked; try { localStorage.setItem('inovaagro.nomesTal', S.nomesTal ? '1' : '0'); } catch (er) { } syncLabels(); });
   }
-  function setBase(b) {
+  function setBase(b, manual) {
     S.base_map = b;
     for (const ls of Object.values(baseLayers)) for (const l of ls) if (map.hasLayer(l)) map.removeLayer(l);
-    for (const l of baseLayers[b]) { l.addTo(map); l.bringToBack && l.bringToBack(); }
-    if (b === 'hib') baseLayers.hib[1].bringToFront();
+    for (const l of baseLayers[b]) { l.addTo(map); if (l.options.pane !== 'ref') l.bringToBack(); }
+    // "Satélite + nomes" também liga os nomes dos talhões e das fazendas
+    if (manual && b === 'hib' && !S.nomesTal) { S.nomesTal = true; try { localStorage.setItem('inovaagro.nomesTal', '1'); } catch (e) { } const c = $('#tg-nomes'); if (c) c.checked = true; syncLabels(); }
     document.querySelectorAll('[data-base]').forEach(x => x.setAttribute('aria-pressed', x.dataset.base === b));
   }
   function drawLayers() {
@@ -750,16 +757,36 @@
     return b;
   }
   function syncFazMarkers() { if (!map || !map._loaded) return; const show = map.getZoom() < 12; if (show && !map.hasLayer(layerFaz)) map.addLayer(layerFaz); if (!show && map.hasLayer(layerFaz)) map.removeLayer(layerFaz); }
+  // Nomes no mapa: fazendas de longe (zoom 10 a 13) e talhões de perto (zoom 14 em diante).
+  // Nomes que ficariam um em cima do outro são pulados, para continuar dando para ler.
   function syncLabels() {
     if (!map || !layerLbl || !map._loaded) return;
     layerLbl.clearLayers();
-    if (map.getZoom() < 15) return;
-    const vb = map.getBounds(); let n = 0;
-    for (const t of S.data.talhoes) {
-      const l = layersById.get(key(t.id)); if (!l) continue;
-      const c = l.getBounds().getCenter(); if (!vb.contains(c)) continue;
-      if (++n > 250) break;
-      L.marker(c, { interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: null, html: `<div class="tal-lbl">${esc(t.nome)}</div>` }) }).addTo(layerLbl);
+    const z = map.getZoom();
+    if (!S.nomesTal || z < 10) return;
+    const vb = map.getBounds().pad(0.1), usados = [];
+    const cabe = (c, txt, h) => {
+      const p = map.latLngToContainerPoint(c), w = txt.length * 6.6 + 10, r = [p.x - w / 2, p.y - h / 2, p.x + w / 2, p.y + h / 2];
+      if (usados.some(u => r[0] < u[2] && r[2] > u[0] && r[1] < u[3] && r[3] > u[1])) return false;
+      usados.push(r); return true;
+    };
+    const por = (txt, cls, c) => L.marker(c, { interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: null, html: `<div class="${cls}">${esc(txt)}</div>` }) }).addTo(layerLbl);
+    if (z < 14) {
+      for (const f of S.data.fazendas) {
+        const c = fazCenter(f); if (!c || !vb.contains(c)) continue;
+        const ts = S.talPorFaz.get(key(f.id)) || []; if (!ts.length || ts.every(t => !inSel(t))) continue;
+        if (cabe(c, f.nome || '', 30)) por(f.nome || '', 'faz-lbl', c);
+      }
+      return;
+    }
+    const ts = S.data.talhoes.map(t => [t, layersById.get(key(t.id))]).filter(([t, l]) => l && !S.ocultos.has(grupoTal(t)[0]))
+      .map(([t, l]) => [t, l.getBounds()]).filter(([, b]) => vb.contains(b.getCenter()))
+      .sort((a, b) => (inSel(b[0]) - inSel(a[0])) || (b[1].getNorth() - b[1].getSouth()) * (b[1].getEast() - b[1].getWest()) - (a[1].getNorth() - a[1].getSouth()) * (a[1].getEast() - a[1].getWest()));
+    let n = 0;
+    for (const [t, b] of ts) {
+      if (n >= 300) break;
+      const c = b.getCenter();
+      if (cabe(c, String(t.nome || ''), 16)) { por(t.nome || '', 'tal-lbl' + (inSel(t) ? '' : ' fora'), c); n++; }
     }
   }
   function inSel(t) {
@@ -772,7 +799,7 @@
     if (S.ocultos.has(gn) && !sel) return { opacity: 0, fillOpacity: 0, weight: 0 };
     return { color: sel ? '#ffffff' : c, weight: sel ? 3 : 1.5, fillColor: c, fillOpacity: sel ? 0.6 : on ? 0.38 : 0.08, opacity: on ? 1 : 0.35 };
   }
-  function styleAll() { for (const t of S.data.talhoes) { const l = layersById.get(key(t.id)); if (l) l.setStyle(styleFor(t)); } }
+  function styleAll() { for (const t of S.data.talhoes) { const l = layersById.get(key(t.id)); if (l) l.setStyle(styleFor(t)); } syncLabels(); }
   function fitSel() {
     let ts = S.data.talhoes.filter(inSel);
     if (S.sel.talhao) ts = [get('talhoes', S.sel.talhao)].filter(Boolean);
@@ -3140,7 +3167,7 @@
     const ed = e.target.closest('[data-edit]'); if (ed) { const [k, id] = ed.dataset.edit.split(':'); if (k === 'fin') { if (window.Financeiro) window.Financeiro.abrir(id); return; } if (k === 'agd') { if (window.Agenda) window.Agenda.abrir(id); return; } if (k === 'tp') { if (window.Tempo) window.Tempo.abrir(id); return; } openForm(k, get(k, id)); return; }
     const mf = e.target.closest('[data-map-faz]'); if (mf) { e.stopPropagation(); location.hash = 'mapa'; setTimeout(() => selectFazenda(mf.dataset.mapFaz, true), 60); return; }
     const rf = e.target.closest('[data-rep-faz]'); if (rf) { const f = get('fazendas', rf.dataset.repFaz); R.prod = key(f?.produtor_id || ''); R.faz = rf.dataset.repFaz; location.hash = 'relatorios'; return; }
-    const bs = e.target.closest('[data-base]'); if (bs) { setBase(bs.dataset.base); return; }
+    const bs = e.target.closest('[data-base]'); if (bs) { setBase(bs.dataset.base, true); return; }
     const mm = e.target.closest('[data-mapa-mon]'); if (mm) { const m = get('monitoramentos', mm.dataset.mapaMon); document.querySelectorAll('.modal-bg').forEach(x => x.remove()); location.hash = 'mapa'; setTimeout(() => { $('#tg-pontos').checked = true; layerPts.addTo(map); const pts = (m.pontos || []).filter(p => p.lat != null); if (pts.length) map.fitBounds(L.latLngBounds(pts.map(p => [p.lat, p.lng])).pad(0.6), { maxZoom: 17 }); if (m.talhao_id) { S.sel = { produtor: get('talhoes', m.talhao_id)?._prod, fazenda: get('talhoes', m.talhao_id)?.fazenda_id, talhao: m.talhao_id }; styleAll(); drawSheet(); renderTree(); } }, 150); return; }
     if (e.target.closest('#v-equipe')) acaoEquipe(e);
     if (e.target.closest('#nav-links a')) document.body.classList.remove('nav-open');
