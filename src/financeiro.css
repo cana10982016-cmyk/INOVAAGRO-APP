@@ -243,3 +243,10 @@
   .fin .tabs { overflow-x: auto; scrollbar-width: none; } .fin .tabs [role=tab] { white-space: nowrap; }
   .fin-lucro .fin-div { width: 70px; }
 }
+
+/* Contratos */
+.fin-ctr-flt { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--accent-soft); font-size: 13.5px; }
+.fin-ajuda { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.fin-ctr td.fz small, .fin-ctr td.ds small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.fin-ctr td.cp .btn { white-space: nowrap; }
+.fin-vazio .btn { margin-top: 12px; }

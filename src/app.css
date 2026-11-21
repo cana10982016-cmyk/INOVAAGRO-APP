@@ -99,7 +99,7 @@ main { position: fixed; top: calc(env(safe-area-inset-top, 0px) + var(--topbar-h
 .btn.ghost { background: transparent; }
 .btn[disabled] { opacity: .55; cursor: progress; }
 .btn svg { width: 16px; height: 16px; }
-input[type="search"], input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="date"], select, textarea {
+input[type="search"], input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="date"], input[type="month"], select, textarea {
   width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 textarea { min-height: 72px; resize: vertical; }
 label.field { display: grid; gap: 4px; font-size: 13px; font-weight: 500; color: var(--muted); }
@@ -578,7 +578,7 @@ a { color: var(--brand); text-decoration-color: color-mix(in srgb, var(--brand) 
 .btn.ghost { box-shadow: none; border-color: transparent; background: transparent; }
 .btn.ghost:hover { background: var(--surface-2); }
 .btn.danger { color: var(--danger); }
-input[type="search"], input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="date"], select, textarea {
+input[type="search"], input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="date"], input[type="month"], select, textarea {
   padding: 0 10px; height: 32px; border-radius: 7px; border-color: var(--line); font-size: 13px; box-shadow: var(--shadow); }
 textarea { height: auto; padding: 8px 10px; }
 select { padding-right: 28px; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; background-size: 14px; }
