@@ -806,3 +806,8 @@ html, body { overscroll-behavior: none; }
 .pluv-del-b { padding: 4px 20px 8px; display: grid; gap: 8px; line-height: 1.45; }
 .pluv-del-f { display: grid !important; grid-template-columns: 1fr; justify-items: stretch; gap: 8px; }
 .pluv-del-f .btn { width: 100%; justify-content: center; min-height: 44px; }
+
+/* Botão para voltar ao modo campo: só em telas de celular */
+.btn-campo { display: none; }
+@media (max-width: 760px) { .btn-campo { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; background: var(--accent); color: var(--accent-fg); border-color: var(--accent); } }
+@media (max-width: 760px) { .btn-campo svg { color: inherit; stroke: currentColor; opacity: 1; } }
