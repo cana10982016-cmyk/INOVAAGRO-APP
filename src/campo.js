@@ -419,9 +419,9 @@ window.Campo = (function () {
   // ---------- Menu lateral ----------
   function menu() {
     const d = $('#cp-drawer'), I_ = I();
-    const em = email(), pap = I_.PAPEIS[I_.S.papel]?.l || '';
+    const em = email(), nm = I_.nomeDe ? I_.nomeDe(em) : em, pap = I_.PAPEIS[I_.S.papel]?.l || '';
     const n = I_.Sync.pend, off = !navigator.onLine || I_.Sync.offline;
-    d.innerHTML = `<div class="cp-perfil"><div class="cp-av">${esc((em || 'IA').slice(0, 2).toUpperCase())}</div><div><b>${esc(em || 'INOVAAGRO')}</b><span>${esc(pap)}</span></div><button class="cp-ib" data-cp="fechar-menu" aria-label="Fechar menu">${ic('voltar')}</button></div>
+    d.innerHTML = `<div class="cp-perfil"><div class="cp-av">${esc(nm && nm !== em ? nm.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('') : (em || 'IA').slice(0, 2).toUpperCase())}</div><div><b>${esc(nm || 'INOVAAGRO')}</b><span>${esc(pap)}</span></div><button class="cp-ib" data-cp="fechar-menu" aria-label="Fechar menu">${ic('voltar')}</button></div>
       <section class="cp-syncbox"><h2>Sincronização</h2>
         <p>${n || nMidia ? `<b class="cp-warn">!</b> ${n ? n + ' alteraç' + (n > 1 ? 'ões' : 'ão') : ''}${n && nMidia ? ' e ' : ''}${nMidia ? nMidia + ' arquivo' + (nMidia > 1 ? 's' : '') : ''} para enviar` : 'Tudo enviado.'}${off ? ' Sem internet agora.' : ''}</p>
         <button class="cp-btn cp-btn-sync" data-cp="sync">${ic('sync')}Sincronizar agora</button>

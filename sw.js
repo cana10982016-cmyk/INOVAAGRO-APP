@@ -1,6 +1,6 @@
 /* INOVAAGRO: service worker. Guarda o app no celular para abrir sem internet.
    Dados do banco NÃO passam por aqui (ficam no IndexedDB, ver src/offline.js). */
-const VERSAO = 'inovaagro-app-v10';
+const VERSAO = 'inovaagro-app-v11';
 const MAPA = 'inovaagro-mapa';
 const ESSENCIAIS = [
   './', './index.html', './config.js', './manifest.webmanifest',
@@ -10,7 +10,7 @@ const ESSENCIAIS = [
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js',
 ];
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSAO).then(c => Promise.all(ESSENCIAIS.map(u => c.add(u).catch(() => {})))).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VERSAO).then(c => Promise.all(ESSENCIAIS.map(u => c.add(new Request(u, { cache: 'reload' })).catch(() => c.add(u).catch(() => {}))))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSAO && k !== MAPA).map(k => caches.delete(k)))).then(() => self.clients.claim()));
