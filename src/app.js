@@ -378,7 +378,7 @@
   }
   // Nomes da equipe (e-mail -> nome), para mostrar "Leandro Nascimento" no lugar do e-mail
   S.nomes = (() => { try { return JSON.parse(localStorage.getItem('inovaagro.nomes') || '{}'); } catch (e) { return {}; } })();
-  function nomeDe(em) { if (!em) return ''; const k = String(em).toLowerCase(); return S.nomes[k] || em; }
+  function nomeDe(em) { if (!em) return ''; const k = String(em).toLowerCase(); return (S.nomes || {})[k] || em; }
   async function carregarNomes() {
     if (!SB.cli || !SB.user) return;
     let l = null;
@@ -973,7 +973,7 @@
         { l: 'Alvo', v: r => esc(r.alvo || '—') },
         { l: 'Nível', v: r => r.nivel ? `<span class="pill ${NIVEL_CLS[r.nivel] || ''}">${esc(r.nivel)}</span>` : '—' },
         { l: 'Condição', v: r => r.estado_talhao ? `<i class="dot" style="background:${COND[r.estado_talhao] || OUTROS};margin-right:6px"></i>${esc(r.estado_talhao)}` : '—' },
-        { l: 'Responsável', v: r => esc(r.responsavel || '—') },
+        { l: 'Responsável', v: r => esc(nomeDe(r.responsavel) || '—') },
       ],
       click: id => openForm('monitoramentos', get('monitoramentos', id)),
     });
@@ -3214,5 +3214,5 @@
   // Nome do pluviômetro de uma chuva, mesmo depois de excluído
   const nomePluv = c => { const r = get('pluviometros', c.pluviometro_id); return r ? (r.nome || key(r.id)) : c.pluviometro_nome ? c.pluviometro_nome + ' (excluído)' : '—'; };
   // Ponte para o modo campo (src/campo.js)
-  window.INOVA = { COT, excluirPluv, nomePluv, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
+  window.INOVA = { nomeDe, COT, excluirPluv, nomePluv, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
 })();
