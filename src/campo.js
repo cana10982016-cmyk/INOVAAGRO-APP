@@ -30,7 +30,7 @@ window.Campo = (function () {
   const salvarPref = () => { try { localStorage.setItem(LS, JSON.stringify(pref)); } catch (e) { } };
 
   let root = null, map = null, bases = {}, baseAtual = null, lyTal, lyLbl, lyPts, lyPluv, lyGps, lyCalor, lyRota;
-  let selTal = null, pane = 'inicio', fila = new Set(), nMidia = 0, faixaFechada = -1;
+  let selTal = null, pane = 'hoje', fila = new Set(), nMidia = 0, faixaFechada = -1;
   const gps = { pos: null, watch: null, seguir: false };
   const movidas = new Map(); // seções do site exibidas dentro do modo campo
   const urlMidia = new Map(); // id da mídia -> URL local (prévia antes de enviar)
@@ -38,6 +38,9 @@ window.Campo = (function () {
   // ---------- Ícones (traço simples, 24x24) ----------
   const P = {
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    hoje: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.6" fill="currentColor" stroke="none"/>',
+    mapa: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>',
+    busca: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
     agenda: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17.5h2"/>',
     rota: '<circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><path d="M8.2 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.8"/>',
     cotesia: '<ellipse cx="12" cy="14.5" rx="3" ry="5"/><circle cx="12" cy="7" r="2"/><path d="M9.5 11.5 4 8.5M14.5 11.5l5.5-3M9 15H5M15 15h4M12 19.5V22"/>',
@@ -148,6 +151,7 @@ window.Campo = (function () {
         <button class="cp-round cp-menu-btn" data-cp="menu" aria-label="Abrir menu">${ic('menu')}</button>
         <button class="cp-pick" data-cp="pick" aria-label="Escolher fazenda e talhão"><span id="cp-faz">Fazenda</span><i></i><span id="cp-tal">Talhões</span>${ic('seta')}</button>
         <div class="cp-tools">
+          <button class="cp-round" data-acab="buscar" aria-label="Buscar fazenda, talhão ou visita" title="Buscar">${ic('busca')}</button>
           <button class="cp-round" data-cp="gps" aria-label="Minha localização" title="Minha localização">${ic('gps')}</button>
           <button class="cp-round" data-cp="camadas" aria-label="Camadas do mapa" title="Camadas">${ic('camadas')}</button>
           <button class="cp-round" data-cp="rota" aria-label="Rota de visitas do dia" title="Rota do dia">${ic('rota')}</button>
@@ -157,13 +161,15 @@ window.Campo = (function () {
         <div class="cp-card" id="cp-card" hidden></div>
         <button class="cp-fab" data-cp="atividades">${ic('mais')}<span>Atividade</span></button>
       </div>
+      <div class="cp-pane cp-hoje" data-pane="hoje" hidden></div>
       <div class="cp-pane cp-lista" data-pane="historico" hidden></div>
       <div class="cp-pane cp-host" data-pane="notificacoes" hidden><header class="cp-bar"><span></span><h1>Notificações</h1><span></span></header><div class="cp-host-in"></div></div>
       <div class="cp-pane cp-host" data-pane="feed" hidden><header class="cp-bar"><span></span><h1>Feed</h1><span></span></header><div class="cp-host-in"></div></div>
       <div class="cp-pane cp-host" data-pane="clima" hidden><header class="cp-bar"><button class="cp-ib" data-cp="tab" data-p="inicio" aria-label="Voltar">${ic('voltar')}</button><h1>Clima</h1><span></span></header><div class="cp-host-in"></div></div>
       <div class="cp-faixa" id="cp-faixa" hidden></div>
       <nav class="cp-tabs" aria-label="Seções do campo">
-        <button data-cp="tab" data-p="inicio">${ic('inicio')}<span>Início</span></button>
+        <button data-cp="tab" data-p="hoje">${ic('hoje')}<span>Hoje</span></button>
+        <button data-cp="tab" data-p="inicio">${ic('mapa')}<span>Mapa</span></button>
         <button data-cp="tab" data-p="historico">${ic('historico')}<span>Histórico</span></button>
         <button data-cp="tab" data-p="notificacoes">${ic('sino')}<span>Notificações</span><b class="cp-badge" id="cp-bnot" hidden></b></button>
         <button data-cp="tab" data-p="feed">${ic('feed')}<span>Feed</span></button>
@@ -176,6 +182,7 @@ window.Campo = (function () {
     root.addEventListener('click', clique);
     $('#cp-sheet-bg').addEventListener('click', e => { if (e.target.id === 'cp-sheet-bg') fecharSheet(); });
     montarMapa();
+    abrirPane(pane);
   }
 
   // Satélite: guarda mais imagens em volta da tela (sem buracos ao arrastar) e não baixa no meio do zoom.
@@ -377,7 +384,8 @@ window.Campo = (function () {
   function abrirPane(p) {
     pane = p;
     devolverSecoes();
-    $$('.cp-pane', root).forEach(el => el.hidden = el.dataset.pane !== p);
+    $$('.cp-pane', root).forEach(el => { const on = el.dataset.pane === p; if (on && el.hidden) { el.classList.remove('cp-pane-in'); void el.offsetWidth; el.classList.add('cp-pane-in'); } el.hidden = !on; });
+    if (p === 'hoje' && window.Acab) window.Acab.resumoCampo($('[data-pane="hoje"]', root));
     $$('.cp-tabs button', root).forEach(b => b.toggleAttribute('aria-current', b.dataset.p === p));
     if (p === 'inicio') setTimeout(() => map.invalidateSize(), 30);
     if (p === 'historico') historico();
@@ -433,7 +441,9 @@ window.Campo = (function () {
         ${n || nMidia ? '<button class="cp-lnk cp-lnk-inv" data-cp="pendencias">Ver o que falta enviar</button>' : ''}
         ${Midia.semBucket ? '<p class="cp-aviso">As fotos estão guardadas no celular. Para enviá-las, o administrador precisa ativar o armazenamento de fotos no Supabase (arquivo supabase/03_fotos_campo.sql).</p>' : ''}
         <p class="cp-mut2">O app envia sozinho quando a internet volta.</p></section>
+      <div class="cp-tema"><span>Aparência</span>${window.Acab ? window.Acab.temaSeg() : ''}</div>
       <nav class="cp-mlinks">
+        <button data-acab="buscar">${ic('busca')}Buscar fazenda, talhão ou visita</button>
         <button data-cp="opcoes">${ic('opcoes')}Opções</button>
         ${window.Agenda ? `<button data-cp="agenda">${ic('agenda')}Agenda de visitas${(n => n ? `<b class="cp-mbadge" aria-label="${n} para hoje ou atrasadas">${n}</b>` : '')(window.Agenda.contarMeu())}</button>` : ''}
         <button data-cp="rota">${ic('rota')}Rota de visitas do dia</button>
@@ -515,13 +525,19 @@ window.Campo = (function () {
     root.classList.add('cp-tela-on');
     return el;
   }
-  function voltarTela() {
+  function voltarTela(semAnim) {
     const t = telas.pop(); if (!t) return;
     if (t.opts.aoFechar) t.opts.aoFechar();
-    t.el.remove();
+    if (!semAnim && !matchMedia('(prefers-reduced-motion: reduce)').matches) { // sai deslizando: uma cópia sem ids anima enquanto a tela real já saiu
+      const c = t.el.cloneNode(true), y = t.el.scrollTop;
+      c.querySelectorAll('[id]').forEach(x => x.removeAttribute('id')); c.removeAttribute('id');
+      c.classList.add('cp-sai'); c.setAttribute('aria-hidden', 'true'); c.inert = true;
+      t.el.replaceWith(c); c.scrollTop = y;
+      setTimeout(() => c.remove(), 200);
+    } else t.el.remove();
     if (!telas.length) { root.classList.remove('cp-tela-on'); if (pane === 'inicio') { desenharCard(); setTimeout(() => map.invalidateSize(), 30); } if (pane === 'historico') historico(); }
   }
-  function fecharTelas() { while (telas.length) voltarTela(); }
+  function fecharTelas() { while (telas.length) voltarTela(true); }
 
   function atividades(t) {
     const el = tela(`<header class="cp-bar"><button class="cp-ib" data-cp="voltar" aria-label="Voltar">${ic('voltar')}</button><h1>Atividades</h1><span></span></header>
@@ -1426,6 +1442,7 @@ window.Campo = (function () {
     if (!root) return;
     desenhar();
     if (pane === 'historico' && !telas.length) historico();
+    if (pane === 'hoje' && window.Acab) { const h = $('[data-pane="hoje"]', root), y = h.scrollTop; window.Acab.resumoCampo(h); h.scrollTop = y; }
     const top = telas[telas.length - 1];
     if (top && top.el.classList.contains('cp-cotl')) { voltarTela(); cotesiaLista(); }
     if (top && top.el.classList.contains('cp-pvl')) { const y = top.el.scrollTop; voltarTela(); pluvLista(); const n = telas[telas.length - 1]; if (n) n.el.scrollTop = y; }
@@ -1434,7 +1451,10 @@ window.Campo = (function () {
   window.addEventListener('online', () => { Midia.enviar(); });
   setInterval(() => { if (nMidia) Midia.enviar(); }, 90000);
 
+  // usados pela busca rápida e pelo resumo do dia (src/acabamento.js)
+  function irTalhao(id) { const t = tal(id); if (!t) return; fecharSheet(); fecharMenu(); fecharTelas(); abrirPane('inicio'); setTimeout(() => selecionar(t, true), 40); }
+  function irFazenda(id) { fecharSheet(); fecharMenu(); fecharTelas(); pref.faz = id; salvarPref(); selTal = null; abrirPane('inicio'); setTimeout(() => { estilos(); desenharPontos(); desenharCard(); topo(); const f = fazAtual(); if (f) enquadrarFaz(f); }, 40); }
   // usado pela Agenda (src/agenda.js) para abrir as telas dela dentro do modo campo
   const ui = { tela, voltarTela, sheet, fecharSheet, fecharMenu, ic, novaVisita, navegar, rota };
-  return { view, Midia, abrirVisita, ui };
+  return { view, Midia, abrirVisita: m => { fecharMenu(); abrirVisita(m); }, irTalhao, irFazenda, fazAtual: () => fazAtual(), ui };
 })();
