@@ -6,8 +6,8 @@ b64 = lambda p: 'data:image/png;base64,' + base64.b64encode(open(os.path.join(R,
 ASSETS = {'{{LOGO}}': 'assets/logo.png', '{{LOGO_ESCURO}}': 'assets/logo-escuro.png', '{{FAVICON}}': 'assets/favicon.png', '{{ICONE}}': 'assets/icone.png'}
 html = (rd('src/index.template.html')
         .replace('/*LEAFLET_CSS*/', rd('src/leaflet.css'))
-        .replace('/*APP_CSS*/', rd('src/app.css') + '\n' + rd('src/campo.css') + '\n' + rd('src/financeiro.css'))
-        .replace('/*APP_JS*/', rd('src/offline.js') + '\n' + rd('src/app.js').replace("/*SQL_EQUIPE*/''", json.dumps(rd('supabase/02_atualizacao.sql'), ensure_ascii=False)) + '\n' + rd('src/cana.js') + '\n' + rd('src/campo.js') + '\n' + rd('src/financeiro.js')))
+        .replace('/*APP_CSS*/', rd('src/app.css') + '\n' + rd('src/campo.css') + '\n' + rd('src/financeiro.css') + '\n' + rd('src/extras.css'))
+        .replace('/*APP_JS*/', rd('src/offline.js') + '\n' + rd('src/app.js').replace("/*SQL_EQUIPE*/''", json.dumps(rd('supabase/02_atualizacao.sql'), ensure_ascii=False)) + '\n' + rd('src/cana.js') + '\n' + rd('src/campo.js') + '\n' + rd('src/financeiro.js') + '\n' + rd('src/produtividade.js') + '\n' + rd('src/linha_tempo.js') + '\n' + rd('src/backup.js') + '\n' + rd('src/relatorio_mensal.js')))
 HOSTED = '<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>\n<script src="config.js"></script>'
 # artifact.html: fragmento para publicar como Artifact (o host adiciona <html>/<head>); imagens embutidas
 art = html.replace('<!--HOSTED_SCRIPTS-->', '')

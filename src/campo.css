@@ -101,7 +101,7 @@ body.campo-on main { top: 0; left: 0; right: 0; bottom: 0; }
 .cp-bar .cp-ib { color: #fff; margin-left: 4px; }
 /* Telas empilhadas (Atividades, Visita) */
 .cp-screens { position: absolute; inset: 0; z-index: 1000; pointer-events: none; }
-.cp-tela { position: absolute; inset: 0; background: var(--bg); overflow: auto; pointer-events: auto; animation: cp-entra .18s ease; }
+.cp-tela { position: absolute; inset: 0; z-index: 1; background: var(--bg); overflow: auto; pointer-events: auto; animation: cp-entra .18s ease; }
 @keyframes cp-entra { from { transform: translateX(24px); opacity: .6; } }
 .cp-ctx { padding: 12px 18px; background: var(--surface); border-bottom: 1px solid var(--line); font-size: 14px; }
 .cp-ativ { padding: 6px 12px 30px; }
@@ -297,3 +297,51 @@ body.campo-on .toast { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); ma
 .cp-pv-b { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .cp-pv-b .cp-btn { min-height: 42px; padding: 0 8px; gap: 6px; font-size: 14px; } .cp-pv-b svg { width: 18px; height: 18px; flex: none; }
 .cp-btn-del { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
+
+/* ---------- Recomendação técnica da visita ---------- */
+.cp-rbox > .cp-btn { width: 100%; }
+.cp-ralerta { margin: 0; display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--bad) 10%, var(--surface)); color: var(--fg); font-size: 14px; line-height: 1.35; }
+.cp-ralerta .ic { width: 20px; height: 20px; flex: none; color: var(--bad); margin-top: 1px; }
+.cp-ralerta.am { background: color-mix(in srgb, var(--warn) 12%, var(--surface)); } .cp-ralerta.am .ic { color: var(--warn); }
+.cp-rlist { list-style: none; margin: 0; padding: 0; }
+.cp-rlist li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.cp-rlist li span { display: grid; min-width: 0; } .cp-rlist small { color: var(--muted); font-size: 12px; }
+.cp-rlist em { font-style: normal; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cp-rinfo { margin: 0; color: var(--muted); font-size: 13px; }
+.cp-rok { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--ok) 10%, var(--surface)); }
+.cp-rok > .ic { width: 22px; height: 22px; color: var(--ok); flex: none; }
+.cp-rok span { flex: 1; display: grid; font-weight: 700; font-size: 14px; } .cp-rok small { font-weight: 400; color: var(--muted); font-size: 12px; }
+.cp-recm { padding: 4px 0 calc(30px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 10px; }
+.cp-recm > .cp-mut, .cp-recm > p { margin: 0 16px; font-size: 13px; }
+.cp-recm > .cp-btn, .cp-recm > .cp-fs, .cp-rmacts { margin: 0 14px; }
+.cp-rsug { display: flex; gap: 8px; overflow-x: auto; padding: 2px 14px 4px; scrollbar-width: none; }
+.cp-rsug button { flex: none; display: grid; gap: 1px; text-align: left; padding: 9px 12px; border-radius: 12px; border: 1px dashed var(--brand); background: var(--surface); color: var(--fg); font-size: 14px; max-width: 220px; }
+.cp-rsug button b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .cp-rsug small { color: var(--muted); font-size: 12px; }
+.cp-rsug button.on { border-style: solid; background: color-mix(in srgb, var(--brand) 10%, var(--surface)); }
+.cp-rprods { display: grid; gap: 8px; margin: 0 14px; }
+.cp-rp { display: grid; grid-template-columns: 1fr 76px 82px 40px; gap: 6px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 6px; }
+.cp-rp input, .cp-rp select { font: inherit; font-size: 16px; min-width: 0; height: 42px; border: 1px solid var(--line); border-radius: 9px; padding: 0 8px; background: var(--surface); color: var(--fg); box-sizing: border-box; width: 100%; }
+.cp-rp .cp-rp-d { text-align: right; }
+.cp-rp .cp-ib { width: 40px; height: 40px; }
+.cp-rtals { margin: 0 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cp-rtals label { display: flex; gap: 8px; align-items: flex-start; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); font-size: 14px; }
+.cp-rtals label:has(input:checked) { border-color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand); }
+.cp-rtals input { width: 20px; height: 20px; accent-color: var(--brand); margin: 0; flex: none; }
+.cp-rtals span { display: grid; gap: 2px; min-width: 0; } .cp-rtals small { color: var(--muted); font-size: 12px; }
+.cp-rmacts { display: grid; gap: 8px; margin-top: 6px; }
+.cp-rmacts .cp-btn { height: 50px; }
+
+/* ---------- Mapas offline das fazendas ---------- */
+.cp-mo-top { padding: 14px 16px 6px; display: grid; gap: 10px; }
+.cp-mo-top p { margin: 0; font-size: 14px; line-height: 1.45; }
+.cp-mo-uso { font-size: 13px; color: var(--muted); padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.cp-mo { list-style: none; margin: 0; padding: 4px 14px 30px; display: grid; gap: 8px; }
+.cp-mo li { display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.cp-mo-t { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.cp-mo-t b { font-size: 15px; } .cp-mo-t small { color: var(--muted); font-size: 12.5px; }
+.cp-mo-st { display: flex; align-items: center; gap: 4px; }
+.cp-mo-st.ok { color: var(--ok); font-weight: 600; } .cp-mo-st .ic { width: 15px; height: 15px; } .cp-mo-st em { color: var(--warn); font-style: normal; }
+.cp-mo-bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-top: 4px; }
+.cp-mo-bar i { display: block; height: 100%; background: var(--brand); border-radius: 3px; transition: width .3s; }
+.cp-mo-acts { display: flex; gap: 4px; flex: none; }
+.cp-mo-acts .cp-btn { height: 40px; }

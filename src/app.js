@@ -55,7 +55,8 @@
       { k: 'variedade', l: 'Variedade / híbrido' },
       { k: 'data_plantio', l: 'Plantio', t: 'date' },
       { k: 'data_colheita', l: 'Colheita', t: 'date' },
-      { k: 'produtividade', l: 'Produtividade (sc/ha ou t/ha)', t: 'number' },
+      { k: 'produtividade', l: 'Produtividade / TCH (t/ha)', t: 'number' },
+      { k: 'atr', l: 'ATR (kg/t)', t: 'number' },
       { k: 'data_plantio_programada', l: 'Plantio programado', t: 'date' },
       { k: 'espacamento_cm', l: 'Espaçamento (cm)', t: 'number' },
       { k: 'produtividade_objetivo', l: 'Produtividade objetivo (t/ha)', t: 'number' },
@@ -552,15 +553,21 @@
     whats: '<path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.4z"/><path d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1-1.6-2-1-1 .8a4.5 4.5 0 0 1-2.3-2.3l.8-1-1-2z"/>',
     sugestao: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>',
     financeiro: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/><circle cx="16.5" cy="15" r="1.2"/>',
+    produtividade: '<path d="M5 21c1-6 2-11 7-17"/><path d="M12 4c2 4 2 8 0 11M8 10c2 .5 3.5 2 4 4M16 8c-2 .5-3.5 2-4 4"/><path d="M3 21h18"/>',
+    linhatempo: '<circle cx="6" cy="5" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="6" cy="19" r="2"/><path d="M6 7v3M6 14v3M11 5h9M11 12h9M11 19h6"/>',
+    relmensal: '<rect x="4" y="4" width="16" height="17" rx="2"/><path d="M4 9h16M9 2v4M15 2v4M8 13h3M8 17h6"/>',
+    backup: '<path d="M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3z"/><path d="M4 7v10c0 1.7 3.6 3 8 3M20 7v4"/><path d="M4 12c0 1.7 3.6 3 8 3"/><path d="M17 14v7M14 18l3 3 3-3"/>',
+    download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+    computador: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
     print: '<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>',
   };
   const icon = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n] || IC[ORD_ICON[n]] || IC.ordens}</svg>`;
   const ORD_ICON = { 'ord-aplicacoes': 'aplicacao', 'ord-plantio': 'safras', 'ord-colheita': 'colheita', 'ord-fertilizacao': 'insumos', 'ord-tratos': 'tratos', 'ord-outros': 'ordens' };
   const NAV = [
     ['painel', 'Início'], ['feed', 'Feed'], ['notificacoes', 'Notificações'], ['mapa', 'Mapa'],
-    'Administração', ['produtores', 'Produtores'], ['fazendas', 'Fazendas'], ['talhoes', 'Talhões'], ['planejamento', 'Planejamento da cultura'], ['safras', 'Safras'], ['etiquetas', 'Etiquetas'], ['tipos_trabalho', 'Tipos de trabalho'], ['aplicadores', 'Empreiteiros'], ['maquinas', 'Máquinas'], ['insumos', 'Insumos'], ['equipe', 'Usuários e permissões'], ['importar', 'Importar / Exportar'], ['sociedade', 'Sociedade'], ['configuracao', 'Configuração'],
+    'Administração', ['produtores', 'Produtores'], ['fazendas', 'Fazendas'], ['talhoes', 'Talhões'], ['planejamento', 'Planejamento da cultura'], ['safras', 'Safras'], ['etiquetas', 'Etiquetas'], ['tipos_trabalho', 'Tipos de trabalho'], ['aplicadores', 'Empreiteiros'], ['maquinas', 'Máquinas'], ['insumos', 'Insumos'], ['equipe', 'Usuários e permissões'], ['importar', 'Importar / Exportar'], ['backup', 'Backup dos dados'], ['sociedade', 'Sociedade'], ['configuracao', 'Configuração'],
     'Atividades', ['monitoramentos', 'Visitas'], ['ord-aplicacoes', 'Aplicações'], ['ord-plantio', 'Plantio'], ['ord-colheita', 'Colheita'], ['ord-fertilizacao', 'Fertilização'], ['ord-tratos', 'Tratos culturais'], ['ord-outros', 'Outros'], ['ordens', 'Todas as ordens'], ['avancos', 'Avanços de plantio e colheita'], ['controles', 'Controles de campo'], ['cotesia', 'Liberação de Cotesia'], ['armadilhas', 'Armadilhas'],
-    'Análise', ['analise', 'Painéis de análise'], ['relsis', 'Relatórios do sistema'], ['relatorios', 'Relatório por fazenda (PDF)'], ['custos', 'Custos por talhão'], ['comparar', 'Comparar safras'],
+    'Análise', ['analise', 'Painéis de análise'], ['relsis', 'Relatórios do sistema'], ['relatorios', 'Relatório por fazenda (PDF)'], ['custos', 'Custos por talhão'], ['comparar', 'Comparar safras'], ['produtividade', 'Produtividade da cana'], ['linhatempo', 'Histórico do talhão'], ['relmensal', 'Relatório mensal do cliente'],
     'Clima', ['clima', 'Chuvas e previsão'], ['pluviometros', 'Pluviômetros'],
     'Imagens satelitais', ['satelite', 'NDVI e cor real'],
     'Harvest', ['harvest', 'Previsão de colheita'],
@@ -571,7 +578,7 @@
   const GRUPO = {}; { let g = ''; for (const n of NAV) if (Array.isArray(n)) GRUPO[n[0]] = g; else g = n; }
   const NAV_CT = ['produtores', 'fazendas', 'talhoes'];
   const mostraEquipe = () => S.papel === 'admin' || S.equipePendente;
-  const soAdmin = { equipe: 1, importar: 1 };
+  const soAdmin = { equipe: 1, importar: 1, backup: 1 };
   function renderNav() {
     $('#nav-links').innerHTML = NAV.map(n => {
       if (!Array.isArray(n)) return `<div class="grp">${n}</div>`;
@@ -1502,9 +1509,21 @@
     }
     let fotos = '';
     if (kind === 'monitoramentos' && r.pontos) fotos = `<div style="padding:12px 18px 0;display:grid;gap:8px"><div class="sec-title">Pontos e fotos do campo (${r.pontos.length})${r.pontos.some(p => p.lat) ? `<button class="btn small" data-mapa-mon="${esc(r.id)}">Ver no mapa</button>` : ''}</div><div class="fotos">${r.pontos.map(p => `<figure>${p.foto ? `<a href="${esc(p.foto)}" target="_blank" rel="noopener"><img loading="lazy" src="${esc(p.foto)}" alt="Foto do monitoramento ${esc(fmtDate(p.data))}"></a>` : '<div class="semfoto">Ponto GPS sem foto</div>'}<figcaption>${p.obs ? esc(p.obs) + '<br>' : ''}<span class="muted">${p.data ? esc(fmtDate(p.data) + ' ' + p.data.slice(11, 16)) : ''}${p.lat ? ` · ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}` : ''}</span></figcaption></figure>`).join('')}</div></div>`;
+    fotos = blocoRecomendacao(kind, r) + fotos;
     if (!rows.length) return fotos;
     return fotos + `<div style="padding:12px 18px 0;display:grid;gap:8px"><div class="sec-title">Detalhes importados do SIMA</div><dl class="facts" style="font-size:13px">${rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl></div>`;
   }
+  // Recomendação técnica feita na visita (celular) e vínculo visita -> ordem de aplicação
+  const fmtDose = v => v == null || v === '' ? '—' : Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+  function blocoRecomendacao(kind, r) {
+    if (kind === 'ordens' && r.origem_visita) { const m = get('monitoramentos', r.origem_visita), t = m && get('talhoes', m.talhao_id); return `<div class="rec-orig"><span>${icon('sugestao')}</span><p>Ordem gerada a partir da recomendação da visita ${m ? `de <b>${fmtDate(m.data)}</b> em <b>${esc(nomeTal(t))}</b>${m.responsavel ? ' (' + esc(nomeDeEmail(m.responsavel)) + ')' : ''}` : '(visita excluída)'}.</p>${m ? `<button class="btn small" data-abrir-visita="${esc(m.id)}">Abrir visita</button>` : ''}</div>`; }
+    const rc = kind === 'monitoramentos' && r.recomendacao; if (!rc || !(rc.produtos || []).length) return '';
+    const tals = (rc.talhao_ids || [r.talhao_id]).map(id => get('talhoes', id)).filter(Boolean), area = tals.reduce((a, t) => a + num(t.area_ha), 0), o = r.ordem_id && get('ordens', r.ordem_id);
+    return `<div class="rec-box"><div class="rec-h"><div><b>Recomendação técnica</b><span>${fmtInt(tals.length)} talhão(ões) · ${fmtHa(area)} ha${rc.prazo ? ' · aplicar até ' + fmtDate(rc.prazo) : ''}</span></div>${o ? `<span class="pill ok">Ordem gerada · ${esc(o.status || 'Planejada')}</span>` : '<span class="pill warn">Aguardando ordem</span>'}</div>
+      <table class="rec-t"><thead><tr><th>Produto</th><th class="r">Dose/ha</th><th class="r">Total</th></tr></thead><tbody>${rc.produtos.map(p => `<tr><td>${esc(p.produto)}${p.classe ? `<small>${esc(p.classe)}</small>` : ''}</td><td class="r num">${fmtDose(p.dose)} ${esc(p.unidade || '')}</td><td class="r num">${p.dose != null && area ? fmtDose(Math.round(num(p.dose) * area * 100) / 100) + ' ' + esc(String(p.unidade || '').split('/')[0]) : '—'}</td></tr>`).join('')}</tbody></table>
+      <p class="rec-tal">${tals.map(t => esc(nomeTal(t))).join(', ')}${rc.obs ? `<br><span class="muted">${esc(rc.obs)}</span>` : ''}</p></div>`;
+  }
+  const nomeDeEmail = em => (typeof nomeDe === 'function' ? nomeDe(em) : em) || em;
   const tabela = (h, rows) => `<div style="overflow-x:auto"><table style="font-size:12px"><thead><tr>${h.map(x => `<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c ?? ''}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   function openForm(kind, rec, defaults, ov) {
     const isNew = !rec;
@@ -1516,7 +1535,7 @@
     bg.innerHTML = `<div class="modal ${(kind === 'monitoramentos' && rec.pontos) || kind === 'controles' || kind === 'ordens' || kind === 'silobolsas' ? 'wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mtitle"><header><h2 id="mtitle">${kind === 'controles' && rec.tipo === COT ? (isNew ? 'Nova liberação de Cotesia' : 'Liberação de Cotesia') : `${isNew ? (NOVA[kind] ? 'Nova ' : 'Novo ') : podeEditar() ? 'Editar ' : ''}${esc(NOME[kind])}`}</h2><button class="x" data-close aria-label="Fechar">×</button></header>
       <form novalidate>${fields.map(f => fieldHtml(f, f.t === 'talhoes' ? talChecks(rec.fazenda_id, rec.talhao_ids) : rec[f.k])).join('')}</form>
       ${detalhes(kind, rec)}
-      <footer>${isNew ? '' : '<button class="btn danger" data-del>Excluir</button>'}${kind === 'ordens' && !isNew ? `<button class="btn" data-receita>${icon('pdf')} Receita PDF</button>` : ''}${kind === 'ordens' ? `<button class="btn" data-wa-ordem>${icon('whats')} WhatsApp</button>` : ''}${kind === 'monitoramentos' && !isNew ? `<button class="btn" data-visita-pdf>${icon('pdf')} Relatório PDF</button><button class="btn" data-wa-visita>${icon('whats')} WhatsApp</button>${podeEditar() ? `<button class="btn" data-mon-ordem>${icon('sugestao')} Criar ordem</button>` : ''}` : ''}<div class="right"><button class="btn" data-close>${podeEditar() ? 'Cancelar' : 'Fechar'}</button><button class="btn primary" data-save>Salvar</button></div></footer></div>`;
+      <footer>${isNew ? '' : '<button class="btn danger" data-del>Excluir</button>'}${kind === 'ordens' && !isNew ? `<button class="btn" data-receita>${icon('pdf')} Receita PDF</button>` : ''}${kind === 'ordens' ? `<button class="btn" data-wa-ordem>${icon('whats')} WhatsApp</button>` : ''}${kind === 'monitoramentos' && !isNew ? `<button class="btn" data-visita-pdf>${icon('pdf')} Relatório PDF</button><button class="btn" data-wa-visita>${icon('whats')} WhatsApp</button>${podeEditar() || rec.ordem_id ? `<button class="btn" data-mon-ordem>${icon('sugestao')} ${rec.ordem_id && get('ordens', rec.ordem_id) ? 'Ver ordem gerada' : rec.recomendacao && (rec.recomendacao.produtos || []).length ? 'Gerar ordem da recomendação' : 'Criar ordem'}</button>` : ''}` : ''}<div class="right"><button class="btn" data-close>${podeEditar() ? 'Cancelar' : 'Fechar'}</button><button class="btn primary" data-save>Salvar</button></div></footer></div>`;
     document.body.appendChild(bg);
     const form = $('form', bg);
     const fz = $('#fld-fazenda_id', bg), chk = $('#fld-talhao_ids', bg);
@@ -1532,6 +1551,7 @@
       if (e.target.closest('[data-wa-visita]')) { const t = get('talhoes', rec.talhao_id); abrirWhats(textoVisita(rec), t && prodDaFaz(t.fazenda_id)?.telefone); return; }
       if (e.target.closest('[data-visita-pdf]')) { visitaPDF(rec); return; }
       if (e.target.closest('[data-mon-ordem]')) { ordemDaVisita(rec); return; }
+      if (e.target.closest('[data-abrir-visita]')) { const mv = get('monitoramentos', e.target.closest('[data-abrir-visita]').dataset.abrirVisita); if (mv) { close(); openForm('monitoramentos', mv); } return; }
       if (e.target.closest('[data-sug-abrir]')) { abrirSugestao(bg); return; }
       if (e.target.closest('[data-receita]')) { const o = Object.assign({}, rec); if (podeEditar()) o.produtos = lerProdutos(bg, rec.produtos); receitaPDF(o); return; }
       if (e.target.closest('[data-del]') && kind === 'pluviometros') { if (await excluirPluv(rec)) close(); return; }
@@ -1562,7 +1582,8 @@
         }
         if (missing) { toast('Preencha: ' + missing.l); form.elements[missing.k].focus(); return; }
         if (kind === 'controles' && out.tipo === COT && window.CANA) { const vh = window.CANA.vespasHa(out); out.valor = vh; out.unidade = vh == null ? null : 'vespas/ha'; }
-        try { await Store.save(kind, out); toast(isNew ? 'Cadastrado.' : 'Alterações salvas.'); close(); } catch (e) { }
+        if (isNew && rec.origem_visita) out.origem_visita = rec.origem_visita;
+        try { await Store.save(kind, out); toast(isNew ? 'Cadastrado.' : 'Alterações salvas.'); close(); if (isNew && out.origem_visita) { const mv = get('monitoramentos', out.origem_visita); if (mv && !mv.ordem_id) await Store.save('monitoramentos', Object.assign({}, mv, { ordem_id: out.id })); } } catch (e) { }
       }
     });
     setTimeout(() => { const first = form.querySelector('input,select,textarea'); if (first && podeEditar()) first.focus(); }, 20);
@@ -2622,10 +2643,13 @@
   }
   function ordemDaVisita(m) {
     const t = get('talhoes', m.talhao_id); if (!t) return;
+    if (m.ordem_id && get('ordens', m.ordem_id)) { document.querySelectorAll('.modal-bg').forEach(x => x.remove()); openForm('ordens', get('ordens', m.ordem_id)); return; }
     document.querySelectorAll('.modal-bg').forEach(x => x.remove());
-    const pref = conf('preferencias');
-    openForm('ordens', null, { titulo: 'Aplicação · ' + (m.alvo || nomeTal(t)), tipo: 'Pulverização', status: 'Planejada', fazenda_id: t.fazenda_id, talhao_ids: [t.id], data_prevista: today(), vazao_l_ha: pref.vazao_padrao ?? null, carencia_dias: pref.carencia_padrao ?? null, obs: m.alvo ? `Recomendação a partir da visita de ${fmtDate(m.data)} (${m.alvo}${m.nivel ? ', nível ' + m.nivel.toLowerCase() : ''}).` : '' });
-    const bg = [...document.querySelectorAll('.modal-bg')].pop(); if (bg) abrirSugestao(bg, m.alvo || '', m.estadio || '');
+    const pref = conf('preferencias'), rc = m.recomendacao && (m.recomendacao.produtos || []).length ? m.recomendacao : null;
+    const ids = rc && rc.talhao_ids && rc.talhao_ids.length ? rc.talhao_ids : [t.id];
+    openForm('ordens', null, { titulo: 'Aplicação · ' + (m.alvo || nomeTal(t)), tipo: rc?.tipo || 'Pulverização', status: 'Planejada', fazenda_id: t.fazenda_id, talhao_ids: ids, data_prevista: rc?.prazo || today(), vazao_l_ha: pref.vazao_padrao ?? null, carencia_dias: pref.carencia_padrao ?? null, produtos: rc ? rc.produtos.map(p => ({ produto: p.produto, dose: p.dose, unidade: p.unidade, classe: p.classe })) : undefined, origem_visita: m.id,
+      obs: [m.alvo ? `Recomendação a partir da visita de ${fmtDate(m.data)} (${m.alvo}${m.nivel ? ', nível ' + m.nivel.toLowerCase() : ''}).` : `Recomendação a partir da visita de ${fmtDate(m.data)}.`, rc?.obs || ''].filter(Boolean).join('\n') });
+    const bg = [...document.querySelectorAll('.modal-bg')].pop(); if (bg && !rc) abrirSugestao(bg, m.alvo || '', m.estadio || '');
   }
 
   // ---------- Relatório de visita em PDF (fotos e mapa do talhão) ----------
@@ -2702,6 +2726,15 @@
     if (m.amostras_detalhe && m.amostras_detalhe.length) { doc.autoTable({ startY: y, margin: { left: M, right: M }, head: [['Amostra', 'Alvo', 'Medida', 'Valor', 'Nível']], body: m.amostras_detalhe.map(a => [a.amostra, a.alvo || '', a.medida || '', String(a.valor ?? '—').replace('.', ','), a.nivel || '']), theme: 'striped', headStyles: head, styles: { fontSize: 8, textColor: TINTA } }); y = doc.lastAutoTable.finalY + 6; }
     const tit = (s) => { if (y > 270) { doc.addPage(); y = 18; } doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...TINTA); doc.text(s, M, y); y += 5; };
     if (m.obs) { tit('Observações e recomendações'); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...TINTA); const ln = doc.splitTextToSize(m.obs, W - 2 * M); for (const l of ln) { if (y > 280) { doc.addPage(); y = 18; } doc.text(l, M, y); y += 4.6; } y += 4; }
+    const rcv = m.recomendacao && (m.recomendacao.produtos || []).length ? m.recomendacao : null;
+    if (rcv) {
+      const tl = (rcv.talhao_ids || [m.talhao_id]).map(id => get('talhoes', id)).filter(Boolean), ar = tl.reduce((a, x) => a + num(x.area_ha), 0);
+      tit('Recomendação técnica'); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...TINTA);
+      const ln = doc.splitTextToSize('Aplicar em: ' + tl.map(nomeTal).join(', ') + ' (' + fmtHa(ar) + ' ha)' + (rcv.prazo ? ' · até ' + fmtDate(rcv.prazo) : ''), W - 2 * M); doc.text(ln, M, y + 1); y += ln.length * 4.2 + 1;
+      doc.autoTable({ startY: y, margin: { left: M, right: M }, head: [['Produto', 'Classe', 'Dose por ha', 'Quantidade total']], body: rcv.produtos.map(p => [p.produto, p.classe || '', fmtDose(p.dose) + ' ' + (p.unidade || ''), p.dose != null && ar ? fmtDose(Math.round(num(p.dose) * ar * 100) / 100) + ' ' + String(p.unidade || '').split('/')[0] : '—']), theme: 'striped', headStyles: head, styles: { fontSize: 8.5, textColor: TINTA } });
+      y = doc.lastAutoTable.finalY + 4;
+      if (rcv.obs) { const l2 = doc.splitTextToSize(rcv.obs, W - 2 * M); doc.setFontSize(9); doc.text(l2, M, y + 2); y += l2.length * 4.2 + 3; }
+    }
     const pts = (m.pontos || []).map((q, i) => ({ lat: q.lat == null ? null : num(q.lat), lng: q.lng == null ? null : num(q.lng), n: i + 1 })).filter(q => q.lat != null && q.lng != null && (q.lat || q.lng)); // mantém o número do ponto igual ao das fotos
     if (t && t.geometry) { if (y > 190) { doc.addPage(); y = 18; } tit('Mapa do talhão'); if (mapaPDF(doc, M, y, W - 2 * M, 72, t, pts)) y += 78; }
     const fotos = (m.pontos || []).map((q, i) => Object.assign({ n: i + 1 }, q)).filter(q => q.foto);
@@ -3199,5 +3232,5 @@
   // Nome do pluviômetro de uma chuva, mesmo depois de excluído
   const nomePluv = c => { const r = get('pluviometros', c.pluviometro_id); return r ? (r.nome || key(r.id)) : c.pluviometro_nome ? c.pluviometro_nome + ' (excluído)' : '—'; };
   // Ponte para o modo campo (src/campo.js)
-  window.INOVA = { COT, excluirPluv, nomePluv, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
+  window.INOVA = { loadLib, imgDataUrl, custosOrdem, dataCusto, safraPorData, sugerirProdutos, insPorNome, conf, exportar, semaforo, fmtR, fmtHa0, diasDesde, num, safrasLista, ordemDaVisita, ehAdmin: () => S.papel === 'admin' || Store.mode !== 'supabase', COT, excluirPluv, nomePluv, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
 })();

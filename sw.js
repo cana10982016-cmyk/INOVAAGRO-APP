@@ -1,7 +1,8 @@
 /* INOVAAGRO: service worker. Guarda o app no celular para abrir sem internet.
    Dados do banco NÃO passam por aqui (ficam no IndexedDB, ver src/offline.js). */
-const VERSAO = 'inovaagro-app-v9';
+const VERSAO = 'inovaagro-app-v11';
 const MAPA = 'inovaagro-mapa';
+const MAPA_FAZ = 'inovaagro-mapa-faz'; // fazendas baixadas inteiras (Mapas offline): o app não apaga sozinho
 const ESSENCIAIS = [
   './', './index.html', './config.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png',
@@ -13,7 +14,7 @@ self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSAO).then(c => Promise.all(ESSENCIAIS.map(u => c.add(u).catch(() => {})))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSAO && k !== MAPA).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSAO && k !== MAPA && k !== MAPA_FAZ).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 // Busca na internet com limite de tempo; sem resposta, usa a cópia guardada.
 async function redePrimeiro(req) {
@@ -36,6 +37,8 @@ async function guardadoPrimeiro(req, e) {
   return hit;
 }
 async function cacheMapa(req) {
+  const fz = await (await caches.open(MAPA_FAZ)).match(req.url);
+  if (fz) return fz;
   const c = await caches.open(MAPA);
   const hit = await c.match(req.url);
   if (hit) return hit;
