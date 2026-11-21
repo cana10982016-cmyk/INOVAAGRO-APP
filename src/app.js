@@ -453,11 +453,27 @@
   }
 
   // ---------- Supabase (versão hospedada: banco + login) ----------
+  // Onde o login fica guardado. Se o armazenamento do navegador estiver cheio (cópias da previsão do tempo,
+  // avisos lidos etc.), apaga essas cópias e tenta de novo, em vez de travar em "Entrando…".
+  const CACHES_LS = k => /^inovaagro\.(tempo\.v1|prev\.|notif\.lidas|nomes$)|\.(equipe|membros)$/.test(k);
+  const limparCachesLS = (tudo) => { try { for (const k of Object.keys(localStorage)) if (CACHES_LS(k) || (tudo && !/^sb-/.test(k) && !/^inovaagro\.(tema|papel)$/.test(k))) localStorage.removeItem(k); } catch (e) { } };
+  const loginMem = {};
+  const guardaLogin = {
+    getItem(k) { try { const v = localStorage.getItem(k); if (v != null) return v; } catch (e) { } return k in loginMem ? loginMem[k] : null; },
+    setItem(k, v) {
+      loginMem[k] = v;
+      for (let i = 0; i < 3; i++) {
+        try { localStorage.setItem(k, v); delete loginMem[k]; return; }
+        catch (e) { console.warn('armazenamento cheio, limpando cópias', e); limparCachesLS(i > 0); }
+      }
+    },
+    removeItem(k) { delete loginMem[k]; try { localStorage.removeItem(k); } catch (e) { } },
+  };
   const CFG = window.GLEBA_CONFIG || {};
   const SB = {
     on: !!(CFG.supabaseUrl && CFG.supabaseKey && window.supabase),
     cli: null, user: null,
-    init() { this.cli = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey); },
+    init() { this.cli = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { storage: guardaLogin } }); },
     async session() { const { data } = await this.cli.auth.getSession(); this.user = data.session ? data.session.user : null; return this.user; },
     async loadAll() {
       for (const k of KINDS) {
@@ -502,8 +518,11 @@
     const email = $('#lg-email').value.trim(), senha = $('#lg-senha').value;
     const criar = e.submitter && e.submitter.dataset.criar;
     $('#login-msg').textContent = 'Entrando…';
-    const r = criar ? await SB.cli.auth.signUp({ email, password: senha, options: { emailRedirectTo: location.origin + location.pathname } })
-                    : await SB.cli.auth.signInWithPassword({ email, password: senha });
+    let r;
+    try {
+      r = criar ? await SB.cli.auth.signUp({ email, password: senha, options: { emailRedirectTo: location.origin + location.pathname } })
+                : await SB.cli.auth.signInWithPassword({ email, password: senha });
+    } catch (err) { $('#login-msg').textContent = 'Não foi possível entrar: ' + (err && err.message || err) + '. Tente de novo.'; return; }
     if (r.error) { $('#login-msg').textContent = /Invalid login/i.test(r.error.message) ? 'E-mail ou senha incorretos.' : /registered/i.test(r.error.message) ? 'Este e-mail já tem cadastro. Use "Entrar".' : /least/i.test(r.error.message) ? 'A senha precisa ter pelo menos 6 caracteres.' : 'Não foi possível entrar: ' + r.error.message; return; }
     if (criar && !r.data.session) { $('#login-msg').textContent = 'Conta criada. Abra o e-mail de confirmação que enviamos e depois clique em Entrar.'; return; }
     location.reload();
