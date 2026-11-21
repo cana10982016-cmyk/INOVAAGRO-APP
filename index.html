@@ -804,7 +804,9 @@ details[open] > summary .chev { transform: rotate(90deg); }
 .map-tools .btn { box-shadow: var(--shadow); }
 .map-note { position: absolute; left: 12px; bottom: 34px; z-index: 500; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 12px; color: var(--muted); max-width: min(360px, calc(100% - 24px)); }
 .leaflet-tooltip.lbl { background: var(--surface); color: var(--fg); border: 1px solid var(--line); box-shadow: none; font-weight: 600; }
-.tal-lbl { color: #fff; font-weight: 700; font-size: 11px; text-shadow: 0 0 3px #000, 0 0 2px #000; white-space: nowrap; text-align: center; pointer-events: none; transform: translate(-50%, -50%); }
+.tal-lbl { color: #fff; font-weight: 700; font-size: 12px; text-shadow: 0 0 3px #000, 0 0 2px #000; white-space: nowrap; text-align: center; pointer-events: none; transform: translate(-50%, -50%); }
+.tal-lbl.fora { opacity: .55; }
+.faz-lbl { transform: translate(-50%, calc(-100% - 10px)); white-space: nowrap; pointer-events: none; padding: 2px 8px; border-radius: 999px; background: rgba(20,24,18,.72); color: #fff; font-weight: 700; font-size: 12px; letter-spacing: .01em; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
 
 /* Ficha do talhão */
 .sheet { position: absolute; top: 12px; right: 12px; bottom: 12px; width: 350px; max-width: calc(100% - 24px); z-index: 900; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 28px rgba(0,0,0,.22); display: flex; flex-direction: column; min-height: 0; }
@@ -1659,7 +1661,8 @@ body.campo-on main { top: 0; left: 0; right: 0; bottom: 0; }
 .cp-ajuda summary { font-weight: 700; font-size: 15px; }
 .cp-ajuda p { color: var(--muted); line-height: 1.5; margin: 8px 0 0; }
 /* Mapa: rótulos, pluviômetros e pontos */
-.cp-lbl span { display: inline-block; transform: translate(-50%, -50%); color: #fff; font-size: 11px; font-weight: 700; text-shadow: 0 0 3px #000, 0 0 2px #000; white-space: nowrap; }
+.cp-lbl span { display: inline-block; transform: translate(-50%, -50%); color: #fff; font-size: 12px; font-weight: 700; text-shadow: 0 0 3px #000, 0 0 2px #000; white-space: nowrap; }
+.cp-flbl span { padding: 3px 9px; border-radius: 999px; background: rgba(20,24,18,.72); font-size: 12px; text-shadow: none; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
 .cp-pluv { width: 30px !important; height: 30px !important; border-radius: 50%; background: #fff; color: var(--info); display: grid !important; place-items: center; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
 .cp-pluv .ic { width: 18px; height: 18px; }
 .cp-wpm span { width: 24px; height: 24px; border-radius: 50%; background: #fab219; color: #201e1e; border: 2px solid #fff; display: grid; place-items: center; font-size: 11px; font-weight: 800; box-shadow: 0 1px 4px rgba(0,0,0,.4); box-sizing: border-box; }
@@ -2737,6 +2740,7 @@ a.acab-lnk, .acab-nota a { color: var(--brand); font-weight: 500; }
           <label class="color-by"><span>Colorir por</span><select id="color-by" aria-label="Colorir talhões por">
             <option value="atividade">Atividade (últimos 15 dias)</option><option value="produtor">Produtor</option><option value="situacao">Situação</option><option value="condicao">Condição (último monitoramento)</option><option value="variedade">Variedade</option><option value="cultura">Cultura</option><option value="vigor">Vigor por satélite (NDVI)</option>
           </select></label>
+          <label class="tg"><input type="checkbox" id="tg-nomes" checked> Nomes dos talhões e fazendas</label>
           <label class="tg" hidden><input type="checkbox" id="tg-pontos"> Pontos e fotos dos monitoramentos</label>
           <div class="legend" id="legend"></div>
           <div class="vg-mapa" id="vg-mapa" hidden></div>
@@ -3517,9 +3521,12 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     L.control.scale({ position: 'bottomleft', imperial: false }).addTo(map);
     const img = L.tileLayer(ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Imagem: Esri, Maxar' });
-    const nomes = L.tileLayer(ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
+    // Nomes de cidades e estradas ficam numa camada própria, por cima das cores dos talhões (antes ficavam por baixo e sumiam).
+    map.createPane('ref'); map.getPane('ref').style.zIndex = 450; map.getPane('ref').style.pointerEvents = 'none';
+    const nomes = L.tileLayer(ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, pane: 'ref' });
+    const estradas = L.tileLayer(ESRI + 'Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, pane: 'ref' });
     const ruas = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' });
-    baseLayers = { sat: [img], hib: [img, nomes], ruas: [ruas] };
+    baseLayers = { sat: [img], hib: [img, estradas, nomes], ruas: [ruas] };
     let tileErrors = 0, tileOk = 0;
     img.on('tileerror', () => {
       if (!navigator.onLine) { const n = $('#mapnote'); n.textContent = 'Sem internet: a imagem de satélite aparece só nas áreas guardadas com "Salvar mapa offline". Os contornos dos talhões aparecem sempre.'; n.hidden = false; return; }
@@ -3533,17 +3540,21 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
     layerLbl = L.layerGroup().addTo(map);
     layerPts = L.layerGroup();
     layerPluv = L.layerGroup().addTo(map);
+    S.nomesTal = (() => { try { return localStorage.getItem('inovaagro.nomesTal') !== '0'; } catch (e) { return true; } })();
     map.on('zoomend', syncFazMarkers);
     map.on('moveend', syncLabels);
     map.on('click', () => { if (S.sel.talhao) { S.sel.talhao = null; drawSheet(); styleAll(); renderTree(); } });
     $('#color-by').value = S.colorBy;
     $('#tg-pontos').addEventListener('change', e => { if (e.target.checked) layerPts.addTo(map); else map.removeLayer(layerPts); });
+    $('#tg-nomes').checked = S.nomesTal;
+    $('#tg-nomes').addEventListener('change', e => { S.nomesTal = e.target.checked; try { localStorage.setItem('inovaagro.nomesTal', S.nomesTal ? '1' : '0'); } catch (er) { } syncLabels(); });
   }
-  function setBase(b) {
+  function setBase(b, manual) {
     S.base_map = b;
     for (const ls of Object.values(baseLayers)) for (const l of ls) if (map.hasLayer(l)) map.removeLayer(l);
-    for (const l of baseLayers[b]) { l.addTo(map); l.bringToBack && l.bringToBack(); }
-    if (b === 'hib') baseLayers.hib[1].bringToFront();
+    for (const l of baseLayers[b]) { l.addTo(map); if (l.options.pane !== 'ref') l.bringToBack(); }
+    // "Satélite + nomes" também liga os nomes dos talhões e das fazendas
+    if (manual && b === 'hib' && !S.nomesTal) { S.nomesTal = true; try { localStorage.setItem('inovaagro.nomesTal', '1'); } catch (e) { } const c = $('#tg-nomes'); if (c) c.checked = true; syncLabels(); }
     document.querySelectorAll('[data-base]').forEach(x => x.setAttribute('aria-pressed', x.dataset.base === b));
   }
   function drawLayers() {
@@ -3600,16 +3611,36 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
     return b;
   }
   function syncFazMarkers() { if (!map || !map._loaded) return; const show = map.getZoom() < 12; if (show && !map.hasLayer(layerFaz)) map.addLayer(layerFaz); if (!show && map.hasLayer(layerFaz)) map.removeLayer(layerFaz); }
+  // Nomes no mapa: fazendas de longe (zoom 10 a 13) e talhões de perto (zoom 14 em diante).
+  // Nomes que ficariam um em cima do outro são pulados, para continuar dando para ler.
   function syncLabels() {
     if (!map || !layerLbl || !map._loaded) return;
     layerLbl.clearLayers();
-    if (map.getZoom() < 15) return;
-    const vb = map.getBounds(); let n = 0;
-    for (const t of S.data.talhoes) {
-      const l = layersById.get(key(t.id)); if (!l) continue;
-      const c = l.getBounds().getCenter(); if (!vb.contains(c)) continue;
-      if (++n > 250) break;
-      L.marker(c, { interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: null, html: `<div class="tal-lbl">${esc(t.nome)}</div>` }) }).addTo(layerLbl);
+    const z = map.getZoom();
+    if (!S.nomesTal || z < 10) return;
+    const vb = map.getBounds().pad(0.1), usados = [];
+    const cabe = (c, txt, h) => {
+      const p = map.latLngToContainerPoint(c), w = txt.length * 6.6 + 10, r = [p.x - w / 2, p.y - h / 2, p.x + w / 2, p.y + h / 2];
+      if (usados.some(u => r[0] < u[2] && r[2] > u[0] && r[1] < u[3] && r[3] > u[1])) return false;
+      usados.push(r); return true;
+    };
+    const por = (txt, cls, c) => L.marker(c, { interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: null, html: `<div class="${cls}">${esc(txt)}</div>` }) }).addTo(layerLbl);
+    if (z < 14) {
+      for (const f of S.data.fazendas) {
+        const c = fazCenter(f); if (!c || !vb.contains(c)) continue;
+        const ts = S.talPorFaz.get(key(f.id)) || []; if (!ts.length || ts.every(t => !inSel(t))) continue;
+        if (cabe(c, f.nome || '', 30)) por(f.nome || '', 'faz-lbl', c);
+      }
+      return;
+    }
+    const ts = S.data.talhoes.map(t => [t, layersById.get(key(t.id))]).filter(([t, l]) => l && !S.ocultos.has(grupoTal(t)[0]))
+      .map(([t, l]) => [t, l.getBounds()]).filter(([, b]) => vb.contains(b.getCenter()))
+      .sort((a, b) => (inSel(b[0]) - inSel(a[0])) || (b[1].getNorth() - b[1].getSouth()) * (b[1].getEast() - b[1].getWest()) - (a[1].getNorth() - a[1].getSouth()) * (a[1].getEast() - a[1].getWest()));
+    let n = 0;
+    for (const [t, b] of ts) {
+      if (n >= 300) break;
+      const c = b.getCenter();
+      if (cabe(c, String(t.nome || ''), 16)) { por(t.nome || '', 'tal-lbl' + (inSel(t) ? '' : ' fora'), c); n++; }
     }
   }
   function inSel(t) {
@@ -3622,7 +3653,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
     if (S.ocultos.has(gn) && !sel) return { opacity: 0, fillOpacity: 0, weight: 0 };
     return { color: sel ? '#ffffff' : c, weight: sel ? 3 : 1.5, fillColor: c, fillOpacity: sel ? 0.6 : on ? 0.38 : 0.08, opacity: on ? 1 : 0.35 };
   }
-  function styleAll() { for (const t of S.data.talhoes) { const l = layersById.get(key(t.id)); if (l) l.setStyle(styleFor(t)); } }
+  function styleAll() { for (const t of S.data.talhoes) { const l = layersById.get(key(t.id)); if (l) l.setStyle(styleFor(t)); } syncLabels(); }
   function fitSel() {
     let ts = S.data.talhoes.filter(inSel);
     if (S.sel.talhao) ts = [get('talhoes', S.sel.talhao)].filter(Boolean);
@@ -6003,7 +6034,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
     const ed = e.target.closest('[data-edit]'); if (ed) { const [k, id] = ed.dataset.edit.split(':'); if (k === 'fin') { if (window.Financeiro) window.Financeiro.abrir(id); return; } if (k === 'agd') { if (window.Agenda) window.Agenda.abrir(id); return; } openForm(k, get(k, id)); return; }
     const mf = e.target.closest('[data-map-faz]'); if (mf) { e.stopPropagation(); location.hash = 'mapa'; setTimeout(() => selectFazenda(mf.dataset.mapFaz, true), 60); return; }
     const rf = e.target.closest('[data-rep-faz]'); if (rf) { const f = get('fazendas', rf.dataset.repFaz); R.prod = key(f?.produtor_id || ''); R.faz = rf.dataset.repFaz; location.hash = 'relatorios'; return; }
-    const bs = e.target.closest('[data-base]'); if (bs) { setBase(bs.dataset.base); return; }
+    const bs = e.target.closest('[data-base]'); if (bs) { setBase(bs.dataset.base, true); return; }
     const mm = e.target.closest('[data-mapa-mon]'); if (mm) { const m = get('monitoramentos', mm.dataset.mapaMon); document.querySelectorAll('.modal-bg').forEach(x => x.remove()); location.hash = 'mapa'; setTimeout(() => { $('#tg-pontos').checked = true; layerPts.addTo(map); const pts = (m.pontos || []).filter(p => p.lat != null); if (pts.length) map.fitBounds(L.latLngBounds(pts.map(p => [p.lat, p.lng])).pad(0.6), { maxZoom: 17 }); if (m.talhao_id) { S.sel = { produtor: get('talhoes', m.talhao_id)?._prod, fazenda: get('talhoes', m.talhao_id)?.fazenda_id, talhao: m.talhao_id }; styleAll(); drawSheet(); renderTree(); } }, 150); return; }
     if (e.target.closest('#v-equipe')) acaoEquipe(e);
     if (e.target.closest('#nav-links a')) document.body.classList.remove('nav-open');
@@ -6466,9 +6497,12 @@ window.Campo = (function () {
     map = L.map('cp-map', { zoomControl: false, preferCanvas: true, attributionControl: true, wheelPxPerZoomLevel: 90, bounceAtZoomLimits: false });
     map.attributionControl.setPrefix('');
     const img = L.tileLayer(ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Esri', ...TILE });
-    const nomes = L.tileLayer(ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, ...TILE });
+    // Nomes de cidades e estradas numa camada própria, por cima do satélite e dos talhões (antes iam para baixo da foto e sumiam).
+    map.createPane('ref'); map.getPane('ref').style.zIndex = 450; map.getPane('ref').style.pointerEvents = 'none';
+    const nomes = L.tileLayer(ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, pane: 'ref', ...TILE });
+    const estradas = L.tileLayer(ESRI + 'Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, pane: 'ref', ...TILE });
     const ruas = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap', ...TILE });
-    bases = { sat: [img], hib: [img, nomes], ruas: [ruas] };
+    bases = { sat: [img], hib: [img, estradas, nomes], ruas: [ruas] };
     lyVigor = L.layerGroup().addTo(map);
     lyTal = L.featureGroup().addTo(map);
     lyCalor = L.layerGroup().addTo(map);
@@ -6484,11 +6518,14 @@ window.Campo = (function () {
     const f = fazAtual();
     if (f) enquadrarFaz(f); else enquadrarTudo();
   }
-  function setBase(b) {
+  function setBase(b, manual) {
     if (!bases[b]) b = 'sat';
     if (baseAtual) for (const l of bases[baseAtual]) map.removeLayer(l);
-    for (const l of bases[b]) l.addTo(map).bringToBack();
-    baseAtual = b; pref.base = b; salvarPref();
+    for (const l of bases[b]) { l.addTo(map); if (l.options.pane !== 'ref') l.bringToBack(); }
+    baseAtual = b; pref.base = b;
+    // "Satélite + nomes" também liga os nomes dos talhões e das fazendas
+    if (manual && b === 'hib' && !pref.nomes) { pref.nomes = true; const c = document.querySelector('[data-cp="tg"][data-k="nomes"]'); if (c) c.checked = true; rotulos(); }
+    salvarPref();
   }
   function estilo(t) {
     const sel = selTal && String(selTal) === String(t.id);
@@ -6567,21 +6604,47 @@ window.Campo = (function () {
     if (!map || !map._loaded || lblPedido) return;
     lblPedido = requestAnimationFrame(() => { lblPedido = 0; rotulosAgora(); });
   }
+  // Fazendas de longe (zoom 10 a 13) e talhões de perto (zoom 14 em diante). Nomes que ficariam encavalados são pulados.
   function rotulosAgora() {
     if (!map || !map._loaded) return;
-    const quer = new Map();
-    if (pref.nomes && map.getZoom() >= 14 && !(rotaAtual && lyRota.getLayers().length)) {
+    const quer = new Map(), z = map.getZoom(), usados = [];
+    const cabe = (lat, lng, txt, h) => {
+      const p = map.latLngToContainerPoint([lat, lng]), w = txt.length * 6.6 + 10, r = [p.x - w / 2, p.y - h / 2, p.x + w / 2, p.y + h / 2];
+      if (usados.some(u => r[0] < u[2] && r[2] > u[0] && r[1] < u[3] && r[3] > u[1])) return false;
+      usados.push(r); return true;
+    };
+    if (pref.nomes && z >= 10 && !(rotaAtual && lyRota.getLayers().length)) {
       const b = map.getBounds().pad(0.15), s = b.getSouth(), n = b.getNorth(), w = b.getWest(), e = b.getEast();
-      for (const t of I().S.data.talhoes) {
-        if (!camadaTal.has(String(t.id))) continue;
-        const c = caixa(t); if (!c || c.vazio || c.lat < s || c.lat > n || c.lng < w || c.lng > e) continue;
-        quer.set(String(t.id) + '|' + t.nome, c);
-        if (quer.size >= 250) break;
+      const dentro = c => c && !c.vazio && c.lat >= s && c.lat <= n && c.lng >= w && c.lng <= e;
+      if (z < 14) {
+        const fz = new Map();
+        for (const t of I().S.data.talhoes) {
+          if (!camadaTal.has(String(t.id))) continue;
+          const c = caixa(t); if (!c || c.vazio) continue;
+          const k = String(t.fazenda_id), a = fz.get(k);
+          if (!a) fz.set(k, { x0: c.x0, y0: c.y0, x1: c.x1, y1: c.y1 }); else { a.x0 = Math.min(a.x0, c.x0); a.y0 = Math.min(a.y0, c.y0); a.x1 = Math.max(a.x1, c.x1); a.y1 = Math.max(a.y1, c.y1); }
+        }
+        for (const [id, a] of fz) {
+          const f = faz(id), c = { lat: (a.y0 + a.y1) / 2, lng: (a.x0 + a.x1) / 2 };
+          if (!f || !f.nome || !dentro(c) || !cabe(c.lat, c.lng, f.nome, 26)) continue;
+          quer.set('faz:' + id + '|' + f.nome, c);
+        }
+      } else {
+        const l = [];
+        for (const t of I().S.data.talhoes) {
+          if (!camadaTal.has(String(t.id))) continue;
+          const c = caixa(t); if (dentro(c)) l.push([t, c, (c.x1 - c.x0) * (c.y1 - c.y0)]);
+        }
+        l.sort((a, b) => b[2] - a[2]);
+        for (const [t, c] of l) {
+          if (quer.size >= 250) break;
+          if (cabe(c.lat, c.lng, String(t.nome || ''), 16)) quer.set(String(t.id) + '|' + t.nome, c);
+        }
       }
     }
     for (const [k, m] of lblTal) if (!quer.has(k)) { lyLbl.removeLayer(m); lblTal.delete(k); }
     for (const [k, c] of quer) if (!lblTal.has(k)) {
-      const m = L.marker([c.lat, c.lng], { interactive: false, keyboard: false, icon: L.divIcon({ className: 'cp-lbl', html: `<span>${esc(k.slice(k.indexOf('|') + 1))}</span>`, iconSize: null }) }).addTo(lyLbl);
+      const m = L.marker([c.lat, c.lng], { interactive: false, keyboard: false, icon: L.divIcon({ className: k.startsWith('faz:') ? 'cp-lbl cp-flbl' : 'cp-lbl', html: `<span>${esc(k.slice(k.indexOf('|') + 1))}</span>`, iconSize: null }) }).addTo(lyLbl);
       lblTal.set(k, m);
     }
   }
@@ -6800,7 +6863,7 @@ window.Campo = (function () {
   function camadas() {
     sheet(`<header class="cp-sh-h"><h2>Camadas</h2><button class="cp-ib" data-cp="fechar-sheet" aria-label="Fechar">${ic('fechar')}</button></header>
       <div class="cp-bases">${[['sat', 'Satélite'], ['hib', 'Satélite + nomes'], ['ruas', 'Mapa']].map(([k, l]) => `<button data-cp="base" data-b="${k}" aria-pressed="${pref.base === k}"><i class="cp-bthumb cp-b-${k}"></i>${l}</button>`).join('')}</div>
-      <div class="cp-tg">${[['nomes', 'Nomes dos talhões'], ['pontos', 'Pontos das visitas'], ['pluv', 'Pluviômetros']].map(([k, l]) => `<label><span>${l}</span><input type="checkbox" role="switch" data-cp="tg" data-k="${k}" ${pref[k] ? 'checked' : ''}></label>`).join('')}</div>
+      <div class="cp-tg">${[['nomes', 'Nomes dos talhões e fazendas'], ['pontos', 'Pontos das visitas'], ['pluv', 'Pluviômetros']].map(([k, l]) => `<label><span>${l}</span><input type="checkbox" role="switch" data-cp="tg" data-k="${k}" ${pref[k] ? 'checked' : ''}></label>`).join('')}</div>
       <h3 class="cp-h3 cp-h3s">Mapa de calor da cana</h3>
       <div class="cp-fs">
         <label class="cp-f cp-full"><span>Mostrar no mapa</span><select data-cp-calor="praga"><option value="">Desligado</option><option value="todas" ${pref.calor === 'todas' ? 'selected' : ''}>Semáforo das visitas (todas as pragas)</option>${CN() ? CN().GRUPOS.map(g => `<optgroup label="${g}">${CN().itens.filter(x => x.g === g).map(x => `<option value="${x.id}" ${pref.calor === x.id ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</optgroup>`).join('') : ''}</select></label>
@@ -7644,7 +7707,7 @@ window.Campo = (function () {
       case 'pick-tal': { const t = tal(b.dataset.id); if (!t) break; if (pickCb) { const cb = pickCb; pickCb = null; selecionar(t, true); cb(t); } else { fecharSheet(); selecionar(t, true); } break; }
       case 'gps': ligarGps(true); if (gps.pos) { irParaGps(); const t = talhaoEm(L.latLng(gps.pos.lat, gps.pos.lng)); if (t) selecionar(t, false); } else I().toast('Procurando sua localização…'); break;
       case 'camadas': camadas(); break;
-      case 'base': setBase(b.dataset.b); $$('[data-cp="base"]', root).forEach(x => x.setAttribute('aria-pressed', x.dataset.b === pref.base)); break;
+      case 'base': setBase(b.dataset.b, true); $$('[data-cp="base"]', root).forEach(x => x.setAttribute('aria-pressed', x.dataset.b === pref.base)); break;
       case 'navegar': navegar(); break;
       case 'chuva': chuva(); break;
       case 'fechar-card': selTal = null; estilos(); desenharCard(); topo(); break;
