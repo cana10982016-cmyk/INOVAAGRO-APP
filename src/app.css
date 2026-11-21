@@ -789,3 +789,10 @@ td small, td .muted { color: var(--muted); font-size: 12px; }
 /* Liberação de Cotesia */
 .cot-kpis { margin: 0 0 14px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
 @media (max-width: 640px) { .cot-kpis { grid-template-columns: repeat(2, 1fr); row-gap: 12px; } }
+
+/* Celular (tela de toque): campos com 16px evitam que o iPhone dê zoom ao tocar num campo e deixe a tela deslocada */
+@media (pointer: coarse) {
+  input, select, textarea { font-size: 16px !important; }
+  .cp-cnt input, .cp-pct input { font-size: 26px !important; }
+}
+html, body { overscroll-behavior: none; }
