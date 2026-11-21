@@ -57,5 +57,13 @@ window.GlebaOffline = (function () {
 
 // Instala o service worker (só no site publicado; precisa de https ou localhost)
 if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/.test(location.href) && document.querySelector('link[rel=manifest]')) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('sw', e)));
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').then(r => r.update().catch(() => {})).catch(e => console.warn('sw', e)));
+  // Versão nova do app instalada: recarrega uma vez sozinho, para ninguém precisar fechar e abrir de novo.
+  // Se houver um formulário aberto, deixa para a próxima abertura.
+  const tinhaControle = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!tinhaControle || document.querySelector('.modal-bg, .fin-modal')) return;
+    try { if (sessionStorage.getItem('inovaagro.sw.recarregou')) return; sessionStorage.setItem('inovaagro.sw.recarregou', '1'); } catch (e) { }
+    location.reload();
+  });
 }

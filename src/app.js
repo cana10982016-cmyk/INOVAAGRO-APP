@@ -374,8 +374,21 @@
     el.dataset.mode = Store.mode === 'local' ? 'local' : Store.mode === 'supabase' && (!navigator.onLine || Sync.pend) ? 'offline' : 'nuvem';
     el.title = Sync.pend ? Sync.pend + ' alteração(ões) esperando internet para enviar' : '';
     $('#acct').hidden = Store.mode !== 'supabase';
-    if (SB.user) { $('#who-av').textContent = SB.user.email.slice(0, 2).toUpperCase(); $('#who-email').textContent = SB.user.email; $('#who-papel').textContent = PAPEIS[S.papel]?.l || S.papel; }
+    if (SB.user) { const nm = nomeDe(SB.user.email); $('#who-av').textContent = nm !== SB.user.email ? nm.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('') : SB.user.email.slice(0, 2).toUpperCase(); $('#who-email').textContent = nm; $('#who-email').title = SB.user.email; $('#who-papel').textContent = PAPEIS[S.papel]?.l || S.papel; }
     document.dispatchEvent(new Event('inova:sync'));
+  }
+  // Nomes da equipe (e-mail -> nome), para mostrar "Leandro Nascimento" no lugar do e-mail
+  S.nomes = (() => { try { return JSON.parse(localStorage.getItem('inovaagro.nomes') || '{}'); } catch (e) { return {}; } })();
+  function nomeDe(em) { if (!em) return ''; const k = String(em).toLowerCase(); return (S.nomes || {})[k] || em; }
+  async function carregarNomes() {
+    if (!SB.cli || !SB.user) return;
+    let l = null;
+    const r = await SB.cli.rpc('nomes_equipe'); // função do supabase/04_financeiro.sql (todos da equipe podem ler os nomes)
+    if (!r.error) l = r.data; else { try { l = await SB.membros(); } catch (e) { } }
+    if (!l) return;
+    const m = {}; for (const x of l) if (x.email && x.nome) m[String(x.email).toLowerCase()] = x.nome;
+    S.nomes = m; try { localStorage.setItem('inovaagro.nomes', JSON.stringify(m)); } catch (e) { }
+    setSync();
   }
   function setPapel(p) { S.papel = PAPEIS[p] ? p : 'editor'; document.body.dataset.papel = S.papel; renderNav(); setSync(); }
 
@@ -386,7 +399,7 @@
     if (Sync.rodando) return 'Enviando…';
     if (!navigator.onLine || Sync.offline) return Sync.pend ? 'Sem internet · ' + Sync.pend + ' para enviar' : 'Sem internet';
     if (Sync.pend) return Sync.pend + ' para enviar';
-    return SB.user ? SB.user.email : 'Online';
+    return SB.user ? nomeDe(SB.user.email) : 'Online';
   }
   async function sincronizar(avisar) {
     if (Store.mode !== 'supabase' || Sync.rodando) return;
@@ -967,7 +980,7 @@
         { l: 'Alvo', v: r => esc(r.alvo || '—') },
         { l: 'Nível', v: r => r.nivel ? `<span class="pill ${NIVEL_CLS[r.nivel] || ''}">${esc(r.nivel)}</span>` : '—' },
         { l: 'Condição', v: r => r.estado_talhao ? `<i class="dot" style="background:${COND[r.estado_talhao] || OUTROS};margin-right:6px"></i>${esc(r.estado_talhao)}` : '—' },
-        { l: 'Responsável', v: r => esc(r.responsavel || '—') },
+        { l: 'Responsável', v: r => esc(nomeDe(r.responsavel) || '—') },
       ],
       click: id => openForm('monitoramentos', get('monitoramentos', id)),
     });
@@ -1400,7 +1413,7 @@
           <button class="btn primary" type="submit">Adicionar</button></form>
         <p class="muted" style="margin:0;font-size:13px">Depois de adicionar, envie o endereço do sistema para a pessoa. No primeiro acesso ela digita este e-mail, escolhe uma senha e clica em <b>Primeiro acesso: criar minha senha</b>.</p></section>
       <div class="table-wrap"><table><thead><tr><th>E-mail</th><th>Nome</th><th>Permissão</th><th>Fazendas que vê</th><th>Acesso</th><th></th></tr></thead><tbody>
-        ${E.lista.map(m => { const self = m.email.toLowerCase() === eu; return `<tr data-email="${esc(m.email)}"><td>${esc(m.email)}${self ? ' <span class="pill info">você</span>' : ''}</td><td>${esc(m.nome || '—')}</td>
+        ${E.lista.map(m => { const self = m.email.toLowerCase() === eu; return `<tr data-email="${esc(m.email)}"><td>${esc(m.email)}${self ? ' <span class="pill info">você</span>' : ''}</td><td><input type="text" class="team-nome" data-m="nome" value="${esc(m.nome || '')}" placeholder="Escreva o nome" aria-label="Nome de ${esc(m.email)}"></td>
           <td><select data-m="papel" ${self ? 'disabled title="Você não pode mudar a própria permissão"' : ''}>${Object.entries(PAPEIS).map(([k, p]) => `<option value="${k}" ${m.papel === k ? 'selected' : ''}>${p.l}</option>`).join('')}${PAPEIS[m.papel] ? '' : `<option selected>${esc(m.papel)}</option>`}</select></td>
           <td>${m.papel === 'admin' ? '<span class="muted">Todas (administrador)</span>' : `<button class="btn small" data-m="faz" ${S.faltaFazPerm ? 'disabled title="Rode a atualização do banco para liberar"' : ''}>${(m.fazendas || []).length ? fmtInt(m.fazendas.length) + ' fazenda(s)' : 'Todas'}</button>`}</td>
           <td>${m.ativo === false ? '<span class="pill">Bloqueado</span>' : '<span class="pill ok">Ativo</span>'}</td>
@@ -1440,6 +1453,7 @@
     const tr = e.target.closest('tr[data-email]'); if (!tr) return;
     const email = tr.dataset.email, m = E.lista.find(x => x.email === email), el = e.target.closest('[data-m]'); if (!el || !m) return;
     try {
+      if (el.dataset.m === 'nome') { if (e.type !== 'change') return; const nome = el.value.trim(); await SB.updMembro(email, { nome: nome || null }); m.nome = nome; toast('Nome salvo.'); carregarNomes().catch(() => {}); return; }
       if (el.dataset.m === 'papel' && e.type === 'change') { await SB.updMembro(email, { papel: el.value }); toast('Permissão alterada.'); }
       else if (el.dataset.m === 'faz' && e.type === 'click') { escolherFazendas(m); return; }
       else if (el.dataset.m === 'ativo' && e.type === 'click') { await SB.updMembro(email, { ativo: m.ativo === false }); toast(m.ativo === false ? 'Acesso liberado.' : 'Acesso bloqueado.'); }
@@ -1864,7 +1878,7 @@
   function cardFeed(m) {
     const t = get('talhoes', m.talhao_id), fz = t && get('fazendas', t.fazenda_id), p = fz && get('produtores', fz.produtor_id);
     const c = t && culturaNaData(t, m.data), sem = semaforo(m), fotos = fotosMon(m), i = FD.idx[m.id] || 0;
-    const autor = m.responsavel || (m.criado_por && m.criado_por !== 'local' ? m.criado_por : 'Equipe InovaAgro');
+    const autor = nomeDe(m.responsavel) || (m.criado_por && m.criado_por !== 'local' ? nomeDe(m.criado_por) : 'Equipe InovaAgro');
     const cur = m.curtidas || {}, up = Object.values(cur).filter(v => v > 0).length, down = Object.values(cur).filter(v => v < 0).length, meu = cur[eu()] || 0;
     const cm = m.comentarios || [];
     return `<article class="card-box post" data-mon="${esc(m.id)}">
@@ -1882,7 +1896,7 @@
           <div><button class="btn small" data-edit="monitoramentos:${esc(m.id)}">Abrir visita</button></div></div>
       </div>
       <footer class="post-f"><button class="react ${meu > 0 ? 'on' : ''}" data-fd-reac="1" aria-label="Curtir">${ICR.up}<span>${up}</span></button><button class="react ${meu < 0 ? 'on' : ''}" data-fd-reac="-1" aria-label="Não curtir">${ICR.down}<span>${down}</span></button><button class="react" data-fd-cmt aria-label="Comentários">${ICR.cmt}<span>${cm.length}</span></button></footer>
-      <div class="cmts" ${FD.aberto === m.id || cm.length ? '' : 'hidden'}>${cm.map(x => `<div class="cmt"><span class="avatar sm">${esc(iniciais(x.autor))}</span><div><b>${esc(x.autor)}</b> <small class="muted">${fmtDate(x.data)}</small><p>${esc(x.texto)}</p></div></div>`).join('')}
+      <div class="cmts" ${FD.aberto === m.id || cm.length ? '' : 'hidden'}>${cm.map(x => `<div class="cmt"><span class="avatar sm">${esc(iniciais(nomeDe(x.autor)))}</span><div><b>${esc(nomeDe(x.autor))}</b> <small class="muted">${fmtDate(x.data)}</small><p>${esc(x.texto)}</p></div></div>`).join('')}
         ${podeEditar() ? `<div class="cmt-new"><input type="text" class="cmt-in" placeholder="Escreva um comentário e tecle Enter" aria-label="Comentário"><button class="btn small" data-fd-send>Enviar</button></div>` : ''}</div>
     </article>`;
   }
@@ -1931,7 +1945,7 @@
       const t = get('talhoes', m.talhao_id), lugar = nomeTal(t) + ' · ' + (get('fazendas', t?.fazenda_id)?.nome || '');
       const sem = semaforo(m);
       if (diasDesde(m.data) <= 30 && (sem === 'vermelho' || sem === 'amarelo')) out.push({ id: 'mon-' + m.id, tipo: 'feed', data: m.data, cor: ATV[sem].c, t: `Visita em ${sem} em ${lugar}`, d: m.alvo || m.estadio || m.obs || '', go: 'monitoramentos:' + m.id });
-      for (const c of m.comentarios || []) if (c.autor !== eu() && diasDesde(c.data) <= 60) out.push({ id: 'cmt-' + m.id + '-' + c.data, tipo: 'feed', data: c.data, cor: '#2a78d6', t: `${c.autor} comentou a visita em ${lugar}`, d: c.texto, go: 'monitoramentos:' + m.id });
+      for (const c of m.comentarios || []) if (c.autor !== eu() && diasDesde(c.data) <= 60) out.push({ id: 'cmt-' + m.id + '-' + c.data, tipo: 'feed', data: c.data, cor: '#2a78d6', t: `${nomeDe(c.autor)} comentou a visita em ${lugar}`, d: c.texto, go: 'monitoramentos:' + m.id });
     }
     for (const o of S.data.ordens) {
       const f = get('fazendas', o.fazenda_id)?.nome || '';
@@ -3181,6 +3195,7 @@
       const ok = await SB.cli.rpc('sou_membro');
       if (ok.error && Off.erroDeRede(ok.error)) { /* caiu a internet: segue com o que já carregou */ }
       else if (ok.error || !ok.data) { await Off.limpar().catch(() => {}); showLogin('O e-mail ' + SB.user.email + ' ainda não tem acesso ou está bloqueado. Peça ao administrador para liberar.'); $('#login-out').hidden = false; return; }
+      carregarNomes().catch(() => {});
       try { const pp = await SB.meuPapel() || 'leitura'; setPapel(pp); try { localStorage.setItem('inovaagro.papel', pp); } catch (e) { } }
       catch (e) { if (Off.erroDeRede(e)) usarPapelSalvo(); else { S.equipePendente = true; setPapel('editor'); } } // sem internet / banco ainda sem a atualização de permissões
       if (!S.base.produtores.length) setTimeout(() => toast('Banco vazio. Use "Importar dados" para carregar o arquivo exportado.'), 800);
@@ -3232,5 +3247,5 @@
   // Nome do pluviômetro de uma chuva, mesmo depois de excluído
   const nomePluv = c => { const r = get('pluviometros', c.pluviometro_id); return r ? (r.nome || key(r.id)) : c.pluviometro_nome ? c.pluviometro_nome + ' (excluído)' : '—'; };
   // Ponte para o modo campo (src/campo.js)
-  window.INOVA = { loadLib, imgDataUrl, custosOrdem, dataCusto, safraPorData, sugerirProdutos, insPorNome, conf, exportar, semaforo, fmtR, fmtHa0, diasDesde, num, safrasLista, ordemDaVisita, ehAdmin: () => S.papel === 'admin' || Store.mode !== 'supabase', COT, excluirPluv, nomePluv, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
+  window.INOVA = { nomeDe, loadLib, imgDataUrl, custosOrdem, dataCusto, safraPorData, sugerirProdutos, insPorNome, conf, exportar, semaforo, fmtR, fmtHa0, diasDesde, num, safrasLista, ordemDaVisita, ehAdmin: () => S.papel === 'admin' || Store.mode !== 'supabase', COT, excluirPluv, nomePluv, S, VIEWS, KINDS, FIELDS, NOME, ORD_TIPOS, Store, SB, Sync, Off, get, key, rebuild, refresh, route, openForm, toast, esc, fmtHa, fmtInt, fmtDate, today, newId, nomeTal, culturaAtual, sincronizar, podeEditar, PAPEIS, icon, centroFaz, sair: () => sair() };
 })();

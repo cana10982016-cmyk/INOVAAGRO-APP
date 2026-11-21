@@ -47,7 +47,7 @@ window.LinhaTempo = (function () {
       for (const a of m.amostras_detalhe || []) { if (a.valor == null || a.valor === '' || !isFinite(+a.valor)) continue; const it = CN && CN.daAmostra(a); const id = it ? it.id : (a.alvo || ''); if (!id) continue; const y = g.get(id) || { nome: it ? it.nome : a.alvo, un: it ? it.un : '', it, v: [] }; y.v.push(+a.valor); g.set(id, y); }
       const pr = [...g.values()].map(y => { const med = y.v.reduce((a, b) => a + b, 0) / y.v.length; return { nome: y.nome, un: y.un, med, cl: y.it ? CN.classe(y.it, med, aj) : null }; });
       const rc = m.recomendacao && (m.recomendacao.produtos || []).length ? m.recomendacao.produtos.map(p => p.produto + (p.dose != null ? ' ' + String(p.dose).replace('.', ',') + ' ' + (p.unidade || '') : '')).join(' + ') : '';
-      x.ev.push({ d: m.data || '', tipo: 'visita', t: 'Visita' + (m.alvo ? ' · ' + m.alvo : ''), sub: [m.estadio, m.responsavel ? String(m.responsavel).split('@')[0] : ''].filter(Boolean).join(' · '), sem, pr, rc, obs: m.obs, go: 'monitoramentos:' + m.id });
+      x.ev.push({ d: m.data || '', tipo: 'visita', t: 'Visita' + (m.alvo ? ' · ' + m.alvo : ''), sub: [m.estadio, m.responsavel ? (I().nomeDe ? I().nomeDe(m.responsavel) : String(m.responsavel)).split('@')[0] : ''].filter(Boolean).join(' · '), sem, pr, rc, obs: m.obs, go: 'monitoramentos:' + m.id });
     }
     for (const o of S().ordPorTal.get(k(t.id)) || []) {
       if (o.status === 'Cancelada') continue; const d = I().dataCusto(o); const x = sf(sp(d)); if (!x) continue; x.apl++;
