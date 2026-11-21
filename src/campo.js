@@ -432,6 +432,7 @@ window.Campo = (function () {
         <button data-cp="opcoes">${ic('opcoes')}Opções</button>
         <button data-cp="rota">${ic('rota')}Rota de visitas do dia</button>
         <button data-cp="cot-lista">${ic('cotesia')}Liberações de Cotesia</button>
+        ${window.Financeiro ? `<button data-cp="financeiro">${ic('nota')}Despesas e veículos</button>` : ''}
         <button data-cp="pluv-lista">${ic('pluv')}Pluviômetros</button>
         <button data-cp="niveis">${ic('semaforo')}Níveis de controle da cana</button>
         <button data-cp="tab" data-p="clima">${ic('clima')}Clima</button>
@@ -1175,6 +1176,7 @@ window.Campo = (function () {
       case 'rota-ir': navegar(tal(b.dataset.id)); break;
       case 'rota-visita': { const t = tal(b.dataset.id); if (t) novaVisita(t); break; }
       case 'cot-lista': cotesiaLista(); break;
+      case 'financeiro': fecharMenu(); if (window.Financeiro) window.Financeiro.celular(); break;
       case 'pluv-lista': pluvLista(); break;
       case 'pv-novo': pluvNovo(); break;
       case 'pv-chuva': chuva(I().get('pluviometros', b.dataset.id)); break;
