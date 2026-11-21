@@ -29,6 +29,13 @@ Para ativar, rode uma vez `supabase/02_atualizacao.sql` no editor SQL do Supabas
 - **Backup** (`src/backup.js`, só administrador): rode uma vez `supabase/05_backup.sql` para o banco copiar todas as tabelas toda segunda às 6h (guarda 8 cópias). O site também salva uma cópia semanal no computador do administrador (pasta Downloads). Dá para baixar e restaurar pela tela.
 - **Relatório mensal do cliente** (`src/relatorio_mensal.js`): PDF com visitas, pragas da cana com nível de controle, chuva por dia, aplicações e custos. Custos só aparecem para o administrador.
 
+## Agenda da equipe
+- Menu **Atividades → Agenda da equipe** (no celular: menu do modo campo → Agenda de visitas). Código em `src/agenda.js` e `src/agenda.css`.
+- Visitas planejadas por técnico e por semana (data, hora, fazenda, talhões, objetivo, repetir toda semana/quinzena/mês). Arraste o cartão para mudar o dia ou o técnico.
+- A visita agendada vira **feita** sozinha quando o técnico registra uma visita naquela fazenda (ou nos talhões escolhidos) a partir de 3 dias antes da data; também dá para marcar à mão. Passou da data sem visita: **atrasada** (aviso em Notificações e no menu).
+- No celular: "Iniciar visita" já liga a visita à agenda; as visitas de hoje e atrasadas entram primeiro na Rota do dia. Funciona sem internet.
+- Para ativar no banco, rode uma vez `supabase/06_agenda.sql`. Administrador vê e planeja a agenda de todos; técnico só a própria.
+
 ## Estrutura
 - `assets/` logo e ícones da InovaAgro.
 - `src/` código-fonte (HTML, CSS, JavaScript puro + Leaflet). Sem etapa de compilação além de `tools/build.py`.
