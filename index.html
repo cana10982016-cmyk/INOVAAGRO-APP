@@ -2062,6 +2062,13 @@ body.campo-on .toast { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); ma
   .fin-lucro .fin-div { width: 70px; }
 }
 
+/* Contratos */
+.fin-ctr-flt { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--accent-soft); font-size: 13.5px; }
+.fin-ajuda { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.fin-ctr td.fz small, .fin-ctr td.ds small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.fin-ctr td.cp .btn { white-space: nowrap; }
+.fin-vazio .btn { margin-top: 12px; }
+
 /* INOVAAGRO — telas novas: recomendação na visita, produtividade da cana, backup e relatório mensal */
 
 /* Recomendação técnica (janela da visita / da ordem) */
@@ -7207,14 +7214,16 @@ window.Financeiro = (function () {
 
   // ---------- Estado e preferências ----------
   const LS = 'inovaagro.financeiro.v1';
-  const F = { aba: 'resumo', per: 'mes', de: '', ate: '', veic: '', func: '', tipo: '', faz: '', status: '', lim: 80, sel: new Set(), ultVeic: '', cf: 'abertas', lucroAberto: '' };
+  const F = { aba: 'resumo', per: 'mes', de: '', ate: '', veic: '', func: '', tipo: '', faz: '', status: '', lim: 80, sel: new Set(), ultVeic: '', cf: 'abertas', lucroAberto: '', ctr: '' };
   try { Object.assign(F, JSON.parse(localStorage.getItem(LS) || '{}'), { sel: new Set(), lim: 80 }); } catch (e) { }
   const salvarPref = () => { try { localStorage.setItem(LS, JSON.stringify({ aba: F.aba, per: F.per, de: F.de, ate: F.ate, veic: F.veic, func: F.func, tipo: F.tipo, faz: F.faz, status: F.status, ultVeic: F.ultVeic })); } catch (e) { } };
 
   const S = () => I().S;
   const veiculos = () => (S().data.veiculos || []).slice().sort((a, b) => String(a.placa || '').localeCompare(String(b.placa || '')));
   const despesas = () => S().data.despesas || [];
-  const contas = () => S().data.contas || [];
+  // Contratos dos clientes ficam na mesma tabela 'contas' (só o administrador lê), marcados com kind: 'contrato'
+  const contas = () => (S().data.contas || []).filter(c => c.kind !== 'contrato');
+  const contratos = () => (S().data.contas || []).filter(c => c.kind === 'contrato');
   const veic = id => I().get('veiculos', id);
   const meuEmail = () => (I().SB.user && I().SB.user.email) || 'local';
   const souAdmin = () => S().papel === 'admin';
@@ -7447,6 +7456,7 @@ window.Financeiro = (function () {
     const p = periodo(), adm = souAdmin(), ed = I().podeEditar();
     // Valores e relatórios são só do administrador; o técnico só lança e acompanha os próprios lançamentos
     if (!adm && !['lanc', 'veic'].includes(F.aba)) F.aba = 'lanc';
+    if (adm) gerarCobrancas();
     const lista = filtradas();
     const pessoas = [...new Set(despesas().map(d => String(d.usuario || '').toLowerCase()).filter(Boolean))].sort((a, b) => nomePessoa(a).localeCompare(nomePessoa(b), 'pt-BR'));
     const fazIds = [...new Set(despesas().flatMap(fazendasDe))];
@@ -7460,20 +7470,20 @@ window.Financeiro = (function () {
         <div class="head-acts">${adm ? `<button class="btn" data-f="ajustes">${I().icon('configuracao')} Ajustes</button>` : ''}${ed ? `<button class="btn primary" data-f="novo">${svg(IC.mais)}Lançar despesa</button>` : ''}
           ${adm ? `<button class="btn" data-f="xlsx">${I().icon('xls')} Excel</button><button class="btn" data-f="pdf">${I().icon('pdf')} PDF</button>` : ''}</div></div>
       ${aviso}${avisoFoto}${htmlAvisos()}
-      ${ed && F.aba !== 'contas' && F.aba !== 'lucro' ? `<div class="fin-quick" role="group" aria-label="Lançamento rápido">${TIPOS.map(t => `<button data-f="novo" data-tipo="${t}"><i class="fin-qi ${TIPO_INFO[t].cls}">${svg(TIPO_INFO[t].ic)}</i><span>${t === 'Outra' ? 'Outra despesa' : t}</span></button>`).join('')}</div>` : ''}
-      <div class="fin-filtros">
+      ${ed && !['contas', 'lucro', 'contratos'].includes(F.aba) ? `<div class="fin-quick" role="group" aria-label="Lançamento rápido">${TIPOS.map(t => `<button data-f="novo" data-tipo="${t}"><i class="fin-qi ${TIPO_INFO[t].cls}">${svg(TIPO_INFO[t].ic)}</i><span>${t === 'Outra' ? 'Outra despesa' : t}</span></button>`).join('')}</div>` : ''}
+      ${F.aba === 'contratos' ? '' : `<div class="fin-filtros">
         <select data-flt="per" aria-label="Período">${Object.entries(PER).map(([k, l]) => `<option value="${k}" ${F.per === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
         ${F.per === 'custom' ? `<input type="date" data-flt="de" value="${esc(F.de)}" aria-label="De"><input type="date" data-flt="ate" value="${esc(F.ate)}" aria-label="Até">` : ''}
-        ${F.aba === 'contas' || F.aba === 'lucro' ? '' : `<select data-flt="veic" aria-label="Veículo"><option value="">Todos os veículos</option>${veiculos().map(v => `<option value="${esc(v.id)}" ${String(v.id) === F.veic ? 'selected' : ''}>${esc(v.placa)} · ${esc(v.modelo || '')}</option>`).join('')}</select>
+        ${['contas', 'lucro', 'contratos'].includes(F.aba) ? '' : `<select data-flt="veic" aria-label="Veículo"><option value="">Todos os veículos</option>${veiculos().map(v => `<option value="${esc(v.id)}" ${String(v.id) === F.veic ? 'selected' : ''}>${esc(v.placa)} · ${esc(v.modelo || '')}</option>`).join('')}</select>
         ${adm ? `<select data-flt="func" aria-label="Funcionário"><option value="">Toda a equipe</option>${pessoas.map(e => `<option value="${esc(e)}" ${e === F.func ? 'selected' : ''}>${esc(nomePessoa(e))}</option>`).join('')}</select>` : ''}
         <select data-flt="tipo" aria-label="Tipo"><option value="">Todos os tipos</option>${TIPOS.map(t => `<option value="${t}" ${t === F.tipo ? 'selected' : ''}>${TIPO_INFO[t].plural}</option>`).join('')}</select>
         ${fazendas.length ? `<select data-flt="faz" aria-label="Fazenda ou cliente"><option value="">Todas as fazendas</option>${fazendas.map(f => `<option value="${esc(f.id)}" ${String(f.id) === F.faz ? 'selected' : ''}>${esc(f.nome)}</option>`).join('')}</select>` : ''}
         <select data-flt="status" aria-label="Situação"><option value="">Qualquer situação</option>${STATUS.map(s => `<option ${s === F.status ? 'selected' : ''}>${s}</option>`).join('')}</select>
         ${F.veic || F.func || F.tipo || F.faz || F.status ? '<button class="lnk" data-f="limpar">Limpar filtros</button>' : ''}`}
-      </div>
-      ${pend.length && F.aba !== 'contas' && F.aba !== 'lucro' ? `<div class="fin-pend"><span><b>${I().fmtInt(pend.length)} despesa${pend.length > 1 ? 's' : ''} esperando aprovação</b> · ${R$(pend.reduce((a, d) => a + n(d.valor), 0))}</span><button class="btn small" data-f="ver-pend">Revisar</button></div>` : ''}
-      <div class="tabs" role="tablist">${(adm ? [['resumo', 'Resumo'], ['lanc', 'Lançamentos'], ['veic', 'Veículos'], ['reemb', 'Reembolsos'], ['contas', 'Contas a pagar e receber'], ['lucro', 'Lucro por cliente']] : [['lanc', 'Meus lançamentos'], ['veic', 'Veículos']]).map(([k, l]) => `<button role="tab" data-f="aba" data-aba="${k}" aria-selected="${F.aba === k}">${l}${k === 'lanc' ? ` <span class="ct num">${I().fmtInt(lista.length)}</span>` : k === 'veic' ? ` <span class="ct num">${I().fmtInt(veiculos().length)}</span>` : ''}</button>`).join('')}</div>
-      <div class="fin-body">${F.aba === 'lanc' ? htmlLanc(lista) : F.aba === 'veic' ? htmlVeic(p, lista) : !adm ? '' : F.aba === 'reemb' ? htmlReemb(p) : F.aba === 'contas' && adm ? htmlContas(p) : F.aba === 'lucro' && adm ? htmlLucro(p) : htmlResumo(p, lista)}</div>
+      </div>`}
+      ${pend.length && !['contas', 'lucro', 'contratos'].includes(F.aba) ? `<div class="fin-pend"><span><b>${I().fmtInt(pend.length)} despesa${pend.length > 1 ? 's' : ''} esperando aprovação</b> · ${R$(pend.reduce((a, d) => a + n(d.valor), 0))}</span><button class="btn small" data-f="ver-pend">Revisar</button></div>` : ''}
+      <div class="tabs" role="tablist">${(adm ? [['resumo', 'Resumo'], ['lanc', 'Lançamentos'], ['veic', 'Veículos'], ['reemb', 'Reembolsos'], ['contratos', 'Contratos'], ['contas', 'Contas a pagar e receber'], ['lucro', 'Lucro por cliente']] : [['lanc', 'Meus lançamentos'], ['veic', 'Veículos']]).map(([k, l]) => `<button role="tab" data-f="aba" data-aba="${k}" aria-selected="${F.aba === k}">${l}${k === 'lanc' ? ` <span class="ct num">${I().fmtInt(lista.length)}</span>` : k === 'veic' ? ` <span class="ct num">${I().fmtInt(veiculos().length)}</span>` : ''}</button>`).join('')}</div>
+      <div class="fin-body">${F.aba === 'lanc' ? htmlLanc(lista) : F.aba === 'veic' ? htmlVeic(p, lista) : !adm ? '' : F.aba === 'reemb' ? htmlReemb(p) : F.aba === 'contratos' ? htmlContratos() : F.aba === 'contas' && adm ? htmlContas(p) : F.aba === 'lucro' && adm ? htmlLucro(p) : htmlResumo(p, lista)}</div>
       <div class="fin-tip" hidden></div></div>`;
   }
 
@@ -7582,7 +7592,7 @@ window.Financeiro = (function () {
   async function clique(e) {
     const b = e.target.closest('[data-f]'); if (!b || b.tagName === 'INPUT') return;
     switch (b.dataset.f) {
-      case 'aba': F.aba = b.dataset.aba; salvarPref(); render(); break;
+      case 'aba': F.aba = b.dataset.aba; F.ctr = ''; salvarPref(); render(); break;
       case 'novo': formDespesa(null, { tipo: b.dataset.tipo || 'Combustível', veiculo_id: b.dataset.veic || '' }); break;
       case 'abrir': if (e.target.closest('.ck')) return; formDespesa(I().get('despesas', b.dataset.id)); break;
       case 'foto': e.stopPropagation(); verComprovante(I().get('despesas', b.dataset.id)); break;
@@ -7602,9 +7612,13 @@ window.Financeiro = (function () {
       case 'xlsx': if (souAdmin()) baixarExcel(); break;
       case 'ajustes': if (souAdmin()) formAjustes(); break;
       case 'conta-nova': formConta(null, { tipo: b.dataset.tipo || 'Receber' }); break;
+      case 'contrato-novo': formContrato(null); break;
+      case 'contrato': formContrato(contratos().find(c => String(c.id) === b.dataset.id)); break;
+      case 'contrato-contas': F.cf = 'receber'; F.ctr = b.dataset.id; F.aba = 'contas'; F.per = 'tudo'; salvarPref(); render(); break;
       case 'conta': formConta(contas().find(c => String(c.id) === b.dataset.id)); break;
       case 'conta-baixa': { e.stopPropagation(); const c = contas().find(x => String(x.id) === b.dataset.id); if (c) { await I().Store.save('contas', Object.assign({}, c, { pago_em: I().today() })); I().toast(c.tipo === 'Receber' ? 'Marcada como recebida.' : 'Marcada como paga.'); } break; }
       case 'contas-flt': F.cf = b.dataset.v; render(); break;
+      case 'ctr-limpar': F.ctr = ''; render(); break;
       case 'reemb-pagar': { const em = b.dataset.id, l = despesas().filter(d => String(d.usuario).toLowerCase() === em && reembolsavel(d) && d.status === 'Aprovada'); if (!l.length || !confirm(`Marcar ${l.length} despesa(s) de ${nomePessoa(em)} como reembolsadas (${R$(l.reduce((a, d) => a + n(d.valor), 0))})?`)) break; for (const d of l) await I().Store.save('despesas', Object.assign({}, d, { status: 'Reembolsada', status_por: meuEmail(), status_em: new Date().toISOString(), reembolsado_em: I().today() })); I().toast('Reembolso registrado.'); break; }
       case 'reemb-recibo': reciboPDF(b.dataset.id); break;
       case 'lucro-cli': F.lucroAberto = F.lucroAberto === b.dataset.id ? '' : b.dataset.id; render(); break;
@@ -7941,6 +7955,7 @@ window.Financeiro = (function () {
     if (souAdmin()) {
       const ct = contas().filter(c => noPer(c.vencimento, p));
       if (ct.length) X.utils.book_append_sheet(wb, X.utils.json_to_sheet(ct.sort((a, b) => String(a.vencimento).localeCompare(String(b.vencimento))).map(c => ({ Tipo: c.tipo === 'Receber' ? 'A receber' : 'A pagar', 'Descrição': c.descricao || '', Categoria: c.categoria || '', 'Cliente / fornecedor': c.tipo === 'Receber' ? ((I().get('produtores', c.produtor_id) || {}).nome || '') : (c.fornecedor || ''), Fazenda: (I().get('fazendas', c.fazenda_id) || {}).nome || '', Vencimento: fd(c.vencimento), 'Pago/recebido em': c.pago_em ? fd(c.pago_em) : '', 'Situação': situacaoConta(c).l, 'Valor (R$)': r2(n(c.valor)) }))), 'Contas');
+      const ks = contratos(); if (ks.length) X.utils.book_append_sheet(wb, X.utils.json_to_sheet(ks.map(k => ({ Cliente: nomeCli(k.produtor_id), Fazenda: (I().get('fazendas', k.fazenda_id) || {}).nome || '', 'Descrição': k.descricao || '', 'Valor mensal (R$)': r2(n(k.valor)), 'Dia do vencimento': n(k.dia), 'Início': fd(k.inicio), Fim: k.fim ? fd(k.fim) : 'Sem prazo', 'Situação': situacaoContrato(k).l }))), 'Contratos');
       const lu = lucroDados(p); X.utils.book_append_sheet(wb, X.utils.json_to_sheet(lu.linhas.map(x => ({ Cliente: x.nome, 'Receitas (R$)': r2(x.rec), 'Despesas da equipe (R$)': r2(x.desp), 'Contas a pagar (R$)': r2(x.pag), 'Lucro (R$)': r2(x.rec - x.desp - x.pag), 'Margem (%)': x.rec ? Math.round((x.rec - x.desp - x.pag) / x.rec * 1000) / 10 : null }))), 'Lucro por cliente');
     }
     X.writeFile(wb, nomeArq('xlsx')); I().toast('Planilha gerada.');
@@ -8020,6 +8035,11 @@ window.Financeiro = (function () {
         const o = c.tipo === 'Receber' ? 'a receber' : 'a pagar';
         out.push({ id: 'cta-' + c.id + '-' + (dias < 0 ? 'v' : dias), tipo: 'atividades', data: c.vencimento, cor: dias < 0 ? '#d03b3b' : '#ec835a', t: dias < 0 ? `Conta ${o} vencida: ${c.descricao || ''}` : `Conta ${o} vence ${dias === 0 ? 'hoje' : dias === 1 ? 'amanhã' : 'em ' + dias + ' dias'}: ${c.descricao || ''}`, d: R$(c.valor) + (c.tipo === 'Receber' ? ' · ' + ((I().get('produtores', c.produtor_id) || {}).nome || '') : c.fornecedor ? ' · ' + c.fornecedor : ''), go: 'fin:contas' });
       }
+      for (const k of contratos()) {
+        if (k.status === 'Encerrado' || !k.fim) continue;
+        const dias = Math.round((new Date(k.fim + 'T12:00:00') - new Date(hoje + 'T12:00:00')) / 864e5);
+        if (dias >= 0 && dias <= 30) out.push({ id: 'ctr-fim-' + k.id + '-' + k.fim, tipo: 'atividades', data: hoje, cor: '#ec835a', t: `Contrato termina ${dias === 0 ? 'hoje' : 'em ' + dias + (dias === 1 ? ' dia' : ' dias')}: ${nomeCli(k.produtor_id)}`, d: 'Renove ou encerre em Despesas e veículos → Contratos', go: 'fin:contratos' });
+      }
       const pend = despesas().filter(d => (d.status || 'Pendente') === 'Pendente');
       if (pend.length) out.push({ id: 'dpend-' + pend.length + '-' + pend.map(d => d.id).sort().slice(-1), tipo: 'atividades', data: pend.map(d => d.data || '').sort().pop(), cor: '#2a78d6', t: `${pend.length} despesa(s) esperando aprovação`, d: R$(pend.reduce((a, d) => a + n(d.valor), 0)), go: 'fin:lanc' });
     } else {
@@ -8029,7 +8049,7 @@ window.Financeiro = (function () {
   }
   function htmlAvisos() {
     if (!souAdmin()) return '';
-    const l = avisos().filter(a => a.id.startsWith('cta-') || a.id.startsWith('orc-'));
+    const l = avisos().filter(a => a.id.startsWith('cta-') || a.id.startsWith('orc-') || a.id.startsWith('ctr-fim-'));
     if (!l.length) return '';
     return `<div class="fin-avisos">${l.slice(0, 4).map(a => `<button class="fin-aviso" data-f="aba" data-aba="${a.go.split(':')[1]}"><i class="dot" style="background:${a.cor}"></i><span><b>${esc(a.t)}</b><small>${esc(a.d)}</small></span></button>`).join('')}${l.length > 4 ? `<span class="muted">e mais ${l.length - 4}</span>` : ''}</div>`;
   }
@@ -8096,8 +8116,8 @@ window.Financeiro = (function () {
     return { l: 'Em aberto', cls: 'info' };
   }
   function htmlContas(p) {
-    const cf = F.cf || 'abertas', todas = contas();
-    const l = todas.filter(c => cf === 'abertas' ? !c.pago_em : cf === 'receber' ? c.tipo === 'Receber' && noPer(c.vencimento, p) : cf === 'pagar' ? c.tipo === 'Pagar' && noPer(c.vencimento, p) : noPer(c.vencimento, p))
+    const cf = F.cf || 'abertas', todas = contas(), ctr = F.ctr ? contratos().find(x => String(x.id) === F.ctr) : null;
+    const l = todas.filter(c => !ctr || String(c.contrato_id) === String(ctr.id)).filter(c => cf === 'abertas' ? !c.pago_em : cf === 'receber' ? c.tipo === 'Receber' && noPer(c.vencimento, p) : cf === 'pagar' ? c.tipo === 'Pagar' && noPer(c.vencimento, p) : noPer(c.vencimento, p))
       .sort((a, b) => String(a.vencimento || '').localeCompare(String(b.vencimento || '')));
     const soma = f => todas.filter(f).reduce((a, c) => a + n(c.valor), 0);
     const recA = soma(c => c.tipo === 'Receber' && !c.pago_em), pagA = soma(c => c.tipo === 'Pagar' && !c.pago_em);
@@ -8111,10 +8131,11 @@ window.Financeiro = (function () {
         <div class="tile fin-t bad"><span class="lbl">A pagar em aberto</span><span class="val num">${R$(pagA)}</span><span class="sub">${pagV.length ? `<b class="fin-bad">${pagV.length} vencida(s)</b>` : 'nenhuma vencida'}</span></div>
         <div class="tile fin-t bad"><span class="lbl">Pago no período</span><span class="val num">${R$(pagP)}</span><span class="sub">contas a pagar quitadas</span></div>
         <div class="tile"><span class="lbl">Saldo previsto</span><span class="val num">${R$(recA - pagA)}</span><span class="sub">a receber − a pagar em aberto</span></div></div>
+      ${ctr ? `<div class="fin-ctr-flt">Mostrando só as cobranças do contrato <b>${esc(nomeCli(ctr.produtor_id))}</b> · ${esc(ctr.descricao || '')} <button class="lnk" data-f="ctr-limpar">Ver todas as contas</button></div>` : ''}
       <div class="seg fin-cf" role="group" aria-label="Mostrar">${[['abertas', 'Em aberto'], ['todas', 'Vencimento no período'], ['receber', 'A receber'], ['pagar', 'A pagar']].map(([k, t]) => `<button data-f="contas-flt" data-v="${k}" aria-pressed="${cf === k}">${t}</button>`).join('')}</div>
       <div class="table-wrap fin-tab fin-ctab"><table><thead><tr><th>Vencimento</th><th>Tipo</th><th>Descrição</th><th>Cliente / fornecedor</th><th>Situação</th><th class="r">Valor</th><th></th></tr></thead><tbody>
       ${l.map(c => { const st = situacaoConta(c); return `<tr class="click" data-f="conta" data-id="${esc(c.id)}"><td class="dt">${fd(c.vencimento)}</td><td class="tp"><span class="pill ${c.tipo === 'Receber' ? 'ok' : ''}">${c.tipo === 'Receber' ? 'A receber' : 'A pagar'}</span></td>
-        <td class="ds">${esc(c.descricao || '')}<small>${esc([c.categoria, c.parcela].filter(Boolean).join(' · '))}</small></td><td class="fz">${esc(quem(c))}</td><td class="sx"><span class="pill ${st.cls}">${esc(st.l)}</span>${c.pago_em ? `<small class="muted"> em ${fd(c.pago_em)}</small>` : ''}</td>
+        <td class="ds">${esc(c.descricao || '')}<small>${esc([c.categoria, c.parcela, c.contrato_id ? 'gerada pelo contrato' : ''].filter(Boolean).join(' · '))}</small></td><td class="fz">${esc(quem(c))}</td><td class="sx"><span class="pill ${st.cls}">${esc(st.l)}</span>${c.pago_em ? `<small class="muted"> em ${fd(c.pago_em)}</small>` : ''}</td>
         <td class="r vl num"><b class="${c.tipo === 'Receber' ? '' : 'fin-neg'}">${c.tipo === 'Receber' ? '' : '− '}${R$(c.valor)}</b></td><td class="cp">${c.pago_em ? '' : `<button class="btn small" data-f="conta-baixa" data-id="${esc(c.id)}">${c.tipo === 'Receber' ? 'Recebi' : 'Paguei'}</button>`}</td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">Nenhuma conta neste filtro.</td></tr>'}
       </tbody></table></div>`;
   }
@@ -8163,6 +8184,116 @@ window.Financeiro = (function () {
         } catch (er) { return; }
         bg.remove(); I().toast(vezes > 1 ? `${vezes} contas criadas (uma por mês).` : 'Conta salva.');
       }
+    });
+  }
+
+  // ---------- Contratos dos clientes: geram a conta a receber de cada mês ----------
+  const nomeCli = id => (I().get('produtores', id) || {}).nome || 'Cliente removido';
+  const mesMais = (m, k) => { const [y, mm] = m.split('-').map(Number); const d = new Date(y, mm - 1 + k, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+  const nomeMesRef = m => new Date(m + '-15T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const vencDe = (m, dia) => { const [y, mm] = m.split('-').map(Number); const ult = new Date(y, mm, 0).getDate(); return m + '-' + String(Math.min(Math.max(1, n(dia) || 10), ult)).padStart(2, '0'); };
+  function situacaoContrato(k) {
+    const hoje = I().today();
+    if (k.status === 'Encerrado') return { l: 'Encerrado', cls: '' };
+    if (k.status === 'Suspenso') return { l: 'Suspenso', cls: 'warn' };
+    if (k.inicio && k.inicio > hoje) return { l: 'Começa em ' + fd(k.inicio), cls: 'info' };
+    if (k.fim && k.fim < hoje) return { l: 'Vencido em ' + fd(k.fim), cls: 'bad' };
+    return { l: 'Ativo', cls: 'ok' };
+  }
+  // Cria as cobranças que faltam: do mês "gerar a partir de" até o mês que vem. O id é fixo por contrato e mês,
+  // então dois aparelhos nunca criam a mesma cobrança duas vezes. Uma cobrança excluída à mão não volta.
+  let gerando = false;
+  async function gerarCobrancas() {
+    if (gerando || !souAdmin() || !S().data.contas) return;
+    const limite = mesMais(mesAtual(), 1), novos = [], atualiza = [];
+    for (const k of contratos()) {
+      if (k.status === 'Encerrado' || k.status === 'Suspenso' || !(n(k.valor) > 0) || !k.produtor_id) continue;
+      let m = k.ultimo_gerado ? mesMais(k.ultimo_gerado, 1) : (k.gerar_desde || mesAtual());
+      if (k.inicio && m < k.inicio.slice(0, 7)) m = k.inicio.slice(0, 7);
+      const fim = k.fim && k.fim.slice(0, 7) < limite ? k.fim.slice(0, 7) : limite;
+      let ult = k.ultimo_gerado || '';
+      for (let i = 0; m <= fim && i < 36; i++, m = mesMais(m, 1)) {
+        const id = 'ctr-' + k.id + '-' + m, venc = vencDe(m, k.dia);
+        ult = m;
+        if ((k.inicio && venc < k.inicio) || (k.fim && venc > k.fim) || I().get('contas', id)) continue;
+        novos.push({ id, tipo: 'Receber', categoria: 'Honorários de consultoria', descricao: (k.descricao || 'Honorários de consultoria') + ' — ' + nomeMesRef(m), valor: n(k.valor), vencimento: venc, produtor_id: k.produtor_id, fazenda_id: k.fazenda_id || null, forma: k.forma || null, contrato_id: k.id, mes_ref: m });
+      }
+      if (ult && ult !== k.ultimo_gerado) atualiza.push(Object.assign({}, k, { ultimo_gerado: ult }));
+    }
+    if (!novos.length && !atualiza.length) return;
+    gerando = true;
+    try { for (const o of novos) await I().Store.save('contas', o); for (const k of atualiza) await I().Store.save('contas', k); if (novos.length) I().toast(novos.length === 1 ? '1 cobrança de contrato criada em Contas a receber.' : novos.length + ' cobranças de contratos criadas em Contas a receber.'); }
+    catch (e) { console.warn('contratos', e); } finally { gerando = false; }
+  }
+  function htmlContratos() {
+    const ks = contratos().slice().sort((a, b) => nomeCli(a.produtor_id).localeCompare(nomeCli(b.produtor_id), 'pt-BR'));
+    const ativos = ks.filter(k => situacaoContrato(k).l === 'Ativo'), mensal = ativos.reduce((a, k) => a + n(k.valor), 0);
+    const cobr = id => contas().filter(c => String(c.contrato_id) === String(id));
+    const abertas = ks.flatMap(k => cobr(k.id)).filter(c => !c.pago_em), vencidas = abertas.filter(c => situacaoConta(c).venc);
+    const prox = abertas.filter(c => !situacaoConta(c).venc).sort((a, b) => String(a.vencimento).localeCompare(String(b.vencimento)))[0];
+    return `<div class="fin-vh"><button class="btn primary" data-f="contrato-novo">${svg(IC.mais)}Novo contrato</button><span class="muted">Cadastre o honorário mensal de cada cliente. Todo mês o app cria sozinho a conta a receber, com o vencimento no dia combinado, e avisa quando ela vence.</span></div>
+      <div class="tiles fin-tiles">
+        <div class="tile fin-t ok"><span class="lbl">Contratos ativos</span><span class="val num">${I().fmtInt(ativos.length)}</span><span class="sub">${ks.length - ativos.length ? I().fmtInt(ks.length - ativos.length) + ' encerrado(s) ou suspenso(s)' : 'todos os cadastrados'}</span></div>
+        <div class="tile fin-t ok"><span class="lbl">Receita mensal contratada</span><span class="val num">${R$(mensal)}</span><span class="sub">${R0(mensal * 12)} por ano</span></div>
+        <div class="tile"><span class="lbl">Próxima cobrança</span><span class="val num fin-val-s">${prox ? R$(prox.valor) : '—'}</span><span class="sub">${prox ? esc(nomeCli(prox.produtor_id)) + ' · ' + fd(prox.vencimento) : 'nenhuma em aberto'}</span></div>
+        <div class="tile fin-t bad"><span class="lbl">Cobranças vencidas</span><span class="val num">${R$(vencidas.reduce((a, c) => a + n(c.valor), 0))}</span><span class="sub">${vencidas.length ? `<b class="fin-bad">${vencidas.length} sem receber</b>` : 'nenhuma vencida'}</span></div></div>
+      ${ks.length ? `<div class="table-wrap fin-tab fin-ctr"><table><thead><tr><th>Cliente</th><th>Descrição</th><th class="r">Valor mensal</th><th>Vencimento</th><th>Vigência</th><th>Situação</th><th>Cobranças</th></tr></thead><tbody>
+      ${ks.map(k => { const st = situacaoContrato(k), cs = cobr(k.id), ab = cs.filter(c => !c.pago_em), vc = ab.filter(c => situacaoConta(c).venc);
+        return `<tr class="click" data-f="contrato" data-id="${esc(k.id)}"><td class="fz"><b>${esc(nomeCli(k.produtor_id))}</b>${k.fazenda_id ? `<small>${esc((I().get('fazendas', k.fazenda_id) || {}).nome || '')}</small>` : ''}</td>
+          <td class="ds">${esc(k.descricao || 'Honorários de consultoria')}${k.forma ? `<small>${esc(k.forma)}</small>` : ''}</td><td class="r vl num"><b>${R$(k.valor)}</b></td>
+          <td class="dt">todo dia ${esc(String(n(k.dia) || 10))}</td><td class="dt">${fd(k.inicio)} – ${k.fim ? fd(k.fim) : 'sem prazo'}</td><td class="sx"><span class="pill ${st.cls}">${esc(st.l)}</span></td>
+          <td class="cp"><button class="btn small" data-f="contrato-contas" data-id="${esc(k.id)}">${I().fmtInt(cs.length)} gerada(s)${vc.length ? ` · <b class="fin-bad">${vc.length} vencida(s)</b>` : ab.length ? ` · ${ab.length} em aberto` : ''}</button></td></tr>`; }).join('')}
+      </tbody></table></div>` : `<div class="fin-vazio">${svg('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>')}<p><b>Nenhum contrato cadastrado.</b><br>Cadastre o honorário mensal de cada cliente e o app passa a gerar a cobrança de todo mês sozinho.</p><button class="btn primary" data-f="contrato-novo">${svg(IC.mais)}Cadastrar o primeiro contrato</button></div>`}`;
+  }
+  function formContrato(rec) {
+    const novo = !rec;
+    const k = Object.assign({ descricao: 'Honorários de consultoria', dia: 10, inicio: I().today(), gerar_desde: mesAtual(), status: 'Ativo', forma: 'Pix' }, rec || {});
+    const prods = S().data.produtores.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR')).map(x => [x.id, x.nome]);
+    const bg = document.createElement('div'); bg.className = 'modal-bg';
+    const montar = () => {
+      const fz = S().data.fazendas.filter(f => !k.produtor_id || String(f.produtor_id) === String(k.produtor_id)).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).map(f => [f.id, f.nome]);
+      const ger = contas().filter(c => String(c.contrato_id) === String(k.id));
+      return `<div class="modal fin-modal" role="dialog" aria-modal="true" aria-labelledby="fin-kt"><header><h2 id="fin-kt">${novo ? 'Novo contrato' : 'Contrato'}</h2><button class="x" data-close aria-label="Fechar">×</button></header>
+        <form novalidate>
+          ${campo('Cliente (produtor)', sel('produtor_id', prods, k.produtor_id, 'Selecione…', 'required'))}${campo('Fazenda (opcional)', sel('fazenda_id', fz, k.fazenda_id, 'Todas do cliente'))}
+          ${campo('Descrição', inp('descricao', k.descricao, 'placeholder="Ex.: Consultoria agronômica mensal"'), 'full')}
+          ${campo('Honorário mensal (R$)', numInp('valor', k.valor, 'required placeholder="Ex.: 2500"'), 'fin-valor')}${campo('Dia do vencimento', `<input type="number" inputmode="numeric" min="1" max="31" step="1" name="dia" value="${esc(String(k.dia ?? ''))}" required>`)}
+          ${campo('Início do contrato', `<input type="date" name="inicio" value="${esc(k.inicio || '')}" required>`)}${campo('Fim do contrato (opcional)', `<input type="date" name="fim" value="${esc(k.fim || '')}">`)}
+          ${novo ? campo('Gerar cobranças a partir de', `<input type="month" name="gerar_desde" value="${esc(k.gerar_desde || '')}">`) : campo('Situação', sel('status', ['Ativo', 'Suspenso', 'Encerrado'], k.status, null))}
+          ${campo('Forma de pagamento', sel('forma', ['Pix', 'Boleto', 'Transferência', 'Dinheiro', 'Cheque'], k.forma))}
+          ${campo('Observações', `<textarea name="obs" placeholder="Ex.: reajuste pelo IGP-M em janeiro">${esc(k.obs || '')}</textarea>`, 'full')}
+          <p class="full fin-ajuda">${novo ? 'O app cria a conta a receber de cada mês sozinho, a partir do mês escolhido acima, sempre com um mês de antecedência.' : `Já foram geradas ${I().fmtInt(ger.length)} cobrança(s). Se mudar o valor ou o dia, as cobranças deste mês em diante que ainda não foram recebidas são atualizadas.`}</p>
+        </form>
+        <footer>${novo ? '' : '<button class="btn danger" data-del>Excluir</button>'}<div class="right"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-save>Salvar</button></div></footer></div>`;
+    };
+    const ler = () => { const o = {}; for (const el of $('form', bg).elements) if (el.name) o[el.name] = el.value; return o; };
+    bg.innerHTML = montar(); document.body.appendChild(bg);
+    bg.addEventListener('change', e => { if (e.target.name === 'produtor_id') { Object.assign(k, ler(), { fazenda_id: '' }); bg.innerHTML = montar(); } });
+    bg.addEventListener('click', async e => {
+      if (e.target === bg || e.target.closest('[data-close]')) return bg.remove();
+      if (e.target.closest('[data-del]')) {
+        if (!confirm('Excluir este contrato? As cobranças já geradas continuam em Contas a receber.')) return;
+        await I().Store.remove('contas', rec.id).then(() => { I().toast('Contrato excluído.'); bg.remove(); }).catch(() => {}); return;
+      }
+      if (!e.target.closest('[data-save]')) return;
+      const v = ler();
+      if (!v.produtor_id || !(nn(v.valor) > 0) || !(n(v.dia) >= 1 && n(v.dia) <= 31) || !v.inicio) { I().toast('Preencha cliente, honorário, dia do vencimento (1 a 31) e início.'); return; }
+      if (v.fim && v.fim < v.inicio) { I().toast('O fim do contrato é antes do início.'); return; }
+      const o = Object.assign({}, rec || {}, { id: rec ? rec.id : I().newId(), kind: 'contrato', produtor_id: v.produtor_id, fazenda_id: v.fazenda_id || null, descricao: v.descricao || 'Honorários de consultoria', valor: nn(v.valor), dia: Math.round(n(v.dia)), inicio: v.inicio, fim: v.fim || null, forma: v.forma || null, obs: v.obs || null, status: v.status || (rec ? rec.status : 'Ativo') || 'Ativo' });
+      if (novo) o.gerar_desde = v.gerar_desde || mesAtual();
+      try {
+        await I().Store.save('contas', o);
+        if (!novo) { // atualiza as cobranças ainda não recebidas, deste mês em diante
+          const mes = mesAtual();
+          for (const c of contas().filter(c => String(c.contrato_id) === String(o.id) && !c.pago_em && (c.mes_ref || '') >= mes)) {
+            const venc = vencDe(c.mes_ref, o.dia);
+            if ((o.fim && venc > o.fim) || o.status === 'Encerrado') continue;
+            if (c.valor !== o.valor || c.vencimento !== venc || c.produtor_id !== o.produtor_id) await I().Store.save('contas', Object.assign({}, c, { valor: o.valor, vencimento: venc, produtor_id: o.produtor_id, fazenda_id: o.fazenda_id, descricao: o.descricao + ' — ' + nomeMesRef(c.mes_ref) }));
+          }
+        }
+      } catch (er) { return; }
+      bg.remove(); I().toast(novo ? 'Contrato salvo. As cobranças aparecem em Contas a receber.' : 'Contrato atualizado.');
+      gerarCobrancas();
     });
   }
 
