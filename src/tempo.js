@@ -142,8 +142,8 @@ window.Tempo = (function () {
   try { DISCO = JSON.parse(localStorage.getItem(LSK) || '{}') || {}; } catch (e) { DISCO = {}; }
   function salvarDisco() {
     const ks = Object.keys(DISCO).sort((a, b) => DISCO[b].em - DISCO[a].em);
-    for (const k of ks.slice(30)) delete DISCO[k];
-    try { localStorage.setItem(LSK, JSON.stringify(DISCO)); } catch (e) { for (const k of ks.slice(10)) delete DISCO[k]; try { localStorage.setItem(LSK, JSON.stringify(DISCO)); } catch (e2) { } }
+    for (const k of ks.slice(12)) delete DISCO[k]; // guarda só as 12 fazendas mais recentes (o login precisa de espaço)
+    try { localStorage.setItem(LSK, JSON.stringify(DISCO)); } catch (e) { for (const k of ks.slice(4)) delete DISCO[k]; try { localStorage.setItem(LSK, JSON.stringify(DISCO)); } catch (e2) { } }
   }
   function ler(o) {
     const H = o.hourly || {}, D = o.daily || {}, h0 = hoje(), v = (a, i) => a && a[i] != null ? a[i] : null;
