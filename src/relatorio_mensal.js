@@ -15,9 +15,9 @@ window.RelMensal = (function () {
   const CL = ['Abaixo do nível', 'Atenção', 'Nível de controle'];
   const admin = () => I().ehAdmin();
   const LS = 'inovaagro.relmensal.v1';
-  const RM = { prod: '', faz: '', mes: '', secs: { visitas: true, pragas: true, chuva: true, aplic: true, custos: true } };
-  try { const o = JSON.parse(localStorage.getItem(LS) || '{}'); Object.assign(RM, o, { secs: Object.assign(RM.secs, o.secs || {}) }); } catch (e) { }
-  const salvarPref = () => { try { localStorage.setItem(LS, JSON.stringify({ prod: RM.prod, faz: RM.faz, secs: RM.secs })); } catch (e) { } };
+  const RM = { prod: '', fazs: [], mes: '', secs: { visitas: true, pragas: true, chuva: true, aplic: true, custos: true } };
+  try { const o = JSON.parse(localStorage.getItem(LS) || '{}'); Object.assign(RM, o, { secs: Object.assign(RM.secs, o.secs || {}), fazs: Array.isArray(o.fazs) ? o.fazs.map(String) : o.faz ? [String(o.faz)] : [] }); delete RM.faz; } catch (e) { }
+  const salvarPref = () => { try { localStorage.setItem(LS, JSON.stringify({ prod: RM.prod, fazs: RM.fazs, secs: RM.secs })); } catch (e) { } };
   function mesPadrao() { const d = new Date(); if (d.getDate() <= 10) d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 7); }
   const nomeMes = m => { const [y, mm] = m.split('-'); return MESES[+mm - 1] + ' de ' + y; };
 
@@ -26,7 +26,7 @@ window.RelMensal = (function () {
     const de = RM.mes + '-01', ate = RM.mes + '-31', no = d => d && d.slice(0, 10) >= de && d.slice(0, 10) <= ate;
     const prod = I().get('produtores', RM.prod);
     let fazs = (S().fazPorProd.get(k(RM.prod)) || []).slice();
-    if (RM.faz) fazs = fazs.filter(f => k(f.id) === RM.faz);
+    if (RM.fazs.length) fazs = fazs.filter(f => RM.fazs.includes(k(f.id)));
     fazs.sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
     const fset = new Set(fazs.map(f => k(f.id)));
     const tals = fazs.flatMap(f => S().talPorFaz.get(k(f.id)) || []), tset = new Set(tals.map(t => k(t.id)));
@@ -86,7 +86,7 @@ window.RelMensal = (function () {
       root.dataset.ready = 1;
       root.addEventListener('change', e => {
         const t = e.target;
-        if (t.dataset.rm === 'prod') { RM.prod = t.value; RM.faz = ''; } else if (t.dataset.rm === 'faz') RM.faz = t.value; else if (t.dataset.rm === 'mes') RM.mes = t.value || mesPadrao(); else if (t.dataset.sec) RM.secs[t.dataset.sec] = t.checked;
+        if (t.dataset.rm === 'prod') { RM.prod = t.value; RM.fazs = []; } else if (t.dataset.rm === 'mes') RM.mes = t.value || mesPadrao(); else if (t.dataset.sec) RM.secs[t.dataset.sec] = t.checked;
         salvarPref(); render();
       });
       root.addEventListener('click', async e => {
@@ -106,22 +106,24 @@ window.RelMensal = (function () {
     if (!RM.prod || !I().get('produtores', RM.prod)) RM.prod = prods[0] ? k(prods[0].id) : '';
     if (!RM.mes) RM.mes = mesPadrao();
     const fazs = (S().fazPorProd.get(k(RM.prod)) || []).slice().sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
-    if (RM.faz && !fazs.some(f => k(f.id) === RM.faz)) RM.faz = '';
+    RM.fazs = RM.fazs.filter(id => fazs.some(f => k(f.id) === id));
     const D = dados();
     root.innerHTML = `<div class="page rm"><div class="page-head"><div><h2>Relatório mensal do cliente</h2><p>Resumo do mês para enviar ao produtor: visitas, pragas, chuva, aplicações${admin() ? ' e custos' : ''}.</p></div>
       <div class="head-acts"><button class="btn primary" data-rm-pdf>${I().icon('pdf')} Baixar PDF</button></div></div>
       <div class="card-box rm-f"><div class="rm-ctrl">
         <label class="field"><span>Cliente</span><select data-rm="prod">${prods.map(p => `<option value="${esc(p.id)}" ${k(p.id) === RM.prod ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}</select></label>
-        <label class="field"><span>Fazenda</span><select data-rm="faz"><option value="">Todas (${fazs.length})</option>${fazs.map(f => `<option value="${esc(f.id)}" ${k(f.id) === RM.faz ? 'selected' : ''}>${esc(f.nome)}</option>`).join('')}</select></label>
+        <div class="field ef-field"><span>Fazendas</span><div id="rm-faz"></div></div>
         <label class="field"><span>Mês</span><input type="month" data-rm="mes" value="${esc(RM.mes)}"></label></div>
+        <div id="rm-faz-chips"></div>
         <div class="rep-checks"><span class="muted">Incluir:</span>${SECS().map(([s, l]) => `<label><input type="checkbox" data-sec="${s}" ${RM.secs[s] ? 'checked' : ''}> ${l}</label>`).join('')}</div>
         ${admin() ? '' : '<p class="muted rm-aviso">Os custos não aparecem no seu acesso. O administrador gera a versão com valores.</p>'}</div>
       ${previa(D)}</div>`;
+    window.EscFaz.montar($('#rm-faz', root), { fazs, sel: RM.fazs, chips: $('#rm-faz-chips', root), agrupar: false, mudar: ids => { RM.fazs = ids; salvarPref(); render(); } });
   }
   function previa(D) {
     const t = (l, v, s, cls = '') => `<div class="tile ${cls}"><span class="lbl">${l}</span><span class="val num">${v}</span><span class="sub">${s}</span></div>`;
     const ctl = D.pragas.reduce((a, p) => a + p.controle.length, 0);
-    return `<article class="rm-doc"><header class="rm-hd"><div><small>Relatório mensal · ${esc(nomeMes(RM.mes))}</small><h3>${esc(D.prod?.nome || '—')}</h3><p class="muted">${D.fazs.length === 1 ? esc(D.fazs[0].nome) : D.fazs.length + ' fazendas'} · ${D.tals.length} talhões · ${I().fmtHa0(D.area)} ha${D.tecnicos.length ? ' · Técnico(s): ' + esc(D.tecnicos.join(', ')) : ''}</p></div></header>
+    return `<article class="rm-doc"><header class="rm-hd"><div><small>Relatório mensal · ${esc(nomeMes(RM.mes))}</small><h3>${esc(D.prod?.nome || '—')}</h3><p class="muted">${D.fazs.length === 1 ? esc(D.fazs[0].nome) : RM.fazs.length && D.fazs.length <= 4 ? esc(D.fazs.map(f => f.nome).join(', ')) : D.fazs.length + ' fazendas'} · ${D.tals.length} talhões · ${I().fmtHa0(D.area)} ha${D.tecnicos.length ? ' · Técnico(s): ' + esc(D.tecnicos.join(', ')) : ''}</p></div></header>
       <div class="tiles">${t('Visitas', D.visitas.length, `${D.sem.vermelho} vermelho · ${D.sem.amarelo} amarelo · ${D.sem.verde} verde`, D.sem.vermelho ? 'alert' : '')}${t('Talhões em controle', ctl, ctl ? 'precisam de ação' : 'nenhuma praga no nível de controle', ctl ? 'alert' : '')}${t('Chuva no mês', f1(D.chuvaTotal) + ' mm', D.chuvaAnoAnt != null ? `${f1(D.chuvaAnoAnt)} mm no mesmo mês do ano passado` : D.pluvs.length + ' pluviômetro(s)')}${t('Aplicações', D.ordens.length, (c => c + (c === 1 ? ' concluída' : ' concluídas'))(D.ordens.filter(x => x.o.status === 'Concluída').length))}${on('custos') && D.custos ? t('Custo do mês', R$(D.custos.total), D.custos.porHa ? R$(D.custos.porHa) + ' por ha' : '') : ''}</div>
       ${on('visitas') ? `<section><h4>Visitas</h4>${D.visitas.length ? `<div class="table-wrap"><table><thead><tr><th>Data</th><th>Fazenda / talhão</th><th>Técnico</th><th>Semáforo</th><th>Principal problema e recomendação</th></tr></thead><tbody>${D.visitas.map(m => { const tt = D.tal(m.talhao_id), s = SEM[I().semaforo(m)], rc = m.recomendacao && (m.recomendacao.produtos || []).length ? m.recomendacao.produtos.map(p => p.produto).join(', ') : ''; return `<tr><td>${I().fmtDate(m.data)}</td><td>${esc(D.fz(tt?.fazenda_id)?.nome || '')}<br><small class="muted">${esc(I().nomeTal(tt))}</small></td><td>${esc(nomeP(m.responsavel || m.criado_por) || '—')}</td><td><span class="rm-sem"><i style="background:${s[1]}"></i>${s[0]}</span></td><td>${esc(m.alvo || m.estadio || '—')}${rc ? `<br><small class="muted">Recomendado: ${esc(rc)}</small>` : ''}</td></tr>`; }).join('')}</tbody></table></div>` : '<p class="empty">Nenhuma visita neste mês.</p>'}</section>` : ''}
       ${on('pragas') ? `<section><h4>Pragas da cana</h4>${D.pragas.length ? `<div class="table-wrap"><table><thead><tr><th>Praga</th><th class="r">Visitas</th><th class="r">Média</th><th class="r">Maior</th><th>Nível de controle</th><th>Talhões em controle</th></tr></thead><tbody>${D.pragas.map(p => `<tr><td><b>${esc(p.nome)}</b><br><small class="muted">${esc(p.un)}</small></td><td class="r num">${p.visitas}</td><td class="r num">${f1(p.media)}</td><td class="r num">${f1(p.max)}</td><td>${p.niv.vm != null ? '≥ ' + f1(p.niv.vm) : '—'}</td><td>${p.controle.length ? `<span class="pill bad">${p.controle.length}</span> ${esc(p.controle.map(x => I().nomeTal(x.t)).join(', '))}` : p.atencao.length ? `<span class="pill warn">${p.atencao.length} em atenção</span>` : '<span class="pill ok">Nenhum</span>'}</td></tr>`).join('')}</tbody></table></div>` : '<p class="empty">Nenhuma amostra de praga registrada neste mês.</p>'}</section>` : ''}
@@ -200,7 +202,7 @@ window.RelMensal = (function () {
     // rodapé
     const np = doc.getNumberOfPages();
     for (let i = 1; i <= np; i++) { doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...CINZA); doc.text('InovaAgro Consultoria Agrícola · emitido em ' + I().fmtDate(I().today()), M, H - 8); doc.text('página ' + i + ' de ' + np, W - M, H - 8, { align: 'right' }); }
-    const nome = ('relatorio-mensal-' + (D.prod?.nome || 'cliente') + '-' + RM.mes).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').replace(/-+/g, '-').toLowerCase() + '.pdf';
+    const nome = ('relatorio-mensal-' + (D.prod?.nome || 'cliente') + (RM.fazs.length === 1 && D.fazs.length === 1 ? '-' + D.fazs[0].nome : '') + '-' + RM.mes).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').replace(/-+/g, '-').toLowerCase() + '.pdf';
     doc.save(nome); I().toast('PDF gerado.');
   }
 
