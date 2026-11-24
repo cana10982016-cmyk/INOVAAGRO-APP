@@ -2896,6 +2896,86 @@ button.tp-al:hover { border-color: color-mix(in srgb, currentColor 30%, var(--li
 .vg-graf-w { width: 220px; max-width: 100%; }
 .vg-graf-x { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
+/* INOVAAGRO — escolher várias fazendas nos relatórios */
+.ef { display: block; min-width: 0; }
+.field.ef-field { display: grid; gap: 5px; font-size: 12.5px; font-weight: 500; min-width: 0; }
+.field.ef-field > span { color: var(--muted); }
+.ef-campo { width: 100%; height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); box-shadow: var(--shadow); cursor: pointer; text-align: left; color: var(--fg); transition: border-color .15s, box-shadow .15s; }
+.ef-campo:hover { border-color: color-mix(in srgb, var(--brand) 35%, var(--line)); }
+.ef-campo:focus-visible, .ef-campo[aria-expanded="true"] { outline: none; border-color: color-mix(in srgb, var(--brand) 60%, var(--line)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 16%, transparent); }
+.ef-txt { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; overflow: hidden; }
+.ef-txt b { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ef-txt small { font-size: 11.5px; color: var(--subtle); white-space: nowrap; }
+.ef-campo > svg { width: 14px; height: 14px; color: var(--muted); flex: none; }
+
+.ef-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+.ef-chips[hidden] { display: none; }
+.ef-chip { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 3px 0 10px; border-radius: 99px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent); color: var(--fg); font-size: 12.5px; font-weight: 500; animation: ef-in .18s ease; }
+.ef-chip button { border: 0; background: none; cursor: pointer; width: 20px; height: 20px; border-radius: 50%; color: var(--muted); font-size: 14px; line-height: 1; display: grid; place-items: center; }
+.ef-chip button:hover { background: var(--surface); color: var(--fg); }
+.ef-limpar { border: 0; background: none; color: var(--muted); font-size: 12px; cursor: pointer; padding: 0 6px; text-decoration: underline; text-underline-offset: 2px; }
+.ef-limpar:hover { color: var(--fg); }
+
+.ef-pn { position: fixed; z-index: 3000; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-2); overflow: hidden; animation: ef-pop .16s cubic-bezier(.2,.8,.2,1); }
+.ef-pn.saindo { animation: ef-out .14s ease forwards; }
+.ef-busca { flex: none; display: flex; align-items: center; gap: 8px; margin: 10px 10px 0; padding: 0 10px; height: 36px; border-radius: 8px; background: var(--surface-2); border: 1px solid transparent; }
+.ef-busca:focus-within { border-color: color-mix(in srgb, var(--brand) 50%, var(--line)); background: var(--surface); }
+.ef-busca svg { width: 15px; height: 15px; color: var(--subtle); flex: none; }
+.ef-busca input[type="search"] { border: 0 !important; background: none; box-shadow: none !important; padding: 0; height: 100%; flex: 1; min-width: 0; font-size: 13px; }
+.ef-atalhos { display: flex; align-items: center; gap: 4px; padding: 8px 10px 6px; border-bottom: 1px solid var(--line-2); }
+.ef-atalhos button { border: 0; background: none; color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; padding: 3px 6px; border-radius: 6px; }
+.ef-atalhos button:hover { background: var(--accent-soft); }
+.ef-cont { margin-left: auto; font-size: 11.5px; color: var(--subtle); }
+.ef-lista { overflow-y: auto; overscroll-behavior: contain; padding: 4px 6px 6px; flex: 1; min-height: 80px; }
+.ef-grupo + .ef-grupo { margin-top: 4px; border-top: 1px solid var(--line-2); padding-top: 4px; }
+.ef-gh { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 4px; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--subtle); position: sticky; top: -4px; background: var(--surface); z-index: 1; }
+.ef-gh button { border: 0; background: none; color: var(--accent); font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; cursor: pointer; padding: 2px 4px; border-radius: 5px; }
+.ef-gh button:hover { background: var(--accent-soft); }
+.ef-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 7px 8px; border: 0; background: none; border-radius: 8px; cursor: pointer; text-align: left; color: var(--fg); transition: background .12s; }
+.ef-item:hover { background: var(--surface-2); }
+.ef-item.on { background: var(--accent-soft); }
+.ef-cx { width: 18px; height: 18px; flex: none; border-radius: 5px; border: 1.5px solid color-mix(in srgb, var(--muted) 55%, transparent); display: grid; place-items: center; color: transparent; transition: background .12s, border-color .12s; }
+.ef-cx svg { width: 12px; height: 12px; transform: scale(.5); transition: transform .14s cubic-bezier(.2,.9,.3,1.4); }
+.ef-item.on .ef-cx { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.ef-item.on .ef-cx svg { transform: scale(1); }
+.ef-nm { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.ef-nm b { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ef-nm small { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ef-ha { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ef-ha i { font-style: normal; color: var(--subtle); font-size: 11px; }
+.ef-vazio { padding: 22px 10px; text-align: center; color: var(--muted); font-size: 13px; margin: 0; }
+.ef-pn footer { display: flex; align-items: center; gap: 10px; padding: 10px; border-top: 1px solid var(--line-2); background: var(--surface); }
+.ef-resumo { flex: 1; font-size: 12.5px; color: var(--muted); }
+.ef-resumo b { color: var(--fg); font-weight: 600; }
+
+/* Celular: lista abre por baixo, ocupando a largura */
+.ef-fundo { position: fixed; inset: 0; z-index: 2999; background: rgba(12,14,10,.38); animation: ef-fade .18s ease; }
+.ef-fundo.saindo { animation: ef-fade .14s ease reverse forwards; }
+.ef-pn.cel { left: 0; right: 0; bottom: 0; top: auto; max-height: 86vh; border-radius: 18px 18px 0 0; border-bottom: 0; animation: ef-sobe .24s cubic-bezier(.2,.8,.2,1); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.ef-pn.cel.saindo { animation: ef-desce .16s ease forwards; }
+.ef-alca { width: 38px; height: 4px; border-radius: 4px; background: var(--line); margin: 8px auto 2px; flex: none; }
+.ef-tit { padding: 6px 16px 2px; display: grid; gap: 2px; }
+.ef-tit b { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+.ef-tit small { font-size: 12.5px; color: var(--muted); }
+.ef-pn.cel .ef-busca { margin: 10px 14px 0; height: 42px; }
+.ef-pn.cel .ef-busca input[type="search"] { font-size: 16px; }
+.ef-pn.cel .ef-atalhos { padding: 8px 14px 6px; }
+.ef-pn.cel .ef-lista { padding: 4px 10px 8px; }
+.ef-pn.cel .ef-item { padding: 11px 8px; min-height: 52px; }
+.ef-pn.cel .ef-cx { width: 22px; height: 22px; border-radius: 6px; }
+.ef-pn.cel .ef-cx svg { width: 14px; height: 14px; }
+.ef-pn.cel .ef-nm b { font-size: 14.5px; }
+.ef-pn.cel footer { padding: 12px 14px; }
+.ef-pn.cel footer .btn { height: 42px; padding: 0 22px; font-size: 14px; }
+
+@keyframes ef-pop { from { opacity: 0; transform: translateY(-4px) scale(.985); } }
+@keyframes ef-out { to { opacity: 0; transform: translateY(-4px) scale(.985); } }
+@keyframes ef-sobe { from { transform: translateY(100%); } }
+@keyframes ef-desce { to { transform: translateY(100%); } }
+@keyframes ef-fade { from { opacity: 0; } }
+@keyframes ef-in { from { opacity: 0; transform: scale(.9); } }
+@media (prefers-reduced-motion: reduce) { .ef-pn, .ef-pn.cel, .ef-fundo, .ef-chip { animation: none !important; } }
+
 </style>
 <aside class="nav" id="nav" aria-label="Menu principal">
   <div class="nav-brand">
@@ -4303,9 +4383,9 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
   function loadLib(n) {
     return libP[n] = libP[n] || new Promise((ok, fail) => { const s = document.createElement('script'); s.src = LIBS[n]; s.onload = ok; s.onerror = () => { delete libP[n]; fail(new Error('Não carregou ' + n)); }; document.head.appendChild(s); });
   }
-  const R = { prod: '', faz: '', safra: '', de: '', ate: '', secs: { tal: true, ord: true, mon: true } };
+  const R = { prod: '', fazs: [], safra: '', de: '', ate: '', secs: { tal: true, ord: true, mon: true } };
   function repData() {
-    let fazs = R.faz ? [get('fazendas', R.faz)].filter(Boolean) : R.prod ? (S.fazPorProd.get(R.prod) || []) : S.data.fazendas;
+    let fazs = R.fazs.length ? R.fazs.map(id => get('fazendas', id)).filter(Boolean) : R.prod ? (S.fazPorProd.get(R.prod) || []) : S.data.fazendas;
     fazs = fazs.slice().sort((a, b) => (get('produtores', a.produtor_id)?.nome || '').localeCompare(get('produtores', b.produtor_id)?.nome || '', 'pt-BR') || a.nome.localeCompare(b.nome, 'pt-BR'));
     const noPeriodo = d => (!R.de || (d || '') >= R.de) && (!R.ate || (d || '') <= R.ate);
     const out = [], tot = { faz: 0, tal: 0, area: 0, pend: 0, atr: 0, conc: 0, mon: 0 };
@@ -4334,7 +4414,8 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
     }
     return { fazendas: out, tot };
   }
-  const repTitulo = () => R.faz ? (get('fazendas', R.faz)?.nome || 'Fazenda') : R.prod ? (get('produtores', R.prod)?.nome || 'Produtor') : 'Todas as fazendas';
+  const repTitulo = () => R.fazs.length === 1 ? (get('fazendas', R.fazs[0])?.nome || 'Fazenda') : R.fazs.length > 1 ? (R.prod ? (get('produtores', R.prod)?.nome || 'Produtor') + ' · ' : '') + R.fazs.length + ' fazendas' : R.prod ? (get('produtores', R.prod)?.nome || 'Produtor') : 'Todas as fazendas';
+  const repFazNomes = () => R.fazs.length > 1 ? R.fazs.map(id => get('fazendas', id)?.nome).filter(Boolean).join(', ') : '';
   const repFiltro = () => [R.safra ? 'Safra ' + R.safra : 'Safra mais recente', R.de || R.ate ? 'Período ' + (R.de ? fmtDate(R.de) : 'início') + ' a ' + (R.ate ? fmtDate(R.ate) : 'hoje') : 'Todo o período'].join(' · ');
   const COLS = {
     tal: [['talhao', 'Talhão'], ['area', 'Área (ha)', 'ha'], ['cultura', 'Cultura'], ['variedade', 'Variedade'], ['safra', 'Safra'], ['plantio', 'Plantio', 'd'], ['condicao', 'Condição'], ['ult_mon', 'Últ. monitoramento', 'd'], ['situacao', 'Situação']],
@@ -4347,19 +4428,18 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
     const root = $('#v-relatorios');
     if (!root.dataset.ready) {
       root.dataset.ready = 1;
-      root.innerHTML = `<div class="page"><div class="page-head no-print"><div><h2>Relatórios</h2><p>Escolha o produtor ou a fazenda e baixe em PDF ou Excel.</p></div>
+      root.innerHTML = `<div class="page"><div class="page-head no-print"><div><h2>Relatórios</h2><p>Escolha o produtor e uma ou mais fazendas e baixe em PDF ou Excel.</p></div>
           <div class="rep-actions"><button class="btn primary" data-rep="pdf">${icon('pdf')}Baixar PDF</button><button class="btn" data-rep="xlsx">${icon('xls')}Baixar Excel</button><button class="btn" data-rep="print">${icon('print')}Imprimir</button></div></div>
         <div class="card-box no-print"><div class="rep-controls">
           <label class="field"><span>Produtor</span><select id="r-prod"></select></label>
-          <label class="field"><span>Fazenda</span><select id="r-faz"></select></label>
+          <div class="field ef-field"><span>Fazendas</span><div id="r-faz"></div></div>
           <label class="field"><span>Safra (talhões)</span><select id="r-safra"></select></label>
           <label class="field"><span>Ordens e monitoramentos de</span><input type="date" id="r-de"></label>
           <label class="field"><span>até</span><input type="date" id="r-ate"></label>
-        </div><div class="rep-checks"><span class="muted">Incluir:</span>${Object.entries(SEC_NOME).map(([k, l]) => `<label><input type="checkbox" data-sec="${k}" checked> ${l}</label>`).join('')}</div></div>
+        </div><div id="r-faz-chips"></div><div class="rep-checks"><span class="muted">Incluir:</span>${Object.entries(SEC_NOME).map(([k, l]) => `<label><input type="checkbox" data-sec="${k}" checked> ${l}</label>`).join('')}</div></div>
         <div id="r-prev"></div></div>`;
       root.addEventListener('change', e => {
-        if (e.target.id === 'r-prod') { R.prod = e.target.value; R.faz = ''; }
-        else if (e.target.id === 'r-faz') R.faz = e.target.value;
+        if (e.target.id === 'r-prod') { R.prod = e.target.value; R.fazs = []; }
         else if (e.target.id === 'r-safra') R.safra = e.target.value;
         else if (e.target.id === 'r-de') R.de = e.target.value;
         else if (e.target.id === 'r-ate') R.ate = e.target.value;
@@ -4377,14 +4457,15 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
     }
     $('#r-prod').innerHTML = prodOpts(); $('#r-prod').value = R.prod;
     const fz = (R.prod ? (S.fazPorProd.get(R.prod) || []) : S.data.fazendas).slice().sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
-    $('#r-faz').innerHTML = '<option value="">Todas as fazendas</option>' + fz.map(f => `<option value="${esc(f.id)}">${esc(f.nome)}</option>`).join(''); $('#r-faz').value = R.faz;
+    R.fazs = R.fazs.filter(id => fz.some(f => key(f.id) === id));
+    window.EscFaz.montar($('#r-faz'), { fazs: fz, sel: R.fazs, chips: $('#r-faz-chips'), mudar: ids => { R.fazs = ids; viewRelatorios(); } });
     $('#r-safra').innerHTML = '<option value="">Mais recente de cada talhão</option>' + safrasLista().map(s => `<option>${esc(s)}</option>`).join(''); $('#r-safra').value = R.safra;
     $('#r-de').value = R.de; $('#r-ate').value = R.ate;
     const D = repData(), t = D.tot;
     const logo = $('.login-logo.logo-claro')?.getAttribute('src') || '';
     const MAX = 25;
     $('#r-prev').innerHTML = `<article class="report">
-      <div class="rep-head"><img src="${esc(logo)}" alt="InovaAgro"><div class="t"><b>${esc(repTitulo())}</b><span class="muted">${esc(repFiltro())} · emitido em ${fmtDate(today())}</span></div></div>
+      <div class="rep-head"><img src="${esc(logo)}" alt="InovaAgro"><div class="t"><b>${esc(repTitulo())}</b><span class="muted">${repFazNomes() ? esc(repFazNomes()) + '<br>' : ''}${esc(repFiltro())} · emitido em ${fmtDate(today())}</span></div></div>
       <div class="rep-sum">${[[t.faz, 'Fazendas'], [t.tal, 'Talhões'], [fmtHa0(t.area), 'Hectares'], [t.pend, 'Ordens pendentes'], [t.atr, 'Ordens atrasadas'], [t.mon, 'Monitoramentos']].map(([v, l]) => `<div><b>${typeof v === 'number' ? fmtInt(v) : v}</b><span>${l}</span></div>`).join('')}</div>
       ${D.fazendas.slice(0, MAX).map(x => `<section class="faz"><h3>${esc(x.f.nome)}</h3><span class="muted">${esc(x.p?.nome || '')}${x.f.municipio ? ' · ' + esc(x.f.municipio) : ''}${x.f.codigo ? ' · código ' + esc(x.f.codigo) : ''} · ${fmtInt(x.tal.length)} talhões · ${fmtHa(x.area)} ha</span>
         ${Object.keys(SEC_NOME).filter(k => R.secs[k]).map(k => { const rows = k === 'tal' ? x.tal : k === 'ord' ? x.ords : x.mons; return `<h4>${SEC_NOME[k]} (${rows.length})</h4>` + (rows.length ? `<div class="table-wrap"><table><thead><tr>${COLS[k].map(c => `<th class="${c[2] === 'ha' ? 'r' : ''}">${c[1]}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${COLS[k].map(c => `<td class="${c[2] === 'ha' ? 'r' : c[2] === 'w' ? 'wrap' : ''}">${esc(cellTxt(c, r[c[0]]))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : '<p class="empty">Nenhum registro.</p>'); }).join('')}
@@ -4412,7 +4493,8 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
     doc.text(repTitulo(), W - M, M + 5, { align: 'right' });
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...CINZA);
     doc.text(repFiltro() + ' · emitido em ' + fmtDate(today()), W - M, M + 10, { align: 'right' });
-    doc.setDrawColor(...VERDE); doc.setLineWidth(0.8); doc.line(M, M + 15, W - M, M + 15);
+    if (repFazNomes()) { doc.setFontSize(8); const ln = doc.splitTextToSize('Fazendas: ' + repFazNomes(), W - 2 * M - 70); doc.text(ln.length > 1 ? ln[0].replace(/,?\s*\S*$/, '') + '…' : ln[0], W - M, M + 14, { align: 'right' }); }
+    doc.setDrawColor(...VERDE); doc.setLineWidth(0.8); doc.line(M, M + 16, W - M, M + 16);
     // resumo
     const sum = [[t.faz, 'Fazendas'], [t.tal, 'Talhões'], [fmtHa0(t.area), 'Hectares'], [t.pend, 'Ordens pendentes'], [t.atr, 'Ordens atrasadas'], [t.mon, 'Monitoramentos']];
     const bw = (W - 2 * M - 5 * 4) / 6;
@@ -6236,7 +6318,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
     const n = e.target.closest('[data-new]'); if (n) { openForm(n.dataset.new, null, n.dataset.new === 'monitoramentos' ? { data: today() } : n.dataset.new === 'ordens' ? { status: 'Planejada' } : {}); return; }
     const ed = e.target.closest('[data-edit]'); if (ed) { const [k, id] = ed.dataset.edit.split(':'); if (k === 'fin') { if (window.Financeiro) window.Financeiro.abrir(id); return; } if (k === 'agd') { if (window.Agenda) window.Agenda.abrir(id); return; } if (k === 'tp') { if (window.Tempo) window.Tempo.abrir(id); return; } openForm(k, get(k, id)); return; }
     const mf = e.target.closest('[data-map-faz]'); if (mf) { e.stopPropagation(); location.hash = 'mapa'; setTimeout(() => selectFazenda(mf.dataset.mapFaz, true), 60); return; }
-    const rf = e.target.closest('[data-rep-faz]'); if (rf) { const f = get('fazendas', rf.dataset.repFaz); R.prod = key(f?.produtor_id || ''); R.faz = rf.dataset.repFaz; location.hash = 'relatorios'; return; }
+    const rf = e.target.closest('[data-rep-faz]'); if (rf) { const f = get('fazendas', rf.dataset.repFaz); R.prod = key(f?.produtor_id || ''); R.fazs = [key(rf.dataset.repFaz)]; location.hash = 'relatorios'; return; }
     const bs = e.target.closest('[data-base]'); if (bs) { setBase(bs.dataset.base, true); return; }
     const mm = e.target.closest('[data-mapa-mon]'); if (mm) { const m = get('monitoramentos', mm.dataset.mapaMon); document.querySelectorAll('.modal-bg').forEach(x => x.remove()); location.hash = 'mapa'; setTimeout(() => { $('#tg-pontos').checked = true; layerPts.addTo(map); const pts = (m.pontos || []).filter(p => p.lat != null); if (pts.length) map.fitBounds(L.latLngBounds(pts.map(p => [p.lat, p.lng])).pad(0.6), { maxZoom: 17 }); if (m.talhao_id) { S.sel = { produtor: get('talhoes', m.talhao_id)?._prod, fazenda: get('talhoes', m.talhao_id)?.fazenda_id, talhao: m.talhao_id }; styleAll(); drawSheet(); renderTree(); } }, 150); return; }
     if (e.target.closest('#v-equipe')) acaoEquipe(e);
@@ -9709,6 +9791,140 @@ window.Backup = (function () {
   return { view, copiaAtual };
 })();
 
+/* INOVAAGRO — Escolher várias fazendas (usado nos relatórios).
+   Campo que abre uma lista com busca e caixinhas; no celular abre por baixo da tela.
+   Nada marcado = todas as fazendas da lista. */
+window.EscFaz = (function () {
+  'use strict';
+  const I = () => window.INOVA;
+  const esc = s => I().esc(s);
+  const k = id => String(id);
+  const semAc = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const CHK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+  const SETA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m7 10 5 5 5-5"/></svg>';
+  const LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg>';
+
+  function info(f) {
+    const ts = I().S.talPorFaz.get(k(f.id)) || [];
+    return { n: ts.length, ha: ts.reduce((a, t) => a + (Number(t.area_ha) || 0), 0) };
+  }
+  function rotulo(fazs, sel) {
+    const s = sel.filter(id => fazs.some(f => k(f.id) === id));
+    if (!s.length) return { t: 'Todas as fazendas', sub: fazs.length + (fazs.length === 1 ? ' fazenda' : ' fazendas'), todas: true };
+    if (s.length === 1) return { t: (I().get('fazendas', s[0]) || {}).nome || 'Fazenda', sub: '1 de ' + fazs.length };
+    return { t: s.length + ' fazendas', sub: 'de ' + fazs.length };
+  }
+
+  /* montar(caixa, { fazs: [...], sel: [...ids], mudar: ids => {}, agrupar: bool })
+     Desenha o campo e as etiquetas das fazendas escolhidas. "mudar" só é chamado ao fechar a lista. */
+  function montar(box, o) {
+    if (!box) return;
+    const fazs = o.fazs.slice().sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
+    const sel = (o.sel || []).map(k).filter(id => fazs.some(f => k(f.id) === id));
+    const r = rotulo(fazs, sel);
+    box.classList.add('ef');
+    box.innerHTML = `<button type="button" class="ef-campo" aria-haspopup="dialog"><span class="ef-txt"><b>${esc(r.t)}</b>${r.todas ? '' : `<small>${esc(r.sub)}</small>`}</span>${SETA}</button>`;
+    if (o.chips) {
+      const c = o.chips;
+      c.classList.add('ef-chips');
+      c.hidden = !sel.length;
+      c.innerHTML = sel.length ? sel.map(id => `<span class="ef-chip">${esc((I().get('fazendas', id) || {}).nome || 'Fazenda')}<button type="button" data-ef-tirar="${esc(id)}" aria-label="Tirar ${esc((I().get('fazendas', id) || {}).nome || '')}">×</button></span>`).join('') + `<button type="button" class="ef-limpar" data-ef-limpar>Voltar para todas</button>` : '';
+      c.onclick = e => {
+        const t = e.target.closest('[data-ef-tirar]'); if (t) { o.mudar(sel.filter(id => id !== t.dataset.efTirar)); return; }
+        if (e.target.closest('[data-ef-limpar]')) o.mudar([]);
+      };
+    }
+    box.querySelector('.ef-campo').onclick = () => abrir(box, fazs, sel, o);
+  }
+
+  let aberto = null;
+  function fechar(aplicar) {
+    if (!aberto) return;
+    const a = aberto; aberto = null;
+    document.removeEventListener('keydown', a.tecla, true);
+    document.removeEventListener('mousedown', a.fora, true);
+    a.btn && a.btn.setAttribute('aria-expanded', 'false');
+    a.pn.classList.add('saindo'); a.fundo && a.fundo.classList.add('saindo');
+    setTimeout(() => { a.pn.remove(); a.fundo && a.fundo.remove(); }, 160);
+    if (aplicar) {
+      const novo = [...a.marc], antes = a.sel;
+      if (novo.length !== antes.length || novo.some(id => !antes.includes(id))) a.o.mudar(novo.length === a.fazs.length ? [] : novo);
+    }
+  }
+
+  function abrir(box, fazs, sel, o) {
+    if (aberto) { fechar(true); return; }
+    const cel = window.matchMedia('(max-width: 700px)').matches;
+    const marc = new Set(sel);
+    const prods = new Set(fazs.map(f => k(f.produtor_id)));
+    const agrupar = o.agrupar !== false && prods.size > 1;
+    const infos = new Map(fazs.map(f => [k(f.id), info(f)]));
+    let busca = '';
+    const pn = document.createElement('div');
+    pn.className = 'ef-pn' + (cel ? ' cel' : '');
+    pn.setAttribute('role', 'dialog'); pn.setAttribute('aria-label', 'Escolher fazendas');
+    pn.innerHTML = `${cel ? '<span class="ef-alca"></span><div class="ef-tit"><b>Escolher fazendas</b><small>Marque uma ou mais. Sem nenhuma marcada, entram todas.</small></div>' : ''}
+      <div class="ef-busca">${LUPA}<input type="search" placeholder="Buscar fazenda, cidade ou produtor" aria-label="Buscar fazenda"></div>
+      <div class="ef-atalhos"><button type="button" data-ef="todas">Marcar todas</button><button type="button" data-ef="nenhuma">Desmarcar</button><span class="ef-cont"></span></div>
+      <div class="ef-lista" role="listbox" aria-multiselectable="true"></div>
+      <footer><span class="ef-resumo"></span><button type="button" class="btn primary" data-ef="ok">Pronto</button></footer>`;
+    let fundo = null;
+    if (cel) { fundo = document.createElement('div'); fundo.className = 'ef-fundo'; document.body.appendChild(fundo); fundo.onclick = () => fechar(true); }
+    document.body.appendChild(pn);
+    if (!cel) {
+      const bx = box.getBoundingClientRect(), w = Math.max(bx.width, 360);
+      const left = Math.min(Math.max(8, bx.left), window.innerWidth - w - 8);
+      const abaixo = window.innerHeight - bx.bottom;
+      pn.style.width = w + 'px'; pn.style.left = left + 'px';
+      if (abaixo < 380 && bx.top > abaixo) { pn.style.bottom = (window.innerHeight - bx.top + 6) + 'px'; pn.style.maxHeight = Math.min(480, bx.top - 16) + 'px'; }
+      else { pn.style.top = (bx.bottom + 6) + 'px'; pn.style.maxHeight = Math.min(480, abaixo - 16) + 'px'; }
+    }
+    const lista = pn.querySelector('.ef-lista');
+    const visiveis = () => fazs.filter(f => !busca || semAc([f.nome, f.municipio, (I().get('produtores', f.produtor_id) || {}).nome].join(' ')).includes(busca));
+    const resumo = () => {
+      const ha = [...marc].reduce((a, id) => a + (infos.get(id) || { ha: 0 }).ha, 0);
+      pn.querySelector('.ef-resumo').innerHTML = marc.size ? `<b>${marc.size}</b> ${marc.size === 1 ? 'fazenda' : 'fazendas'} · ${I().fmtHa0(ha)} ha` : `<b>Todas</b> as ${fazs.length} fazendas`;
+      pn.querySelector('.ef-cont').textContent = busca ? visiveis().length + ' encontrada(s)' : '';
+    };
+    const linha = f => { const id = k(f.id), x = infos.get(id), on = marc.has(id);
+      return `<button type="button" class="ef-item${on ? ' on' : ''}" role="option" aria-selected="${on}" data-id="${esc(id)}"><span class="ef-cx">${CHK}</span><span class="ef-nm"><b>${esc(f.nome)}</b><small>${[f.municipio, x.n + (x.n === 1 ? ' talhão' : ' talhões')].filter(Boolean).map(esc).join(' · ')}</small></span><span class="ef-ha num">${I().fmtHa0(x.ha)} <i>ha</i></span></button>`; };
+    const desenhar = () => {
+      const vs = visiveis();
+      if (!vs.length) { lista.innerHTML = '<p class="ef-vazio">Nenhuma fazenda com esse nome.</p>'; resumo(); return; }
+      if (!agrupar) lista.innerHTML = vs.map(linha).join('');
+      else {
+        const g = new Map(); for (const f of vs) { const p = k(f.produtor_id); if (!g.has(p)) g.set(p, []); g.get(p).push(f); }
+        lista.innerHTML = [...g.entries()].sort((a, b) => String((I().get('produtores', a[0]) || {}).nome || '').localeCompare(String((I().get('produtores', b[0]) || {}).nome || ''), 'pt-BR'))
+          .map(([p, fs]) => { const todos = fs.every(f => marc.has(k(f.id)));
+            return `<div class="ef-grupo"><div class="ef-gh"><span>${esc((I().get('produtores', p) || {}).nome || 'Sem produtor')}</span><button type="button" data-ef-grupo="${esc(p)}">${todos ? 'Desmarcar' : 'Marcar'} ${fs.length > 1 ? 'as ' + fs.length : ''}</button></div>${fs.map(linha).join('')}</div>`; }).join('');
+      }
+      resumo();
+    };
+    pn.addEventListener('click', e => {
+      const it = e.target.closest('.ef-item');
+      if (it) { const id = it.dataset.id; marc.has(id) ? marc.delete(id) : marc.add(id); it.classList.toggle('on', marc.has(id)); it.setAttribute('aria-selected', marc.has(id)); if (agrupar) desenhar(); else resumo(); return; }
+      const gp = e.target.closest('[data-ef-grupo]');
+      if (gp) { const fs = visiveis().filter(f => k(f.produtor_id) === gp.dataset.efGrupo), todos = fs.every(f => marc.has(k(f.id))); fs.forEach(f => todos ? marc.delete(k(f.id)) : marc.add(k(f.id))); desenhar(); return; }
+      const b = e.target.closest('[data-ef]'); if (!b) return;
+      if (b.dataset.ef === 'todas') { visiveis().forEach(f => marc.add(k(f.id))); desenhar(); }
+      else if (b.dataset.ef === 'nenhuma') { (busca ? visiveis() : fazs).forEach(f => marc.delete(k(f.id))); desenhar(); }
+      else if (b.dataset.ef === 'ok') fechar(true);
+    });
+    const inp = pn.querySelector('input');
+    inp.addEventListener('input', () => { busca = semAc(inp.value.trim()); desenhar(); });
+    const tecla = e => { if (e.key === 'Escape') { e.stopPropagation(); fechar(true); } };
+    const fora = e => { if (!cel && !pn.contains(e.target) && !box.contains(e.target)) fechar(true); };
+    document.addEventListener('keydown', tecla, true);
+    document.addEventListener('mousedown', fora, true);
+    const btn = box.querySelector('.ef-campo'); btn.setAttribute('aria-expanded', 'true');
+    aberto = { pn, fundo, btn, marc, sel, fazs, o, tecla, fora };
+    desenhar();
+    if (!cel) inp.focus();
+  }
+  window.addEventListener('hashchange', () => fechar(false));
+  return { montar, fechar, rotulo };
+})();
+
 /* INOVAAGRO — Relatório mensal por cliente (PDF): visitas, pragas da cana, chuva, aplicações e custos.
    Custos só aparecem para o administrador; o técnico gera o mesmo relatório sem nenhum valor em R$. */
 window.RelMensal = (function () {
@@ -9726,9 +9942,9 @@ window.RelMensal = (function () {
   const CL = ['Abaixo do nível', 'Atenção', 'Nível de controle'];
   const admin = () => I().ehAdmin();
   const LS = 'inovaagro.relmensal.v1';
-  const RM = { prod: '', faz: '', mes: '', secs: { visitas: true, pragas: true, chuva: true, aplic: true, custos: true } };
-  try { const o = JSON.parse(localStorage.getItem(LS) || '{}'); Object.assign(RM, o, { secs: Object.assign(RM.secs, o.secs || {}) }); } catch (e) { }
-  const salvarPref = () => { try { localStorage.setItem(LS, JSON.stringify({ prod: RM.prod, faz: RM.faz, secs: RM.secs })); } catch (e) { } };
+  const RM = { prod: '', fazs: [], mes: '', secs: { visitas: true, pragas: true, chuva: true, aplic: true, custos: true } };
+  try { const o = JSON.parse(localStorage.getItem(LS) || '{}'); Object.assign(RM, o, { secs: Object.assign(RM.secs, o.secs || {}), fazs: Array.isArray(o.fazs) ? o.fazs.map(String) : o.faz ? [String(o.faz)] : [] }); delete RM.faz; } catch (e) { }
+  const salvarPref = () => { try { localStorage.setItem(LS, JSON.stringify({ prod: RM.prod, fazs: RM.fazs, secs: RM.secs })); } catch (e) { } };
   function mesPadrao() { const d = new Date(); if (d.getDate() <= 10) d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 7); }
   const nomeMes = m => { const [y, mm] = m.split('-'); return MESES[+mm - 1] + ' de ' + y; };
 
@@ -9737,7 +9953,7 @@ window.RelMensal = (function () {
     const de = RM.mes + '-01', ate = RM.mes + '-31', no = d => d && d.slice(0, 10) >= de && d.slice(0, 10) <= ate;
     const prod = I().get('produtores', RM.prod);
     let fazs = (S().fazPorProd.get(k(RM.prod)) || []).slice();
-    if (RM.faz) fazs = fazs.filter(f => k(f.id) === RM.faz);
+    if (RM.fazs.length) fazs = fazs.filter(f => RM.fazs.includes(k(f.id)));
     fazs.sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
     const fset = new Set(fazs.map(f => k(f.id)));
     const tals = fazs.flatMap(f => S().talPorFaz.get(k(f.id)) || []), tset = new Set(tals.map(t => k(t.id)));
@@ -9797,7 +10013,7 @@ window.RelMensal = (function () {
       root.dataset.ready = 1;
       root.addEventListener('change', e => {
         const t = e.target;
-        if (t.dataset.rm === 'prod') { RM.prod = t.value; RM.faz = ''; } else if (t.dataset.rm === 'faz') RM.faz = t.value; else if (t.dataset.rm === 'mes') RM.mes = t.value || mesPadrao(); else if (t.dataset.sec) RM.secs[t.dataset.sec] = t.checked;
+        if (t.dataset.rm === 'prod') { RM.prod = t.value; RM.fazs = []; } else if (t.dataset.rm === 'mes') RM.mes = t.value || mesPadrao(); else if (t.dataset.sec) RM.secs[t.dataset.sec] = t.checked;
         salvarPref(); render();
       });
       root.addEventListener('click', async e => {
@@ -9817,22 +10033,24 @@ window.RelMensal = (function () {
     if (!RM.prod || !I().get('produtores', RM.prod)) RM.prod = prods[0] ? k(prods[0].id) : '';
     if (!RM.mes) RM.mes = mesPadrao();
     const fazs = (S().fazPorProd.get(k(RM.prod)) || []).slice().sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
-    if (RM.faz && !fazs.some(f => k(f.id) === RM.faz)) RM.faz = '';
+    RM.fazs = RM.fazs.filter(id => fazs.some(f => k(f.id) === id));
     const D = dados();
     root.innerHTML = `<div class="page rm"><div class="page-head"><div><h2>Relatório mensal do cliente</h2><p>Resumo do mês para enviar ao produtor: visitas, pragas, chuva, aplicações${admin() ? ' e custos' : ''}.</p></div>
       <div class="head-acts"><button class="btn primary" data-rm-pdf>${I().icon('pdf')} Baixar PDF</button></div></div>
       <div class="card-box rm-f"><div class="rm-ctrl">
         <label class="field"><span>Cliente</span><select data-rm="prod">${prods.map(p => `<option value="${esc(p.id)}" ${k(p.id) === RM.prod ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}</select></label>
-        <label class="field"><span>Fazenda</span><select data-rm="faz"><option value="">Todas (${fazs.length})</option>${fazs.map(f => `<option value="${esc(f.id)}" ${k(f.id) === RM.faz ? 'selected' : ''}>${esc(f.nome)}</option>`).join('')}</select></label>
+        <div class="field ef-field"><span>Fazendas</span><div id="rm-faz"></div></div>
         <label class="field"><span>Mês</span><input type="month" data-rm="mes" value="${esc(RM.mes)}"></label></div>
+        <div id="rm-faz-chips"></div>
         <div class="rep-checks"><span class="muted">Incluir:</span>${SECS().map(([s, l]) => `<label><input type="checkbox" data-sec="${s}" ${RM.secs[s] ? 'checked' : ''}> ${l}</label>`).join('')}</div>
         ${admin() ? '' : '<p class="muted rm-aviso">Os custos não aparecem no seu acesso. O administrador gera a versão com valores.</p>'}</div>
       ${previa(D)}</div>`;
+    window.EscFaz.montar($('#rm-faz', root), { fazs, sel: RM.fazs, chips: $('#rm-faz-chips', root), agrupar: false, mudar: ids => { RM.fazs = ids; salvarPref(); render(); } });
   }
   function previa(D) {
     const t = (l, v, s, cls = '') => `<div class="tile ${cls}"><span class="lbl">${l}</span><span class="val num">${v}</span><span class="sub">${s}</span></div>`;
     const ctl = D.pragas.reduce((a, p) => a + p.controle.length, 0);
-    return `<article class="rm-doc"><header class="rm-hd"><div><small>Relatório mensal · ${esc(nomeMes(RM.mes))}</small><h3>${esc(D.prod?.nome || '—')}</h3><p class="muted">${D.fazs.length === 1 ? esc(D.fazs[0].nome) : D.fazs.length + ' fazendas'} · ${D.tals.length} talhões · ${I().fmtHa0(D.area)} ha${D.tecnicos.length ? ' · Técnico(s): ' + esc(D.tecnicos.join(', ')) : ''}</p></div></header>
+    return `<article class="rm-doc"><header class="rm-hd"><div><small>Relatório mensal · ${esc(nomeMes(RM.mes))}</small><h3>${esc(D.prod?.nome || '—')}</h3><p class="muted">${D.fazs.length === 1 ? esc(D.fazs[0].nome) : RM.fazs.length && D.fazs.length <= 4 ? esc(D.fazs.map(f => f.nome).join(', ')) : D.fazs.length + ' fazendas'} · ${D.tals.length} talhões · ${I().fmtHa0(D.area)} ha${D.tecnicos.length ? ' · Técnico(s): ' + esc(D.tecnicos.join(', ')) : ''}</p></div></header>
       <div class="tiles">${t('Visitas', D.visitas.length, `${D.sem.vermelho} vermelho · ${D.sem.amarelo} amarelo · ${D.sem.verde} verde`, D.sem.vermelho ? 'alert' : '')}${t('Talhões em controle', ctl, ctl ? 'precisam de ação' : 'nenhuma praga no nível de controle', ctl ? 'alert' : '')}${t('Chuva no mês', f1(D.chuvaTotal) + ' mm', D.chuvaAnoAnt != null ? `${f1(D.chuvaAnoAnt)} mm no mesmo mês do ano passado` : D.pluvs.length + ' pluviômetro(s)')}${t('Aplicações', D.ordens.length, (c => c + (c === 1 ? ' concluída' : ' concluídas'))(D.ordens.filter(x => x.o.status === 'Concluída').length))}${on('custos') && D.custos ? t('Custo do mês', R$(D.custos.total), D.custos.porHa ? R$(D.custos.porHa) + ' por ha' : '') : ''}</div>
       ${on('visitas') ? `<section><h4>Visitas</h4>${D.visitas.length ? `<div class="table-wrap"><table><thead><tr><th>Data</th><th>Fazenda / talhão</th><th>Técnico</th><th>Semáforo</th><th>Principal problema e recomendação</th></tr></thead><tbody>${D.visitas.map(m => { const tt = D.tal(m.talhao_id), s = SEM[I().semaforo(m)], rc = m.recomendacao && (m.recomendacao.produtos || []).length ? m.recomendacao.produtos.map(p => p.produto).join(', ') : ''; return `<tr><td>${I().fmtDate(m.data)}</td><td>${esc(D.fz(tt?.fazenda_id)?.nome || '')}<br><small class="muted">${esc(I().nomeTal(tt))}</small></td><td>${esc(nomeP(m.responsavel || m.criado_por) || '—')}</td><td><span class="rm-sem"><i style="background:${s[1]}"></i>${s[0]}</span></td><td>${esc(m.alvo || m.estadio || '—')}${rc ? `<br><small class="muted">Recomendado: ${esc(rc)}</small>` : ''}</td></tr>`; }).join('')}</tbody></table></div>` : '<p class="empty">Nenhuma visita neste mês.</p>'}</section>` : ''}
       ${on('pragas') ? `<section><h4>Pragas da cana</h4>${D.pragas.length ? `<div class="table-wrap"><table><thead><tr><th>Praga</th><th class="r">Visitas</th><th class="r">Média</th><th class="r">Maior</th><th>Nível de controle</th><th>Talhões em controle</th></tr></thead><tbody>${D.pragas.map(p => `<tr><td><b>${esc(p.nome)}</b><br><small class="muted">${esc(p.un)}</small></td><td class="r num">${p.visitas}</td><td class="r num">${f1(p.media)}</td><td class="r num">${f1(p.max)}</td><td>${p.niv.vm != null ? '≥ ' + f1(p.niv.vm) : '—'}</td><td>${p.controle.length ? `<span class="pill bad">${p.controle.length}</span> ${esc(p.controle.map(x => I().nomeTal(x.t)).join(', '))}` : p.atencao.length ? `<span class="pill warn">${p.atencao.length} em atenção</span>` : '<span class="pill ok">Nenhum</span>'}</td></tr>`).join('')}</tbody></table></div>` : '<p class="empty">Nenhuma amostra de praga registrada neste mês.</p>'}</section>` : ''}
@@ -9911,7 +10129,7 @@ window.RelMensal = (function () {
     // rodapé
     const np = doc.getNumberOfPages();
     for (let i = 1; i <= np; i++) { doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...CINZA); doc.text('InovaAgro Consultoria Agrícola · emitido em ' + I().fmtDate(I().today()), M, H - 8); doc.text('página ' + i + ' de ' + np, W - M, H - 8, { align: 'right' }); }
-    const nome = ('relatorio-mensal-' + (D.prod?.nome || 'cliente') + '-' + RM.mes).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').replace(/-+/g, '-').toLowerCase() + '.pdf';
+    const nome = ('relatorio-mensal-' + (D.prod?.nome || 'cliente') + (RM.fazs.length === 1 && D.fazs.length === 1 ? '-' + D.fazs[0].nome : '') + '-' + RM.mes).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').replace(/-+/g, '-').toLowerCase() + '.pdf';
     doc.save(nome); I().toast('PDF gerado.');
   }
 

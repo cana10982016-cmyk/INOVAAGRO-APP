@@ -1,0 +1,79 @@
+/* INOVAAGRO — escolher várias fazendas nos relatórios */
+.ef { display: block; min-width: 0; }
+.field.ef-field { display: grid; gap: 5px; font-size: 12.5px; font-weight: 500; min-width: 0; }
+.field.ef-field > span { color: var(--muted); }
+.ef-campo { width: 100%; height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); box-shadow: var(--shadow); cursor: pointer; text-align: left; color: var(--fg); transition: border-color .15s, box-shadow .15s; }
+.ef-campo:hover { border-color: color-mix(in srgb, var(--brand) 35%, var(--line)); }
+.ef-campo:focus-visible, .ef-campo[aria-expanded="true"] { outline: none; border-color: color-mix(in srgb, var(--brand) 60%, var(--line)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 16%, transparent); }
+.ef-txt { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; overflow: hidden; }
+.ef-txt b { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ef-txt small { font-size: 11.5px; color: var(--subtle); white-space: nowrap; }
+.ef-campo > svg { width: 14px; height: 14px; color: var(--muted); flex: none; }
+
+.ef-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+.ef-chips[hidden] { display: none; }
+.ef-chip { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 3px 0 10px; border-radius: 99px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent); color: var(--fg); font-size: 12.5px; font-weight: 500; animation: ef-in .18s ease; }
+.ef-chip button { border: 0; background: none; cursor: pointer; width: 20px; height: 20px; border-radius: 50%; color: var(--muted); font-size: 14px; line-height: 1; display: grid; place-items: center; }
+.ef-chip button:hover { background: var(--surface); color: var(--fg); }
+.ef-limpar { border: 0; background: none; color: var(--muted); font-size: 12px; cursor: pointer; padding: 0 6px; text-decoration: underline; text-underline-offset: 2px; }
+.ef-limpar:hover { color: var(--fg); }
+
+.ef-pn { position: fixed; z-index: 3000; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-2); overflow: hidden; animation: ef-pop .16s cubic-bezier(.2,.8,.2,1); }
+.ef-pn.saindo { animation: ef-out .14s ease forwards; }
+.ef-busca { flex: none; display: flex; align-items: center; gap: 8px; margin: 10px 10px 0; padding: 0 10px; height: 36px; border-radius: 8px; background: var(--surface-2); border: 1px solid transparent; }
+.ef-busca:focus-within { border-color: color-mix(in srgb, var(--brand) 50%, var(--line)); background: var(--surface); }
+.ef-busca svg { width: 15px; height: 15px; color: var(--subtle); flex: none; }
+.ef-busca input[type="search"] { border: 0 !important; background: none; box-shadow: none !important; padding: 0; height: 100%; flex: 1; min-width: 0; font-size: 13px; }
+.ef-atalhos { display: flex; align-items: center; gap: 4px; padding: 8px 10px 6px; border-bottom: 1px solid var(--line-2); }
+.ef-atalhos button { border: 0; background: none; color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; padding: 3px 6px; border-radius: 6px; }
+.ef-atalhos button:hover { background: var(--accent-soft); }
+.ef-cont { margin-left: auto; font-size: 11.5px; color: var(--subtle); }
+.ef-lista { overflow-y: auto; overscroll-behavior: contain; padding: 4px 6px 6px; flex: 1; min-height: 80px; }
+.ef-grupo + .ef-grupo { margin-top: 4px; border-top: 1px solid var(--line-2); padding-top: 4px; }
+.ef-gh { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 4px; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--subtle); position: sticky; top: -4px; background: var(--surface); z-index: 1; }
+.ef-gh button { border: 0; background: none; color: var(--accent); font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; cursor: pointer; padding: 2px 4px; border-radius: 5px; }
+.ef-gh button:hover { background: var(--accent-soft); }
+.ef-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 7px 8px; border: 0; background: none; border-radius: 8px; cursor: pointer; text-align: left; color: var(--fg); transition: background .12s; }
+.ef-item:hover { background: var(--surface-2); }
+.ef-item.on { background: var(--accent-soft); }
+.ef-cx { width: 18px; height: 18px; flex: none; border-radius: 5px; border: 1.5px solid color-mix(in srgb, var(--muted) 55%, transparent); display: grid; place-items: center; color: transparent; transition: background .12s, border-color .12s; }
+.ef-cx svg { width: 12px; height: 12px; transform: scale(.5); transition: transform .14s cubic-bezier(.2,.9,.3,1.4); }
+.ef-item.on .ef-cx { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.ef-item.on .ef-cx svg { transform: scale(1); }
+.ef-nm { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.ef-nm b { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ef-nm small { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ef-ha { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ef-ha i { font-style: normal; color: var(--subtle); font-size: 11px; }
+.ef-vazio { padding: 22px 10px; text-align: center; color: var(--muted); font-size: 13px; margin: 0; }
+.ef-pn footer { display: flex; align-items: center; gap: 10px; padding: 10px; border-top: 1px solid var(--line-2); background: var(--surface); }
+.ef-resumo { flex: 1; font-size: 12.5px; color: var(--muted); }
+.ef-resumo b { color: var(--fg); font-weight: 600; }
+
+/* Celular: lista abre por baixo, ocupando a largura */
+.ef-fundo { position: fixed; inset: 0; z-index: 2999; background: rgba(12,14,10,.38); animation: ef-fade .18s ease; }
+.ef-fundo.saindo { animation: ef-fade .14s ease reverse forwards; }
+.ef-pn.cel { left: 0; right: 0; bottom: 0; top: auto; max-height: 86vh; border-radius: 18px 18px 0 0; border-bottom: 0; animation: ef-sobe .24s cubic-bezier(.2,.8,.2,1); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.ef-pn.cel.saindo { animation: ef-desce .16s ease forwards; }
+.ef-alca { width: 38px; height: 4px; border-radius: 4px; background: var(--line); margin: 8px auto 2px; flex: none; }
+.ef-tit { padding: 6px 16px 2px; display: grid; gap: 2px; }
+.ef-tit b { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+.ef-tit small { font-size: 12.5px; color: var(--muted); }
+.ef-pn.cel .ef-busca { margin: 10px 14px 0; height: 42px; }
+.ef-pn.cel .ef-busca input[type="search"] { font-size: 16px; }
+.ef-pn.cel .ef-atalhos { padding: 8px 14px 6px; }
+.ef-pn.cel .ef-lista { padding: 4px 10px 8px; }
+.ef-pn.cel .ef-item { padding: 11px 8px; min-height: 52px; }
+.ef-pn.cel .ef-cx { width: 22px; height: 22px; border-radius: 6px; }
+.ef-pn.cel .ef-cx svg { width: 14px; height: 14px; }
+.ef-pn.cel .ef-nm b { font-size: 14.5px; }
+.ef-pn.cel footer { padding: 12px 14px; }
+.ef-pn.cel footer .btn { height: 42px; padding: 0 22px; font-size: 14px; }
+
+@keyframes ef-pop { from { opacity: 0; transform: translateY(-4px) scale(.985); } }
+@keyframes ef-out { to { opacity: 0; transform: translateY(-4px) scale(.985); } }
+@keyframes ef-sobe { from { transform: translateY(100%); } }
+@keyframes ef-desce { to { transform: translateY(100%); } }
+@keyframes ef-fade { from { opacity: 0; } }
+@keyframes ef-in { from { opacity: 0; transform: scale(.9); } }
+@media (prefers-reduced-motion: reduce) { .ef-pn, .ef-pn.cel, .ef-fundo, .ef-chip { animation: none !important; } }
