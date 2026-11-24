@@ -7082,6 +7082,7 @@ window.Campo = (function () {
         <p>${n || nMidia ? `<b class="cp-warn">!</b> ${n ? n + ' alteraç' + (n > 1 ? 'ões' : 'ão') : ''}${n && nMidia ? ' e ' : ''}${nMidia ? nMidia + ' arquivo' + (nMidia > 1 ? 's' : '') : ''} para enviar` : 'Tudo enviado.'}${off ? ' Sem internet agora.' : ''}</p>
         <button class="cp-btn cp-btn-sync" data-cp="sync">${ic('sync')}Sincronizar agora</button>
         ${n || nMidia ? '<button class="cp-lnk cp-lnk-inv" data-cp="pendencias">Ver o que falta enviar</button>' : ''}
+        ${Midia.erro && nMidia && !Midia.semBucket ? `<p class="cp-aviso">Os arquivos estão guardados no celular, mas o envio falhou: ${esc(Midia.erro)}</p>` : ''}
         ${Midia.semBucket ? '<p class="cp-aviso">As fotos estão guardadas no celular. Para enviá-las, o administrador precisa ativar o armazenamento de fotos no Supabase (arquivo supabase/03_fotos_campo.sql).</p>' : ''}
         <p class="cp-mut2">O app envia sozinho quando a internet volta.</p></section>
       <div class="cp-tema"><span>Aparência</span>${window.Acab ? window.Acab.temaSeg() : ''}</div>
@@ -7758,7 +7759,7 @@ window.Campo = (function () {
 
   // Envio de fotos/vídeos/áudios/anexos ao Supabase Storage (bucket "campo")
   const Midia = {
-    rodando: false, semBucket: false,
+    rodando: false, semBucket: false, erro: '',
     async contar() { nMidia = (await I().Off.listarMidia()).length; faixa(); },
     async enviar() {
       const SB = I().SB;
@@ -7769,13 +7770,15 @@ window.Campo = (function () {
         for (const it of lista) {
           const ext = (it.nome && it.nome.includes('.') ? it.nome.split('.').pop() : (it.mime || '').split('/')[1] || 'bin').replace(/[^a-z0-9]/gi, '').slice(0, 5).toLowerCase();
           const caminho = `${new Date().getFullYear()}/${it.id}.${ext || 'bin'}`;
-          const r = await SB.cli.storage.from('campo').upload(caminho, it.blob, { contentType: it.mime, upsert: true });
-          if (r.error) {
-            if (/bucket/i.test(r.error.message || '')) { this.semBucket = true; break; }
+          // Sem "upsert": substituir arquivo exige permissões de ver/alterar no Storage, que o bucket "campo" não dá
+          // (o envio voltava erro 400 e a foto ficava presa no celular). Se o arquivo já chegou antes, segue normalmente.
+          const r = await SB.cli.storage.from('campo').upload(caminho, it.blob, { contentType: it.mime || 'application/octet-stream' });
+          if (r.error && !/already exists|duplicate|409/i.test((r.error.message || '') + ' ' + (r.error.statusCode || ''))) {
+            if (/bucket not found/i.test(r.error.message || '')) { this.semBucket = true; break; }
             if (I().Off.erroDeRede(r.error)) break;
-            console.warn('upload', r.error); continue;
+            this.erro = r.error.message || String(r.error); console.warn('upload', r.error); continue;
           }
-          this.semBucket = false;
+          this.semBucket = false; this.erro = '';
           const url = SB.cli.storage.from('campo').getPublicUrl(caminho).data.publicUrl;
           const rec = I().get('monitoramentos', it.rec);
           if (rec) {
