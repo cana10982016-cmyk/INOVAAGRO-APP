@@ -4,7 +4,7 @@
 :root[data-theme="dark"] { --fin-c1: #3987e5; --fin-c2: #d95926; --fin-c3: #199e70; --fin-c4: #c98500; --fin-c5: #d55181; --fin-c6: #9085e9; }
 .fin .fk1, .fin-modal .fk1 { --c: var(--fin-c1); } .fin .fk2, .fin-modal .fk2 { --c: var(--fin-c2); }
 .fin .fk3, .fin-modal .fk3 { --c: var(--fin-c3); } .fin .fk5, .fin-modal .fk5 { --c: var(--fin-c5); } .fin .fk6, .fin-modal .fk6 { --c: var(--fin-c6); } .fin .fk4, .fin-modal .fk4 { --c: var(--fin-c4); }
-.fin { position: relative; }
+.fin-cel .fin { position: relative; } /* no computador a seção fica presa à tela (.view) e rola sozinha */
 .fin .sw { display: inline-block; width: 9px; height: 9px; border-radius: 3px; background: var(--c, var(--muted)); flex: none; }
 .fin .head-acts .btn svg { width: 15px; height: 15px; }
 
