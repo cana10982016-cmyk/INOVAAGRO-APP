@@ -1,6 +1,6 @@
 /* INOVAAGRO: service worker. Guarda o app no celular para abrir sem internet.
    Dados do banco NÃO passam por aqui (ficam no IndexedDB, ver src/offline.js). */
-const VERSAO = 'inovaagro-app-v19';
+const VERSAO = 'inovaagro-app-v20';
 const MAPA = 'inovaagro-mapa';
 const MAPA_FAZ = 'inovaagro-mapa-faz'; // fazendas baixadas inteiras (Mapas offline): o app não apaga sozinho
 const ESSENCIAIS = [
