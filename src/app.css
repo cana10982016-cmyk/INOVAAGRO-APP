@@ -813,3 +813,22 @@ html, body { overscroll-behavior: none; }
 .btn-campo { display: none; }
 @media (max-width: 760px) { .btn-campo { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; background: var(--accent); color: var(--accent-fg); border-color: var(--accent); } }
 @media (max-width: 760px) { .btn-campo svg { color: inherit; stroke: currentColor; opacity: 1; } }
+
+/* Barra de rolagem sempre visível no computador (o Mac esconde a barra até a pessoa rolar) */
+@media (hover: hover) and (pointer: fine) {
+  .nav-links::-webkit-scrollbar, .view::-webkit-scrollbar, .modal::-webkit-scrollbar, .sheet .body::-webkit-scrollbar, .tree::-webkit-scrollbar { width: 11px; height: 11px; }
+  .nav-links::-webkit-scrollbar-track, .view::-webkit-scrollbar-track, .modal::-webkit-scrollbar-track, .sheet .body::-webkit-scrollbar-track, .tree::-webkit-scrollbar-track { background: transparent; }
+  .nav-links::-webkit-scrollbar-thumb, .view::-webkit-scrollbar-thumb, .modal::-webkit-scrollbar-thumb, .sheet .body::-webkit-scrollbar-thumb, .tree::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 99px; border: 3px solid transparent; background-clip: padding-box; min-height: 40px; }
+  .nav-links::-webkit-scrollbar-thumb:hover, .view::-webkit-scrollbar-thumb:hover, .modal::-webkit-scrollbar-thumb:hover, .sheet .body::-webkit-scrollbar-thumb:hover, .tree::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-thumb-h); }
+  @supports not selector(::-webkit-scrollbar) { .nav-links, .view, .modal, .sheet .body, .tree { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; } }
+}
+:root { --scroll-thumb: #c9c9c3; --scroll-thumb-h: #a3a39c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --scroll-thumb: #3a4034; --scroll-thumb-h: #545b4c; } }
+:root[data-theme="dark"] { --scroll-thumb: #3a4034; --scroll-thumb-h: #545b4c; }
+/* Aviso no pé do menu: ainda há opções lá embaixo */
+.nav-mais { position: relative; z-index: 2; flex: none; height: 56px; margin-top: -56px; display: flex; align-items: flex-end; justify-content: center; gap: 6px; padding: 0 0 8px; border: 0; cursor: pointer; font: inherit; font-size: 12px; font-weight: 500; color: var(--muted); background: linear-gradient(to bottom, transparent, var(--nav-bg) 48%); }
+.nav-mais[hidden] { display: none; }
+.nav-mais svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; animation: nav-mais-pula 1.8s ease-in-out infinite; }
+.nav-mais:hover { color: var(--fg); }
+@keyframes nav-mais-pula { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+@media (prefers-reduced-motion: reduce) { .nav-mais svg { animation: none; } }
