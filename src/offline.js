@@ -5,23 +5,39 @@ window.GlebaOffline = (function () {
   const NOME = 'inovaagro-offline', VERSAO = 2;
   let aberto = null;
   function abrir() {
-    if (!aberto) aberto = new Promise((ok, falha) => {
+    if (!aberto) { const pr = aberto = new Promise((ok, falha) => {
       const r = indexedDB.open(NOME, VERSAO);
       r.onupgradeneeded = () => { const d = r.result; for (const n of ['copia', 'fila', 'midia']) if (!d.objectStoreNames.contains(n)) d.createObjectStore(n); };
-      r.onsuccess = () => ok(r.result);
-      r.onerror = () => falha(r.error);
-    });
+      r.onsuccess = () => {
+        const d = r.result;
+        // O navegador pode fechar a conexão (aba aberta muitas horas, pouco espaço, outra versão do app):
+        // esquece a conexão para abrir uma nova na próxima vez.
+        d.onclose = () => { if (aberto === pr) aberto = null; };
+        d.onversionchange = () => { try { d.close(); } catch (e) { } if (aberto === pr) aberto = null; };
+        pr._d = d; ok(d);
+      };
+      r.onerror = () => { if (aberto === pr) aberto = null; falha(r.error); };
+    }); }
     return aberto;
   }
-  async function op(loja, modo, fn) {
-    const d = await abrir();
+  function uma(d, loja, modo, fn) {
     return new Promise((ok, falha) => {
       const t = d.transaction(loja, modo), s = t.objectStore(loja);
       let res; const req = fn(s);
       if (req) req.onsuccess = () => { res = req.result; };
       t.oncomplete = () => ok(res);
-      t.onerror = t.onabort = () => falha(t.error);
+      t.onerror = t.onabort = () => falha(t.error || new Error('falha no armazenamento do aparelho'));
     });
+  }
+  // Nunca deixa o app esperando para sempre pelo armazenamento do aparelho.
+  const comPrazo = (p, ms) => Promise.race([p, new Promise((_, f) => setTimeout(() => f(new Error('o armazenamento do aparelho não respondeu')), ms))]);
+  async function op(loja, modo, fn) {
+    try { return await comPrazo(abrir().then(d => uma(d, loja, modo, fn)), 6000); }
+    catch (e) {
+      // Conexão velha ou fechada: abre de novo e tenta mais uma vez.
+      const velha = aberto && aberto._d; aberto = null; try { if (velha) velha.close(); } catch (x) { }
+      return comPrazo(abrir().then(d => uma(d, loja, modo, fn)), 6000);
+    }
   }
   const chave = (k, id) => k + ':' + String(id);
   return {

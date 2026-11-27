@@ -358,10 +358,18 @@
       delete obj._prod;
       if (this.mode === 'supabase') {
         // Grava primeiro no aparelho (fila) e depois tenta enviar; sem internet fica na fila.
-        await Off.enfileirar(k, obj);
+        let naFila = true;
+        try { await Off.enfileirar(k, obj); }
+        catch (e) {
+          // O armazenamento do aparelho falhou: com internet, envia direto para o servidor.
+          console.warn('fila', e); naFila = false;
+          if (!navigator.onLine) throw new Error('Não foi possível guardar no aparelho (' + (e && e.message || e) + '). Recarregue a página e tente de novo.');
+          try { if (obj._del) await SB.del(k, obj.id); else await SB.upsert(k, [obj]); }
+          catch (e2) { throw new Error(/permission|policy|JWT|RLS/i.test(e2.message || '') ? 'Você não tem permissão para alterar estes dados.' : 'O servidor não aceitou: ' + (e2.message || e2)); }
+        }
         if (obj._del) S.base[k] = S.base[k].filter(r => key(r.id) !== key(obj.id));
         else { const i = S.base[k].findIndex(r => key(r.id) === key(obj.id)); if (i >= 0) S.base[k][i] = obj; else S.base[k].push(obj); }
-        rebuild(); refresh(); sincronizar(true); return;
+        rebuild(); refresh(); if (naFila) sincronizar(true); return;
       }
       S.over[k][key(obj.id)] = obj; rebuild(); refresh();
       if (this.db) {
@@ -1642,7 +1650,7 @@
         if (missing) { toast('Preencha: ' + missing.l); form.elements[missing.k].focus(); return; }
         if (kind === 'controles' && out.tipo === COT && window.CANA) { const vh = window.CANA.vespasHa(out); out.valor = vh; out.unidade = vh == null ? null : 'vespas/ha'; }
         if (isNew && rec.origem_visita) out.origem_visita = rec.origem_visita;
-        try { await Store.save(kind, out); toast(isNew ? 'Cadastrado.' : 'Alterações salvas.'); close(); if (isNew && out.origem_visita) { const mv = get('monitoramentos', out.origem_visita); if (mv && !mv.ordem_id) await Store.save('monitoramentos', Object.assign({}, mv, { ordem_id: out.id })); } } catch (e) { }
+        try { await Store.save(kind, out); toast(isNew ? 'Cadastrado.' : 'Alterações salvas.'); close(); if (isNew && out.origem_visita) { const mv = get('monitoramentos', out.origem_visita); if (mv && !mv.ordem_id) await Store.save('monitoramentos', Object.assign({}, mv, { ordem_id: out.id })); } } catch (e) { console.error('salvar', kind, e); if (!/somente leitura/.test(e && e.message || '')) toast('Não foi possível salvar: ' + (e && e.message || e)); }
       }
     });
     setTimeout(() => { const first = form.querySelector('input,select,textarea'); if (first && podeEditar()) first.focus(); }, 20);

@@ -3066,23 +3066,39 @@ window.GlebaOffline = (function () {
   const NOME = 'inovaagro-offline', VERSAO = 2;
   let aberto = null;
   function abrir() {
-    if (!aberto) aberto = new Promise((ok, falha) => {
+    if (!aberto) { const pr = aberto = new Promise((ok, falha) => {
       const r = indexedDB.open(NOME, VERSAO);
       r.onupgradeneeded = () => { const d = r.result; for (const n of ['copia', 'fila', 'midia']) if (!d.objectStoreNames.contains(n)) d.createObjectStore(n); };
-      r.onsuccess = () => ok(r.result);
-      r.onerror = () => falha(r.error);
-    });
+      r.onsuccess = () => {
+        const d = r.result;
+        // O navegador pode fechar a conexão (aba aberta muitas horas, pouco espaço, outra versão do app):
+        // esquece a conexão para abrir uma nova na próxima vez.
+        d.onclose = () => { if (aberto === pr) aberto = null; };
+        d.onversionchange = () => { try { d.close(); } catch (e) { } if (aberto === pr) aberto = null; };
+        pr._d = d; ok(d);
+      };
+      r.onerror = () => { if (aberto === pr) aberto = null; falha(r.error); };
+    }); }
     return aberto;
   }
-  async function op(loja, modo, fn) {
-    const d = await abrir();
+  function uma(d, loja, modo, fn) {
     return new Promise((ok, falha) => {
       const t = d.transaction(loja, modo), s = t.objectStore(loja);
       let res; const req = fn(s);
       if (req) req.onsuccess = () => { res = req.result; };
       t.oncomplete = () => ok(res);
-      t.onerror = t.onabort = () => falha(t.error);
+      t.onerror = t.onabort = () => falha(t.error || new Error('falha no armazenamento do aparelho'));
     });
+  }
+  // Nunca deixa o app esperando para sempre pelo armazenamento do aparelho.
+  const comPrazo = (p, ms) => Promise.race([p, new Promise((_, f) => setTimeout(() => f(new Error('o armazenamento do aparelho não respondeu')), ms))]);
+  async function op(loja, modo, fn) {
+    try { return await comPrazo(abrir().then(d => uma(d, loja, modo, fn)), 6000); }
+    catch (e) {
+      // Conexão velha ou fechada: abre de novo e tenta mais uma vez.
+      const velha = aberto && aberto._d; aberto = null; try { if (velha) velha.close(); } catch (x) { }
+      return comPrazo(abrir().then(d => uma(d, loja, modo, fn)), 6000);
+    }
   }
   const chave = (k, id) => k + ':' + String(id);
   return {
@@ -3489,10 +3505,18 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
       delete obj._prod;
       if (this.mode === 'supabase') {
         // Grava primeiro no aparelho (fila) e depois tenta enviar; sem internet fica na fila.
-        await Off.enfileirar(k, obj);
+        let naFila = true;
+        try { await Off.enfileirar(k, obj); }
+        catch (e) {
+          // O armazenamento do aparelho falhou: com internet, envia direto para o servidor.
+          console.warn('fila', e); naFila = false;
+          if (!navigator.onLine) throw new Error('Não foi possível guardar no aparelho (' + (e && e.message || e) + '). Recarregue a página e tente de novo.');
+          try { if (obj._del) await SB.del(k, obj.id); else await SB.upsert(k, [obj]); }
+          catch (e2) { throw new Error(/permission|policy|JWT|RLS/i.test(e2.message || '') ? 'Você não tem permissão para alterar estes dados.' : 'O servidor não aceitou: ' + (e2.message || e2)); }
+        }
         if (obj._del) S.base[k] = S.base[k].filter(r => key(r.id) !== key(obj.id));
         else { const i = S.base[k].findIndex(r => key(r.id) === key(obj.id)); if (i >= 0) S.base[k][i] = obj; else S.base[k].push(obj); }
-        rebuild(); refresh(); sincronizar(true); return;
+        rebuild(); refresh(); if (naFila) sincronizar(true); return;
       }
       S.over[k][key(obj.id)] = obj; rebuild(); refresh();
       if (this.db) {
@@ -4773,7 +4797,7 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
         if (missing) { toast('Preencha: ' + missing.l); form.elements[missing.k].focus(); return; }
         if (kind === 'controles' && out.tipo === COT && window.CANA) { const vh = window.CANA.vespasHa(out); out.valor = vh; out.unidade = vh == null ? null : 'vespas/ha'; }
         if (isNew && rec.origem_visita) out.origem_visita = rec.origem_visita;
-        try { await Store.save(kind, out); toast(isNew ? 'Cadastrado.' : 'Alterações salvas.'); close(); if (isNew && out.origem_visita) { const mv = get('monitoramentos', out.origem_visita); if (mv && !mv.ordem_id) await Store.save('monitoramentos', Object.assign({}, mv, { ordem_id: out.id })); } } catch (e) { }
+        try { await Store.save(kind, out); toast(isNew ? 'Cadastrado.' : 'Alterações salvas.'); close(); if (isNew && out.origem_visita) { const mv = get('monitoramentos', out.origem_visita); if (mv && !mv.ordem_id) await Store.save('monitoramentos', Object.assign({}, mv, { ordem_id: out.id })); } } catch (e) { console.error('salvar', kind, e); if (!/somente leitura/.test(e && e.message || '')) toast('Não foi possível salvar: ' + (e && e.message || e)); }
       }
     });
     setTimeout(() => { const first = form.querySelector('input,select,textarea'); if (first && podeEditar()) first.focus(); }, 20);
