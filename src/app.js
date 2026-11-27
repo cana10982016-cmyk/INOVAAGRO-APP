@@ -619,7 +619,12 @@
       const ok = !q || norm(el.textContent).includes(q) || norm(GRUPO[el.dataset.nav] || '').includes(q);
       el.hidden = !ok; if (ok) vis++;
     }
-    fecha();
+    fecha(); setaNav();
+  }
+  // Mostra "Mais opções abaixo" no pé do menu enquanto houver itens escondidos lá embaixo
+  function setaNav() {
+    const n = $('#nav-links'), b = $('#nav-mais'); if (!n || !b) return;
+    b.hidden = n.scrollHeight - n.scrollTop - n.clientHeight < 8;
   }
   function markNav() { document.querySelectorAll('#nav-links a').forEach(a => { if (a.dataset.nav === current) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }); }
   function updateBadges() {
@@ -3228,6 +3233,9 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = $('.modal-bg'); if (m) m.remove(); document.body.classList.remove('nav-open'); } });
   $('#q-mapa').addEventListener('input', renderTree);
   $('#nav-q').addEventListener('input', filtraNav);
+  $('#nav-links').addEventListener('scroll', setaNav, { passive: true });
+  window.addEventListener('resize', setaNav);
+  $('#nav-mais').addEventListener('click', () => { const n = $('#nav-links'); n.scrollBy({ top: n.clientHeight * 0.7, behavior: 'smooth' }); });
   $('#nav-q').addEventListener('keydown', e => { if (e.key === 'Enter') { const a = [...$('#nav-links').querySelectorAll('a')].find(x => !x.hidden); if (a) { location.hash = a.dataset.nav; e.target.value = ''; filtraNav(); e.target.blur(); } } });
   document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); if (window.Acab) window.Acab.buscar(); else { document.body.classList.add('nav-open'); $('#nav-q').focus(); } } });
   $('#color-by').addEventListener('change', e => { S.colorBy = e.target.value; S.ocultos.clear(); styleAll(); drawLegend(); renderTree(); if (map) drawLayers(); });

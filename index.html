@@ -1471,6 +1471,25 @@ html, body { overscroll-behavior: none; }
 @media (max-width: 760px) { .btn-campo { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; background: var(--accent); color: var(--accent-fg); border-color: var(--accent); } }
 @media (max-width: 760px) { .btn-campo svg { color: inherit; stroke: currentColor; opacity: 1; } }
 
+/* Barra de rolagem sempre visível no computador (o Mac esconde a barra até a pessoa rolar) */
+@media (hover: hover) and (pointer: fine) {
+  .nav-links::-webkit-scrollbar, .view::-webkit-scrollbar, .modal::-webkit-scrollbar, .sheet .body::-webkit-scrollbar, .tree::-webkit-scrollbar { width: 11px; height: 11px; }
+  .nav-links::-webkit-scrollbar-track, .view::-webkit-scrollbar-track, .modal::-webkit-scrollbar-track, .sheet .body::-webkit-scrollbar-track, .tree::-webkit-scrollbar-track { background: transparent; }
+  .nav-links::-webkit-scrollbar-thumb, .view::-webkit-scrollbar-thumb, .modal::-webkit-scrollbar-thumb, .sheet .body::-webkit-scrollbar-thumb, .tree::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 99px; border: 3px solid transparent; background-clip: padding-box; min-height: 40px; }
+  .nav-links::-webkit-scrollbar-thumb:hover, .view::-webkit-scrollbar-thumb:hover, .modal::-webkit-scrollbar-thumb:hover, .sheet .body::-webkit-scrollbar-thumb:hover, .tree::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-thumb-h); }
+  @supports not selector(::-webkit-scrollbar) { .nav-links, .view, .modal, .sheet .body, .tree { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; } }
+}
+:root { --scroll-thumb: #c9c9c3; --scroll-thumb-h: #a3a39c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --scroll-thumb: #3a4034; --scroll-thumb-h: #545b4c; } }
+:root[data-theme="dark"] { --scroll-thumb: #3a4034; --scroll-thumb-h: #545b4c; }
+/* Aviso no pé do menu: ainda há opções lá embaixo */
+.nav-mais { position: relative; z-index: 2; flex: none; height: 56px; margin-top: -56px; display: flex; align-items: flex-end; justify-content: center; gap: 6px; padding: 0 0 8px; border: 0; cursor: pointer; font: inherit; font-size: 12px; font-weight: 500; color: var(--muted); background: linear-gradient(to bottom, transparent, var(--nav-bg) 48%); }
+.nav-mais[hidden] { display: none; }
+.nav-mais svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; animation: nav-mais-pula 1.8s ease-in-out infinite; }
+.nav-mais:hover { color: var(--fg); }
+@keyframes nav-mais-pula { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+@media (prefers-reduced-motion: reduce) { .nav-mais svg { animation: none; } }
+
 /* ===== Modo campo (celular) — src/campo.js ===== */
 body.campo-on .nav, body.campo-on .topbar, body.campo-on .nav-scrim { display: none !important; }
 body.campo-on main { top: 0; left: 0; right: 0; bottom: 0; }
@@ -2984,6 +3003,7 @@ button.tp-al:hover { border-color: color-mix(in srgb, currentColor 30%, var(--li
   </div>
   <label class="nav-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="nav-q" placeholder="Filtrar o menu" aria-label="Filtrar o menu" autocomplete="off"></label>
   <nav class="nav-links" id="nav-links"></nav>
+  <button type="button" class="nav-mais" id="nav-mais" hidden aria-label="Ver mais opções do menu"><span>Mais opções abaixo</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
   <div class="nav-foot" id="acct" hidden>
     <div class="nav-me"><span class="avatar sm" id="who-av"></span><div class="who"><b id="who-email"></b><span id="who-papel"></span></div></div>
     <div class="nav-foot-btns"><button class="btn small ghost" data-act="import" data-papel-min="admin">Importar dados</button><button class="btn small ghost" data-act="logout">Sair</button></div>
@@ -3750,7 +3770,12 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
       const ok = !q || norm(el.textContent).includes(q) || norm(GRUPO[el.dataset.nav] || '').includes(q);
       el.hidden = !ok; if (ok) vis++;
     }
-    fecha();
+    fecha(); setaNav();
+  }
+  // Mostra "Mais opções abaixo" no pé do menu enquanto houver itens escondidos lá embaixo
+  function setaNav() {
+    const n = $('#nav-links'), b = $('#nav-mais'); if (!n || !b) return;
+    b.hidden = n.scrollHeight - n.scrollTop - n.clientHeight < 8;
   }
   function markNav() { document.querySelectorAll('#nav-links a').forEach(a => { if (a.dataset.nav === current) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }); }
   function updateBadges() {
@@ -6359,6 +6384,9 @@ if ('serviceWorker' in navigator && /^https:|^http:\/\/(localhost|127\.0\.0\.1)/
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = $('.modal-bg'); if (m) m.remove(); document.body.classList.remove('nav-open'); } });
   $('#q-mapa').addEventListener('input', renderTree);
   $('#nav-q').addEventListener('input', filtraNav);
+  $('#nav-links').addEventListener('scroll', setaNav, { passive: true });
+  window.addEventListener('resize', setaNav);
+  $('#nav-mais').addEventListener('click', () => { const n = $('#nav-links'); n.scrollBy({ top: n.clientHeight * 0.7, behavior: 'smooth' }); });
   $('#nav-q').addEventListener('keydown', e => { if (e.key === 'Enter') { const a = [...$('#nav-links').querySelectorAll('a')].find(x => !x.hidden); if (a) { location.hash = a.dataset.nav; e.target.value = ''; filtraNav(); e.target.blur(); } } });
   document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); if (window.Acab) window.Acab.buscar(); else { document.body.classList.add('nav-open'); $('#nav-q').focus(); } } });
   $('#color-by').addEventListener('change', e => { S.colorBy = e.target.value; S.ocultos.clear(); styleAll(); drawLegend(); renderTree(); if (map) drawLayers(); });
